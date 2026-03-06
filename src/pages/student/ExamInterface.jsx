@@ -113,7 +113,8 @@ const ExamInterface = () => {
 
         const payload = {
             studentName: localStorage.getItem('studentName') || 'Guest',
-            testId: localStorage.getItem('currentTestId'),
+            examCode: localStorage.getItem('currentExamCode'),
+            testId: localStorage.getItem('testId'),
             answers: answers,
             timeSpent: { ...timeSpent, [currentQId]: totalSpentOnThis }
         };

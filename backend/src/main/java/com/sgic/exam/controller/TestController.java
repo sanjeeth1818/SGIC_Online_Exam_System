@@ -91,6 +91,18 @@ public class TestController {
         }
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getTestById(@PathVariable Long id) {
+        try {
+            Test test = testRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Test not found with id: " + id));
+            return ResponseEntity.ok(convertToResponse(test));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(404).body(Map.of("message", "Test not found: " + e.getMessage()));
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> createTest(@Valid @RequestBody TestRequest testRequest) {
         System.out.println("Received request to create test: " + testRequest.getName());

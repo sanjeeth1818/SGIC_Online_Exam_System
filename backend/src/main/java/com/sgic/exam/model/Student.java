@@ -48,6 +48,7 @@ public class Student {
     private String examName;
     private String examDate;
     private String examTime;
+    private String examCode;
 
     private String rescheduledExamName;
     private String rescheduledExamDate;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     Search, Plus, Filter, Calendar, Clock, Copy, Edit2, Trash2,
     Play, XCircle, Eye, FileText, Check, Users, List, Settings,
-    ArrowLeft, ArrowRight, Layers, Globe, Key, FilePlus, LayoutDashboard
+    ArrowLeft, ArrowRight, Layers, Globe, Key, FilePlus, LayoutDashboard, Hash
 } from 'lucide-react';
 
 const CreateTest = () => {
@@ -1585,151 +1585,180 @@ const CreateTest = () => {
 
             {/* Details Modal */}
             {showDetailsModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, animation: 'fadeIn 0.2s' }}>
-                    <div style={{ background: 'var(--bg-surface)', width: '90%', maxWidth: '600px', borderRadius: '28px', padding: '2.5rem', boxShadow: 'var(--shadow-2xl)', border: '1px solid var(--border)', position: 'relative' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, animation: 'fadeIn 0.2s' }}>
+                    <div style={{ background: 'var(--bg-surface)', width: '95%', maxWidth: '1100px', borderRadius: '32px', padding: '2.5rem', boxShadow: '0 25px 60px rgba(0,0,0,0.2)', border: '1px solid var(--border)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }} className="hide-scrollbar">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
                             <div>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{showDetailsModal.name}</h3>
-                                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-tertiary)' }}>
-                                    <span>ID: {showDetailsModal.id}</span>
+                                <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{showDetailsModal.name}</h3>
+                                <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-tertiary)' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Hash size={16} /> ID: {showDetailsModal.id}</span>
                                     <span>•</span>
-                                    <span>{showDetailsModal.status}</span>
+                                    <span style={{
+                                        padding: '0.2rem 0.75rem', borderRadius: '8px', fontSize: '0.75rem',
+                                        background: showDetailsModal.status === 'Published' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                                        color: showDetailsModal.status === 'Published' ? 'var(--success)' : 'var(--text-tertiary)'
+                                    }}>{showDetailsModal.status}</span>
                                 </div>
                             </div>
-                            <button onClick={() => setShowDetailsModal(null)} style={{ background: 'var(--bg-app)', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>✕</button>
+                            <button onClick={() => setShowDetailsModal(null)} style={{ background: 'var(--bg-app)', border: 'none', width: '44px', height: '44px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--text-tertiary)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'} onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-app)'}>✕</button>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.25rem' }}>
-                                <div style={{ background: 'var(--bg-app)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--text-tertiary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                                        <Clock size={14} /> Time
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '2rem' }}>
+                            {/* Left Column: Stats and Questions */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                {/* Stats Row */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div style={{ background: 'var(--bg-app)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--text-tertiary)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                                            <Clock size={14} /> Time
+                                        </div>
+                                        <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)' }}>
+                                            {showDetailsModal.config.timeValue} {showDetailsModal.config.timeUnit.toUpperCase()}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
+                                            {showDetailsModal.config.timeMode === 'full' ? 'Total Duration' : 'Per Question'}
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--primary)' }}>
-                                        {showDetailsModal.config.timeValue} {showDetailsModal.config.timeUnit.toUpperCase()}
+                                    <div style={{ background: 'var(--bg-app)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--text-tertiary)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                                            <Layers size={14} /> Layout
+                                        </div>
+                                        <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                                            {showDetailsModal.config.examMode === 'scroll' ? 'SCROLL' : 'STEP'}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
+                                            Layout Mode
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
-                                        {showDetailsModal.config.timeMode === 'full' ? 'Total' : 'Per Q'}
+                                    <div style={{ background: 'var(--primary-light)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--primary-border)', gridColumn: 'span 2' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                                            <Users size={14} /> Assigned Students
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)' }}>
+                                                {showDetailsModal.studentCount} <span style={{ fontSize: '0.875rem', fontWeight: 700, opacity: 0.8 }}>Candidates</span>
+                                            </div>
+                                            <div style={{ background: 'white', padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
+                                                Active Assignment
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div style={{ background: 'var(--bg-app)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--text-tertiary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                                        <Layers size={14} /> Layout
-                                    </div>
-                                    <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                        {showDetailsModal.config.examMode === 'scroll' ? 'SCROLL' : 'STEP'}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
-                                        Mode
-                                    </div>
-                                </div>
-                                <div style={{ background: 'var(--primary-light)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--primary-border)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-                                        <Users size={14} /> Assigned
-                                    </div>
-                                    <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--primary)' }}>
-                                        {showDetailsModal.studentCount}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
-                                        Total Students
+
+                                {/* Examination Questions Section */}
+                                <div style={{ background: 'var(--bg-app)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--border)', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                    <h4 style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <List size={18} color="var(--primary)" /> EXAMINATION QUESTIONS
+                                    </h4>
+                                    <div style={{ maxHeight: '350px', overflowY: 'auto', paddingRight: '0.5rem' }} className="hide-scrollbar">
+                                        {showDetailsModal.config.selectionMode === 'manual' ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                {showDetailsModal.config.manualQuestions?.map((q, idx) => (
+                                                    <div key={idx} style={{ background: 'var(--bg-surface)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border)', fontSize: '0.875rem' }}>
+                                                        <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{q.category?.name || 'Uncategorized'}</div>
+                                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>{q.text}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                {showDetailsModal.config.categories?.map((cat, idx) => (
+                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', background: 'var(--bg-surface)', borderRadius: '14px', border: '1px solid var(--border)' }}>
+                                                        <span style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-primary)' }}>{cat.name}</span>
+                                                        <span style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.3rem 0.8rem', borderRadius: '8px', fontSize: '0.8125rem', fontWeight: 900 }}>{cat.count} Questions</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Batches & Access Codes Section */}
-                            <div style={{ background: 'var(--bg-app)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--border)' }}>
-                                <h4 style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Key size={16} color="var(--primary)" /> STUDENT ACCESS CODES
-                                </h4>
-                                <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {/* Right Column: Student Access Codes */}
+                            <div style={{ background: 'var(--bg-app)', padding: '1.75rem', borderRadius: '24px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                    <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                                        <Key size={20} color="var(--primary)" /> STUDENT ACCESS CODES
+                                    </h4>
+                                    <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.4rem 0.75rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                        {studentCodes.length} Generated
+                                    </div>
+                                </div>
+
+                                <div style={{ flex: 1, maxHeight: '600px', overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }} className="hide-scrollbar">
                                     {fetchingCodes ? (
-                                        <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>Loading codes...</div>
+                                        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                                            <div style={{ width: '32px', height: '32px', border: '3px solid var(--primary-light)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                            <span style={{ fontWeight: 600 }}>Fetching Secure Access Codes...</span>
+                                        </div>
                                     ) : studentCodes.length > 0 ? (
                                         studentCodes.map((codeData, idx) => (
-                                            <div key={idx} style={{ background: 'var(--bg-surface)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div key={idx} style={{ background: 'var(--bg-surface)', padding: '1.25rem', borderRadius: '18px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.2s' }}
+                                                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary-border)'}
+                                                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                            >
                                                 <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: 800, fontSize: '0.94rem', color: 'var(--text-primary)' }}>{codeData.studentName}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>{codeData.studentEmail}</div>
-                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.2rem' }}>Scheduled: {codeData.examDate}</div>
+                                                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.15rem' }}>{codeData.studentName}</div>
+                                                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '0.4rem' }}>{codeData.studentEmail}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                                        <Calendar size={12} /> Scheduled: {codeData.examDate}
+                                                    </div>
                                                 </div>
-                                                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-                                                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.05em', background: 'var(--primary-light)', padding: '0.25rem 0.75rem', borderRadius: '8px', border: '1px solid var(--primary-border)' }}>
+                                                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.625rem' }}>
+                                                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.05em', background: 'var(--primary-light)', padding: '0.4rem 1rem', borderRadius: '12px', border: '1px solid var(--primary-border)', minWidth: '100px', textAlign: 'center' }}>
                                                         {codeData.examCode}
                                                     </div>
                                                     <div style={{
-                                                        fontSize: '0.6rem', fontWeight: 800, padding: '0.2rem 0.5rem', borderRadius: '4px',
+                                                        fontSize: '0.65rem', fontWeight: 800, padding: '0.3rem 0.75rem', borderRadius: '6px', textTransform: 'uppercase',
                                                         background: codeData.status === 'ACTIVE' ? 'rgba(34,197,94,0.1)' : codeData.status === 'USED' ? 'rgba(107,114,128,0.1)' : 'rgba(239,68,68,0.1)',
-                                                        color: codeData.status === 'ACTIVE' ? 'var(--success)' : codeData.status === 'USED' ? 'var(--text-tertiary)' : 'var(--error)'
+                                                        color: codeData.status === 'ACTIVE' ? 'var(--success)' : codeData.status === 'USED' ? 'var(--text-tertiary)' : 'var(--error)',
+                                                        border: `1px solid ${codeData.status === 'ACTIVE' ? 'rgba(34,197,94,0.2)' : 'transparent'}`
                                                     }}>
-                                                        {codeData.status.toUpperCase()}
+                                                        {codeData.status}
                                                     </div>
                                                 </div>
                                             </div>
                                         ))
                                     ) : (
-                                        <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.875rem' }}>No student codes available.</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Questions Section */}
-                            <div style={{ background: 'var(--bg-app)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--border)' }}>
-                                <h4 style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <List size={16} color="var(--primary)" /> EXAMINATION QUESTIONS
-                                </h4>
-                                <div style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                                    {showDetailsModal.config.selectionMode === 'manual' ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            {showDetailsModal.config.manualQuestions?.map((q, idx) => (
-                                                <div key={idx} style={{ background: 'var(--bg-surface)', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '0.875rem' }}>
-                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', marginBottom: '0.25rem', textTransform: 'uppercase' }}>{q.category?.name || 'Uncategorized'}</div>
-                                                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{q.text}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            {showDetailsModal.config.categories?.map((cat, idx) => (
-                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.875rem', background: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                                                    <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>{cat.name}</span>
-                                                    <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{cat.count} Questions</span>
-                                                </div>
-                                            ))}
+                                        <div style={{ padding: '3rem 1.5rem', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.94rem', background: 'var(--bg-surface)', borderRadius: '20px', border: '1px dashed var(--border)' }}>
+                                            <Key size={32} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                                            <div>No student codes available for this examination.</div>
                                         </div>
                                     )}
                                 </div>
                             </div>
+                        </div>
 
-                            <div style={{ background: 'var(--bg-app)', padding: '1.5rem', borderRadius: '20px', border: '1px solid var(--border)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--text-tertiary)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '1.25rem' }}>
-                                    <List size={14} /> Categories Included
-                                </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                                    {showDetailsModal.config.categories.map(c => (
-                                        <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'white', padding: '0.75rem 1.25rem', borderRadius: '14px', border: '1px solid var(--border)' }}>
-                                            <span style={{ fontWeight: 700, fontSize: '0.94rem' }}>{c.name}</span>
-                                            <span style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.125rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800 }}>{c.count}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
-                                <button
-                                    onClick={() => setShowDetailsModal(null)}
-                                    style={{ width: '100%', padding: '1rem', borderRadius: '16px', background: 'var(--primary)', color: 'white', fontWeight: 800, border: 'none', cursor: 'pointer', boxShadow: '0 10px 20px rgba(var(--primary-rgb), 0.2)' }}
-                                >
-                                    Close Details
-                                </button>
-                            </div>
+                        <div style={{ display: 'flex', gap: '1.25rem', marginTop: '2.5rem' }}>
+                            <button
+                                onClick={() => setShowDetailsModal(null)}
+                                style={{ flex: 1, padding: '1.125rem', borderRadius: '18px', background: 'var(--bg-app)', color: 'var(--text-primary)', fontWeight: 800, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-app)'}
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleEditTest(showDetailsModal);
+                                    setShowDetailsModal(null);
+                                }}
+                                style={{ flex: 2, padding: '1.125rem', borderRadius: '18px', background: 'var(--primary)', color: 'white', fontWeight: 800, border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(var(--primary-rgb), 0.25)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.625rem' }}
+                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                            >
+                                <Edit2 size={18} /> Modify Examination
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
+
             <style>{`
                 @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 .hide-scrollbar::-webkit-scrollbar { display: none; }
                 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
