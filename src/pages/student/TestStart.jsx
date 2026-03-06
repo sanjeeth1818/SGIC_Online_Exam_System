@@ -4,7 +4,7 @@ import { Clock, BookOpen, AlertCircle, Check, User, ArrowRight } from 'lucide-re
 
 const TestStart = () => {
     const navigate = useNavigate();
-    const [testCode, setTestCode] = useState('');
+    const [examCode, setExamCode] = useState('');
     const [isCodeVerified, setIsCodeVerified] = useState(false);
     const [testDetails, setTestDetails] = useState(null);
     const [studentName, setStudentName] = useState('');
@@ -28,7 +28,7 @@ const TestStart = () => {
         setError('');
         setIsValidating(true);
 
-        const code = testCode.trim();
+        const code = examCode.trim();
         if (code.length !== 4) {
             setError('Please enter your unique 4-digit examination code.');
             setIsValidating(false);
@@ -149,14 +149,11 @@ const TestStart = () => {
                                     <input
                                         type="text"
                                         inputMode="numeric"
-                                        value={testCode}
+                                        value={examCode}
                                         onChange={(e) => {
                                             const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                                            setTestCode(val);
+                                            setExamCode(val);
                                             setError('');
-                                            if (val.length === 4) {
-                                                // auto verify? optional
-                                            }
                                         }}
                                         placeholder="0000"
                                         required
@@ -171,12 +168,12 @@ const TestStart = () => {
                                 </div>
                                 <button
                                     type="submit"
-                                    disabled={testCode.length !== 4 || isValidating}
+                                    disabled={examCode.length !== 4 || isValidating}
                                     style={{
                                         width: '100%', padding: '1.125rem', borderRadius: '20px', fontWeight: 800, fontSize: '1.125rem',
-                                        color: 'white', background: testCode.length === 4 ? 'var(--primary)' : 'var(--text-tertiary)',
-                                        border: 'none', cursor: testCode.length === 4 ? 'pointer' : 'not-allowed',
-                                        boxShadow: testCode.length === 4 ? '0 10px 25px rgba(var(--primary-rgb), 0.3)' : 'none',
+                                        color: 'white', background: examCode.length === 4 ? 'var(--primary)' : 'var(--text-tertiary)',
+                                        border: 'none', cursor: examCode.length === 4 ? 'pointer' : 'not-allowed',
+                                        boxShadow: examCode.length === 4 ? '0 10px 25px rgba(var(--primary-rgb), 0.3)' : 'none',
                                         transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem'
                                     }}
                                 >
@@ -234,7 +231,7 @@ const TestStart = () => {
                                 <button
                                     onClick={() => {
                                         setIsCodeVerified(false);
-                                        setTestCode('');
+                                        setExamCode('');
                                         setStudentName('');
                                     }}
                                     style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}

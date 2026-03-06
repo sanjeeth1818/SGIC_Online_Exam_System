@@ -104,7 +104,6 @@ const CreateTest = () => {
 
                 return {
                     id: (t.id || '').toString(),
-                    testCode: t.testCode,
                     name: t.name,
                     description: t.description || '',
                     date: displayDate,
@@ -226,8 +225,7 @@ const CreateTest = () => {
         .filter(t => filterStatus === 'All' || t.status === filterStatus)
         .filter(t =>
             t.name.toLowerCase().includes(manageSearchTerm.toLowerCase()) ||
-            t.date.toLowerCase().includes(manageSearchTerm.toLowerCase()) ||
-            (t.testCode && t.testCode.toLowerCase().includes(manageSearchTerm.toLowerCase()))
+            t.date.toLowerCase().includes(manageSearchTerm.toLowerCase())
         )
         .sort((a, b) => {
             let comparison = 0;
