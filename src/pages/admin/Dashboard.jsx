@@ -274,12 +274,12 @@ const Dashboard = () => {
                             <div key={index} style={{ padding: '1.25rem', borderRadius: '16px', background: 'var(--bg-app)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                     <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                                        {test.code.split('-')[1].substring(0, 3)}
+                                        {test.name.substring(0, 3).toUpperCase()}
                                     </div>
                                     <div>
                                         <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>{test.name}</h4>
                                         <div style={{ background: 'var(--bg-surface)', padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', display: 'inline-block', border: '1px solid var(--primary-light)' }}>
-                                            Code: {test.code}
+                                            ID: {test.id}
                                         </div>
                                     </div>
                                 </div>

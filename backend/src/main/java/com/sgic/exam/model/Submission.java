@@ -19,6 +19,15 @@ public class Submission {
 
     private String studentName;
     private Long testId;
+
+    public Long getTestId() {
+        return testId;
+    }
+
+    public void setTestId(Long testId) {
+        this.testId = testId;
+    }
+
     private String testName;
 
     private Integer score;

@@ -62,6 +62,7 @@ public class DashboardController {
         for (int i = allTests.size() - 1; i >= allTests.size() - limit; i--) {
             com.sgic.exam.model.Test t = allTests.get(i);
             Map<String, Object> map = new HashMap<>();
+            map.put("id", t.getId());
             map.put("name", t.getName());
             map.put("status", t.getStatus());
             map.put("students", t.getStudentCount());
