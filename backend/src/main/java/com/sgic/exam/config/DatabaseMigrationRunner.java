@@ -24,6 +24,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
     public void run(String... args) throws Exception {
         try (Connection conn = dataSource.getConnection()) {
             fixTestCodeColumn(conn);
+            fixStudentExamCodeTable(conn);
         } catch (Exception e) {
             System.err.println("Warning: DatabaseMigrationRunner encountered an error: " + e.getMessage());
             // Non-critical — don't block startup
@@ -56,5 +57,29 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             System.out.println("Migration: 'test_code' column not found — skipping.");
         }
         columns.close();
+    }
+
+    private void fixStudentExamCodeTable(Connection conn) throws Exception {
+        DatabaseMetaData meta = conn.getMetaData();
+
+        // Check for additional_time
+        ResultSet rs1 = meta.getColumns(null, null, "student_exam_codes", "additional_time");
+        if (!rs1.next()) {
+            System.out.println("Migration: Adding 'additional_time' to 'student_exam_codes'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE student_exam_codes ADD COLUMN additional_time INT DEFAULT 0");
+            }
+        }
+        rs1.close();
+
+        // Check for time_extension_comment
+        ResultSet rs2 = meta.getColumns(null, null, "student_exam_codes", "time_extension_comment");
+        if (!rs2.next()) {
+            System.out.println("Migration: Adding 'time_extension_comment' to 'student_exam_codes'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE student_exam_codes ADD COLUMN time_extension_comment TEXT");
+            }
+        }
+        rs2.close();
     }
 }

@@ -58,6 +58,7 @@ public class ExamEntryController {
         response.put("testId", test.getId());
         response.put("testName", test.getName());
         response.put("studentId", entry.getStudentId());
+        response.put("additionalTime", entry.getAdditionalTime() != null ? entry.getAdditionalTime() : 0);
         response.put("message", "Code valid. You may start the exam.");
 
         return ResponseEntity.ok(response);

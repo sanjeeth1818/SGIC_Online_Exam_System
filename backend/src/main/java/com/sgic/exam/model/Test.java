@@ -51,4 +51,7 @@ public class Test {
 
     private Integer totalQuestions;
     private Integer studentCount = 0;
+
+    @Transient
+    private Integer additionalTime = 0;
 }

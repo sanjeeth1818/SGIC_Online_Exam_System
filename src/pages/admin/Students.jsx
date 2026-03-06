@@ -828,6 +828,7 @@ const Students = () => {
                                                 style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-app)', outline: 'none', fontWeight: 600, fontSize: '0.9375rem' }}
                                             >
                                                 <option value="Pending Exam">PENDING EXAM</option>
+                                                <option value="Allocated">ALLOCATED</option>
                                                 <option value="Took Exam">TOOK EXAM</option>
                                                 <option value="Absent">ABSENT</option>
                                                 <option value="Rescheduled">RESCHEDULED</option>
@@ -993,6 +994,7 @@ const Students = () => {
                                                     style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-app)', outline: 'none', fontWeight: 600, fontSize: '0.9375rem' }}
                                                 >
                                                     <option value="Pending Exam">PENDING EXAM</option>
+                                                    <option value="Allocated">ALLOCATED</option>
                                                     <option value="Took Exam">TOOK EXAM</option>
                                                     <option value="Absent">ABSENT</option>
                                                     <option value="Rescheduled">RESCHEDULED</option>

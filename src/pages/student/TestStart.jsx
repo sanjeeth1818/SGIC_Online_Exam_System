@@ -59,7 +59,8 @@ const TestStart = () => {
             setTestDetails({
                 id: data.testId,
                 name: data.testName,
-                studentId: data.studentId
+                studentId: data.studentId,
+                additionalTime: data.additionalTime || 0
             });
 
             // Fetch extra test config if needed (duration etc)
@@ -70,7 +71,8 @@ const TestStart = () => {
                     ...prev,
                     duration: fullTest.timeValue,
                     timeUnit: fullTest.timeUnit || 'mins',
-                    timeMode: fullTest.timeMode || 'full'
+                    timeMode: fullTest.timeMode || 'full',
+                    additionalTime: data.additionalTime || fullTest.additionalTime || 0
                 }));
             }
 
@@ -198,9 +200,14 @@ const TestStart = () => {
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Available Time</div>
-                                        <div style={{ fontWeight: 700, fontSize: '1rem' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                             {testDetails?.duration} {getTimeUnitLabel()}
                                             {testDetails?.timeMode === 'question' ? ' (Per Question)' : ''}
+                                            {testDetails?.additionalTime > 0 && (
+                                                <span style={{ fontSize: '0.75rem', background: 'var(--success-light)', color: 'var(--success)', padding: '0.2rem 0.5rem', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                                                    + {testDetails.additionalTime} mins Extra
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

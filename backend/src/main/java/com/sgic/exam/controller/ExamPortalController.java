@@ -50,6 +50,9 @@ public class ExamPortalController {
             if (!"Published".equals(test.getStatus())) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Test is not active."));
             }
+            if (entry.isPresent() && entry.get().getAdditionalTime() != null) {
+                test.setAdditionalTime(entry.get().getAdditionalTime());
+            }
             return ResponseEntity.ok(test);
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -69,12 +72,16 @@ public class ExamPortalController {
 
         List<Question> allSelectedQuestions = new ArrayList<>();
 
-        for (TestCategoryConfig config : test.getCategoryConfigs()) {
-            List<Question> categoryQuestions = questionRepository.findByCategoryId(config.getCategoryId());
-            Collections.shuffle(categoryQuestions);
+        if ("manual".equalsIgnoreCase(test.getSelectionMode())) {
+            allSelectedQuestions.addAll(test.getManualQuestions());
+        } else {
+            for (TestCategoryConfig config : test.getCategoryConfigs()) {
+                List<Question> categoryQuestions = questionRepository.findByCategoryId(config.getCategoryId());
+                Collections.shuffle(categoryQuestions);
 
-            int limit = Math.min(config.getQuestionCount(), categoryQuestions.size());
-            allSelectedQuestions.addAll(categoryQuestions.subList(0, limit));
+                int limit = Math.min(config.getQuestionCount(), categoryQuestions.size());
+                allSelectedQuestions.addAll(categoryQuestions.subList(0, limit));
+            }
         }
 
         Collections.shuffle(allSelectedQuestions);

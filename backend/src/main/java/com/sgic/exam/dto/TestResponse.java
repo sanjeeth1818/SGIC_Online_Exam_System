@@ -51,5 +51,6 @@ public class TestResponse {
         private Long id;
         private String text;
         private String type;
+        private String categoryName;
     }
 }

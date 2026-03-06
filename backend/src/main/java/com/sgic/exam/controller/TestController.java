@@ -19,6 +19,7 @@ import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -59,11 +60,15 @@ public class TestController {
                                     .orElse(null);
 
                             Map<String, Object> map = new HashMap<>();
+                            map.put("studentId", student.getId());
                             map.put("studentName", student.getName());
                             map.put("studentEmail", student.getEmail());
                             map.put("examCode", code != null ? code.getExamCode() : "N/A");
                             map.put("status", code != null ? code.getStatus() : "PENDING");
                             map.put("examDate", group.getExamDate());
+                            map.put("additionalTime",
+                                    code != null && code.getAdditionalTime() != null ? code.getAdditionalTime() : 0);
+                            map.put("timeExtensionComment", code != null ? code.getTimeExtensionComment() : null);
                             result.add(map);
                         }
                     }
@@ -74,6 +79,66 @@ public class TestController {
             e.printStackTrace();
             return ResponseEntity.status(500)
                     .body(Map.of("message", "Error fetching student codes: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/add-time")
+    public ResponseEntity<?> addExtraTime(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        try {
+            Test test = testRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Test not found"));
+
+            Object studentIdsObj = payload.get("studentIds");
+            if (studentIdsObj == null || !(studentIdsObj instanceof List)) {
+                return ResponseEntity.badRequest().body(Map.of("message", "studentIds must be a valid list."));
+            }
+
+            List<?> rawList = (List<?>) studentIdsObj;
+            List<Long> studentIds = rawList.stream()
+                    .filter(idObj -> idObj != null)
+                    .map(idObj -> Long.valueOf(idObj.toString()))
+                    .collect(Collectors.toList());
+
+            Integer extraTime = payload.get("extraTime") != null ? Integer.valueOf(payload.get("extraTime").toString())
+                    : null;
+            String comment = (String) payload.get("comment");
+
+            if (extraTime == null || extraTime <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Extra time must be greater than 0."));
+            }
+
+            for (Long studentId : studentIds) {
+                Optional<StudentExamCode> codeOpt = studentExamCodeRepository.findByTestIdAndStudentId(test.getId(),
+                        studentId);
+                if (codeOpt.isPresent()) {
+                    StudentExamCode code = codeOpt.get();
+                    code.setAdditionalTime(
+                            (code.getAdditionalTime() != null ? code.getAdditionalTime() : 0) + extraTime);
+                    code.setTimeExtensionComment(comment);
+                    studentExamCodeRepository.save(code);
+
+                    // Update Student Entity Status History
+                    Optional<Student> studentOpt = studentRepository.findById(studentId);
+                    if (studentOpt.isPresent()) {
+                        Student student = studentOpt.get();
+                        String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                .format(new java.util.Date());
+                        String logEntry = String.format("[%s] Added %d mins extra time for Exam: %s. Reason: %s",
+                                timestamp, extraTime, test.getName(), comment != null ? comment : "No comment");
+                        String history = student.getStatusHistory();
+                        student.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
+                        studentRepository.save(student);
+                    }
+                }
+            }
+            return ResponseEntity.ok(Map.of("message", "Successfully added extra time."));
+        } catch (Exception e) {
+            System.err.println("CRITICAL ERROR in addExtraTime:");
+            e.printStackTrace();
+            return ResponseEntity.status(500)
+                    .body(Map.of(
+                            "message", "Error adding extra time: " + e.getMessage(),
+                            "details", e.getClass().getName()));
         }
     }
 
@@ -271,6 +336,9 @@ public class TestController {
                 qDto.setId(q.getId());
                 qDto.setText(q.getText());
                 qDto.setType(q.getType());
+                if (q.getCategory() != null) {
+                    qDto.setCategoryName(q.getCategory().getName());
+                }
                 return qDto;
             }).collect(Collectors.toList()));
         }

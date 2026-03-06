@@ -30,4 +30,10 @@ public class StudentExamCode {
     private String status = "ACTIVE"; // ACTIVE, USED, EXPIRED
 
     private String expiryDate; // The date when the code expires (usually the exam date)
+
+    @Column(name = "additional_time")
+    private Integer additionalTime = 0;
+
+    @Column(name = "time_extension_comment", columnDefinition = "TEXT")
+    private String timeExtensionComment;
 }

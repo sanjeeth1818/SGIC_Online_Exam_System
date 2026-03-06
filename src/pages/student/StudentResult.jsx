@@ -1,7 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Award, Clock, Target, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 
 const StudentResult = () => {
+    const navigate = useNavigate();
     const data = JSON.parse(localStorage.getItem('lastSubmission') || '{}');
     const submission = data.submission || {};
     const breakdown = data.breakdown || [];

@@ -45,6 +45,11 @@ const ExamInterface = () => {
             let durationSeconds = parseInt(testData.timeValue) * (testData.timeUnit === 'secs' ? 1 : 60);
             if (testData.timeUnit === 'hours') durationSeconds *= 3600;
 
+            // Add additional time if granted
+            if (testData.additionalTime) {
+                durationSeconds += (parseInt(testData.additionalTime) * 60);
+            }
+
             setBaseDuration(durationSeconds);
             setInitialTimeForStep(durationSeconds); // Set initial time for the first step
             setTimeLeft(durationSeconds); // For initial display

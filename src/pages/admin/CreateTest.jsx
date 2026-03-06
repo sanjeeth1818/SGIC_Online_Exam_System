@@ -14,6 +14,7 @@ const CreateTest = () => {
     const [sortBy, setSortBy] = useState('date');
     const [sortOrder, setSortOrder] = useState('desc');
     const [editModalData, setEditModalData] = useState(null); // null = closed, otherwise test data object
+    const [addTimeModal, setAddTimeModal] = useState(null); // { testId, studentIds: [], extraTime: 15, comment: '' }
     const [editCategories, setEditCategories] = useState([]);
     const [expandedCategory, setExpandedCategory] = useState(null); // To track which folder is open
 
@@ -49,6 +50,7 @@ const CreateTest = () => {
     const [fetchingCodes, setFetchingCodes] = useState(false);
 
     const [notification, setNotification] = useState(null);
+    const [errors, setErrors] = useState({});
 
     // Group questions by category name for manual selection
     const groupedQuestions = allQuestions.reduce((acc, q) => {
@@ -72,6 +74,7 @@ const CreateTest = () => {
             // Select all in this category
             const newSelection = [...new Set([...selectedQuestionIds, ...catQuestionIds])];
             setSelectedQuestionIds(newSelection);
+            if (errors.questions) setErrors({ ...errors, questions: '' });
         }
     };
 
@@ -246,6 +249,7 @@ const CreateTest = () => {
         setCategories(categories.map(cat =>
             cat.id === id ? { ...cat, selected: !cat.selected } : cat
         ));
+        if (errors.questions) setErrors({ ...errors, questions: '' });
     };
 
     const handleCategoryCountChange = (id, count) => {
@@ -278,6 +282,40 @@ const CreateTest = () => {
         }
     };
 
+    const handleAddTime = async () => {
+        if (!addTimeModal || !addTimeModal.extraTime || addTimeModal.extraTime <= 0) {
+            setNotification({ type: 'error', message: 'Please enter a valid amount of extra time.' });
+            return;
+        }
+        try {
+            const res = await fetch(`http://localhost:8080/api/tests/${addTimeModal.testId}/add-time`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    studentIds: addTimeModal.studentIds,
+                    extraTime: parseInt(addTimeModal.extraTime),
+                    comment: addTimeModal.comment
+                })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || 'Failed to add time');
+            }
+
+            setNotification({ type: 'success', message: 'Extra time added successfully.' });
+            setAddTimeModal(null);
+
+            // Refresh codes to show updated time
+            if (showDetailsModal) {
+                fetchStudentCodes(showDetailsModal.id);
+            }
+        } catch (error) {
+            console.error(error);
+            setNotification({ type: 'error', message: error.message || 'Failed to add extra time.' });
+        }
+    };
+
     const handleDeleteTest = async (id) => {
         if (!window.confirm('Are you sure you want to delete this test?')) return;
         try {
@@ -299,8 +337,8 @@ const CreateTest = () => {
             id: t.id,
             name: t.name,
             description: t.description || '',
-            selectionMode: t.selectionMode || 'random',
-            manualQuestionIds: t.manualQuestions ? t.manualQuestions.map(q => q.id) : [],
+            selectionMode: t.config.selectionMode || 'random',
+            manualQuestionIds: t.config.manualQuestions ? t.config.manualQuestions.map(q => q.id) : [],
             studentGroups: t.studentGroups ? t.studentGroups.map(g => ({
                 id: g.id,
                 examDate: g.examDate,
@@ -520,27 +558,39 @@ const CreateTest = () => {
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
                                     <div>
-                                        <label style={{ display: 'block', marginBottom: '0.625rem', fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Test Name</label>
+                                        <label style={{ display: 'block', marginBottom: '0.625rem', fontWeight: 700, fontSize: '0.875rem', color: errors.name ? 'var(--error)' : 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            Test Name <span style={{ color: 'var(--error)' }}>*</span>
+                                        </label>
                                         <input
                                             type="text"
                                             value={testData.name}
-                                            onChange={e => setTestData({ ...testData, name: e.target.value })}
+                                            onChange={e => {
+                                                setTestData({ ...testData, name: e.target.value });
+                                                if (errors.name) setErrors({ ...errors, name: '' });
+                                            }}
                                             placeholder="e.g. Midterm Physics Examination"
-                                            style={{ width: '100%', padding: '0.875rem 1.25rem', borderRadius: '14px', border: '2px solid var(--border)', fontSize: '1rem', outline: 'none', transition: 'all 0.2s', background: 'var(--bg-app)' }}
-                                            onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'} onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                            style={{ width: '100%', padding: '0.875rem 1.25rem', borderRadius: '14px', border: `2px solid ${errors.name ? 'var(--error)' : 'var(--border)'}`, fontSize: '1rem', outline: 'none', transition: 'all 0.2s', background: 'var(--bg-app)' }}
+                                            onFocus={e => e.currentTarget.style.borderColor = errors.name ? 'var(--error)' : 'var(--primary)'} onBlur={e => e.currentTarget.style.borderColor = errors.name ? 'var(--error)' : 'var(--border)'}
                                         />
+                                        {errors.name && <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '0.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><XCircle size={12} /> {errors.name}</div>}
                                     </div>
 
                                     <div>
-                                        <label style={{ display: 'block', marginBottom: '0.625rem', fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</label>
+                                        <label style={{ display: 'block', marginBottom: '0.625rem', fontWeight: 700, fontSize: '0.875rem', color: errors.description ? 'var(--error)' : 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            Description <span style={{ color: 'var(--error)' }}>*</span>
+                                        </label>
                                         <textarea
                                             rows="4"
                                             value={testData.description}
-                                            onChange={e => setTestData({ ...testData, description: e.target.value })}
+                                            onChange={e => {
+                                                setTestData({ ...testData, description: e.target.value });
+                                                if (errors.description) setErrors({ ...errors, description: '' });
+                                            }}
                                             placeholder="Briefly describe the test objectives..."
-                                            style={{ width: '100%', padding: '0.875rem 1.25rem', borderRadius: '14px', border: '2px solid var(--border)', fontSize: '1rem', outline: 'none', resize: 'none', fontFamily: 'inherit', transition: 'all 0.2s', background: 'var(--bg-app)' }}
-                                            onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'} onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                            style={{ width: '100%', padding: '0.875rem 1.25rem', borderRadius: '14px', border: `2px solid ${errors.description ? 'var(--error)' : 'var(--border)'}`, fontSize: '1rem', outline: 'none', resize: 'none', fontFamily: 'inherit', transition: 'all 0.2s', background: 'var(--bg-app)' }}
+                                            onFocus={e => e.currentTarget.style.borderColor = errors.description ? 'var(--error)' : 'var(--primary)'} onBlur={e => e.currentTarget.style.borderColor = errors.description ? 'var(--error)' : 'var(--border)'}
                                         ></textarea>
+                                        {errors.description && <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '0.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><XCircle size={12} /> {errors.description}</div>}
                                     </div>
                                 </div>
                             </div>
@@ -551,13 +601,20 @@ const CreateTest = () => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                                     <div>
                                         <h2 style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}><List size={24} color="var(--primary)" /> Question Selection</h2>
+                                        {errors.questions && <div style={{ color: 'var(--error)', fontSize: '0.875rem', fontWeight: 600, marginTop: '0.5rem', padding: '0.75rem 1rem', background: 'var(--error-light)', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><XCircle size={16} /> {errors.questions}</div>}
                                         <div style={{ display: 'flex', background: 'var(--bg-app)', padding: '0.375rem', borderRadius: '12px', border: '1px solid var(--border)', marginTop: '1rem', width: 'fit-content' }}>
                                             <button
-                                                onClick={() => setTestData({ ...testData, selectionMode: 'random' })}
+                                                onClick={() => {
+                                                    setTestData({ ...testData, selectionMode: 'random' });
+                                                    if (errors.questions) setErrors({ ...errors, questions: '' });
+                                                }}
                                                 style={{ padding: '0.5rem 1.25rem', borderRadius: '8px', border: 'none', background: testData.selectionMode === 'random' ? 'var(--primary)' : 'transparent', color: testData.selectionMode === 'random' ? 'white' : 'var(--text-tertiary)', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
                                             >Random Pick</button>
                                             <button
-                                                onClick={() => setTestData({ ...testData, selectionMode: 'manual' })}
+                                                onClick={() => {
+                                                    setTestData({ ...testData, selectionMode: 'manual' });
+                                                    if (errors.questions) setErrors({ ...errors, questions: '' });
+                                                }}
                                                 style={{ padding: '0.5rem 1.25rem', borderRadius: '8px', border: 'none', background: testData.selectionMode === 'manual' ? 'var(--primary)' : 'transparent', color: testData.selectionMode === 'manual' ? 'white' : 'var(--text-tertiary)', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
                                             >Manual Selection</button>
                                         </div>
@@ -676,7 +733,10 @@ const CreateTest = () => {
                                                                     onClick={() => {
                                                                         const isSelected = selectedQuestionIds.includes(q.id);
                                                                         if (isSelected) setSelectedQuestionIds(prev => prev.filter(id => id !== q.id));
-                                                                        else setSelectedQuestionIds(prev => [...prev, q.id]);
+                                                                        else {
+                                                                            setSelectedQuestionIds(prev => [...prev, q.id]);
+                                                                            if (errors.questions) setErrors({ ...errors, questions: '' });
+                                                                        }
                                                                     }}
                                                                     style={{
                                                                         padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem',
@@ -736,10 +796,13 @@ const CreateTest = () => {
                                                 )}
                                             </div>
 
-                                            <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'var(--bg-surface)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                                                <label style={{ display: 'block', marginBottom: '0.625rem', fontWeight: 700, fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Exam Date</label>
+                                            {errors[`batch_${groupIndex}_general`] && <div style={{ color: 'var(--error)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '1.5rem', padding: '0.75rem 1rem', background: 'var(--error-light)', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><XCircle size={16} /> {errors[`batch_${groupIndex}_general`]}</div>}
+                                            <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'var(--bg-surface)', borderRadius: '16px', border: `1px solid ${errors[`batch_${groupIndex}_date`] ? 'var(--error)' : 'var(--border)'}` }}>
+                                                <label style={{ display: 'block', marginBottom: '0.625rem', fontWeight: 700, fontSize: '0.75rem', color: errors[`batch_${groupIndex}_date`] ? 'var(--error)' : 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    Exam Date <span style={{ color: 'var(--error)' }}>*</span>
+                                                </label>
                                                 <div style={{ position: 'relative' }}>
-                                                    <Calendar size={18} color="var(--primary)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+                                                    <Calendar size={18} color={errors[`batch_${groupIndex}_date`] ? 'var(--error)' : 'var(--primary)'} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
                                                     <input
                                                         type="date"
                                                         value={group.examDate}
@@ -747,15 +810,24 @@ const CreateTest = () => {
                                                             const newGroups = [...studentGroups];
                                                             newGroups[groupIndex].examDate = e.target.value;
                                                             setStudentGroups(newGroups);
+                                                            if (errors[`batch_${groupIndex}_date`] || errors[`batch_${groupIndex}_general`]) {
+                                                                const newErrors = { ...errors };
+                                                                delete newErrors[`batch_${groupIndex}_date`];
+                                                                delete newErrors[`batch_${groupIndex}_general`];
+                                                                setErrors(newErrors);
+                                                            }
                                                         }}
-                                                        style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '12px', border: '2px solid var(--border)', outline: 'none', fontSize: '0.94rem', fontWeight: 600 }}
+                                                        style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '12px', border: `2px solid ${errors[`batch_${groupIndex}_date`] ? 'var(--error)' : 'var(--border)'}`, outline: 'none', fontSize: '0.94rem', fontWeight: 600 }}
                                                     />
                                                 </div>
+                                                {errors[`batch_${groupIndex}_date`] && <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '0.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><XCircle size={12} /> {errors[`batch_${groupIndex}_date`]}</div>}
                                             </div>
 
                                             <div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1rem' }}>
-                                                    <label style={{ fontWeight: 800, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ASSIGN STUDENTS ({group.studentIds.length})</label>
+                                                    <label style={{ fontWeight: 800, fontSize: '0.875rem', color: errors[`batch_${groupIndex}_students`] ? 'var(--error)' : 'var(--text-secondary)' }}>
+                                                        ASSIGN STUDENTS ({group.studentIds.length}) <span style={{ color: 'var(--error)' }}>*</span>
+                                                    </label>
                                                     <div style={{ position: 'relative', width: '250px' }}>
                                                         <Search size={16} color="var(--text-tertiary)" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
                                                         <input
@@ -796,6 +868,12 @@ const CreateTest = () => {
                                                                                     currentGroup.studentIds.push(student.id);
                                                                                 }
                                                                                 setStudentGroups(newGroups);
+                                                                                if (errors[`batch_${groupIndex}_students`] || errors[`batch_${groupIndex}_general`]) {
+                                                                                    const newErrors = { ...errors };
+                                                                                    delete newErrors[`batch_${groupIndex}_students`];
+                                                                                    delete newErrors[`batch_${groupIndex}_general`];
+                                                                                    setErrors(newErrors);
+                                                                                }
                                                                             }}
                                                                             style={{
                                                                                 width: '20px', height: '20px', borderRadius: '5px',
@@ -820,6 +898,7 @@ const CreateTest = () => {
                                                         </tbody>
                                                     </table>
                                                 </div>
+                                                {errors[`batch_${groupIndex}_students`] && <div style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: '0.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}><XCircle size={12} /> {errors[`batch_${groupIndex}_students`]}</div>}
                                             </div>
                                         </div>
                                     ))}
@@ -988,6 +1067,53 @@ const CreateTest = () => {
 
                             <button
                                 onClick={() => {
+                                    const newErrors = {};
+
+                                    if (step === 1) {
+                                        if (!testData.name.trim()) newErrors.name = 'Test Name is required.';
+                                        if (!testData.description.trim()) newErrors.description = 'Description is required.';
+
+                                        if (Object.keys(newErrors).length > 0) {
+                                            setErrors(newErrors);
+                                            return;
+                                        }
+                                    } else if (step === 2) {
+                                        if (testData.selectionMode === 'manual' && selectedQuestionIds.length === 0) {
+                                            newErrors.questions = 'Please select at least one question to proceed.';
+                                        }
+                                        if (testData.selectionMode === 'random' && totalSelectedQuestions === 0) {
+                                            newErrors.questions = 'Please select at least one question from the categories to proceed.';
+                                        }
+
+                                        if (Object.keys(newErrors).length > 0) {
+                                            setErrors(newErrors);
+                                            return;
+                                        }
+                                    } else if (step === 3) {
+                                        let hasValidBatch = false;
+
+                                        studentGroups.forEach((group, idx) => {
+                                            if (!group.examDate && group.studentIds.length === 0) {
+                                                newErrors[`batch_${idx}_general`] = 'Please assign an exam date and select students for this batch.';
+                                            } else if (!group.examDate) {
+                                                newErrors[`batch_${idx}_date`] = 'Exam date is required.';
+                                            } else if (group.studentIds.length === 0) {
+                                                newErrors[`batch_${idx}_students`] = 'Please assign at least one student.';
+                                            }
+
+                                            if (group.examDate && group.studentIds.length > 0) {
+                                                hasValidBatch = true;
+                                            }
+                                        });
+
+                                        if (!hasValidBatch) {
+                                            setErrors(newErrors);
+                                            return;
+                                        }
+                                    }
+
+                                    setErrors({}); // clear errors if proceeding successfully
+
                                     if (step < 4) setStep(s => s + 1);
                                     else handlePublish();
                                 }}
@@ -1259,7 +1385,7 @@ const CreateTest = () => {
                                                 {editModalData.studentGroups.map((group, idx) => (
                                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '8px', border: '1px dashed var(--border)', fontSize: '0.875rem' }}>
                                                         <span style={{ fontWeight: 600 }}>{group.examDate || 'No Date'}</span>
-                                                        <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>{group.studentIds?.length || 0} Students</span>
+                                                        <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>{(group.students?.length || group.studentIds?.length) || 0} Students</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1655,7 +1781,7 @@ const CreateTest = () => {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                                 {showDetailsModal.config.manualQuestions?.map((q, idx) => (
                                                     <div key={idx} style={{ background: 'var(--bg-surface)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border)', fontSize: '0.875rem' }}>
-                                                        <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{q.category?.name || 'Uncategorized'}</div>
+                                                        <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{q.categoryName || 'Uncategorized'}</div>
                                                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>{q.text}</div>
                                                     </div>
                                                 ))}
@@ -1680,8 +1806,21 @@ const CreateTest = () => {
                                     <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                                         <Key size={20} color="var(--primary)" /> STUDENT ACCESS CODES
                                     </h4>
-                                    <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.4rem 0.75rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>
-                                        {studentCodes.length} Generated
+                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                        <button
+                                            onClick={() => setAddTimeModal({
+                                                testId: showDetailsModal.id,
+                                                studentIds: studentCodes.map(c => c.studentId).filter(Boolean),
+                                                extraTime: 15,
+                                                comment: ''
+                                            })}
+                                            style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.4rem 0.75rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, border: '1px solid var(--primary-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                        >
+                                            <Clock size={14} /> Add Time to All
+                                        </button>
+                                        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-tertiary)', padding: '0.4rem 0.75rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                            {studentCodes.length} Generated
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1700,13 +1839,35 @@ const CreateTest = () => {
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.15rem' }}>{codeData.studentName}</div>
                                                     <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '0.4rem' }}>{codeData.studentEmail}</div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>
                                                         <Calendar size={12} /> Scheduled: {codeData.examDate}
                                                     </div>
+                                                    {codeData.additionalTime > 0 && (
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.5rem', padding: '0.2rem 0.5rem', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                                                            <Clock size={12} /> +{codeData.additionalTime} mins extra
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.625rem' }}>
-                                                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.05em', background: 'var(--primary-light)', padding: '0.4rem 1rem', borderRadius: '12px', border: '1px solid var(--primary-border)', minWidth: '100px', textAlign: 'center' }}>
-                                                        {codeData.examCode}
+                                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setAddTimeModal({
+                                                                    testId: showDetailsModal.id,
+                                                                    studentIds: [codeData.studentId],
+                                                                    extraTime: 15,
+                                                                    comment: ''
+                                                                });
+                                                            }}
+                                                            title="Add Extra Time"
+                                                            style={{ border: 'none', background: 'var(--bg-app)', color: 'var(--primary)', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                        >
+                                                            <Plus size={16} />
+                                                        </button>
+                                                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.05em', background: 'var(--primary-light)', padding: '0.4rem 1rem', borderRadius: '12px', border: '1px solid var(--primary-border)', minWidth: '100px', textAlign: 'center' }}>
+                                                            {codeData.examCode}
+                                                        </div>
                                                     </div>
                                                     <div style={{
                                                         fontSize: '0.65rem', fontWeight: 800, padding: '0.3rem 0.75rem', borderRadius: '6px', textTransform: 'uppercase',
@@ -1728,6 +1889,47 @@ const CreateTest = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Add Time Modal (Nested/Overlay) */}
+                        {addTimeModal && (
+                            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}>
+                                <div style={{ background: 'white', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '2rem', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Clock size={24} color="var(--primary)" /> Add Extra Time
+                                    </h3>
+                                    <p style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', marginBottom: '1.5rem' }}>
+                                        Grant additional minutes to {addTimeModal.studentIds.length === 1 ? 'this student' : `${addTimeModal.studentIds.length} students`}.
+                                    </p>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Extra Minutes</label>
+                                            <input
+                                                type="number"
+                                                value={addTimeModal.extraTime}
+                                                onChange={e => setAddTimeModal({ ...addTimeModal, extraTime: e.target.value })}
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '2px solid var(--border)', outline: 'none', fontSize: '1rem', fontWeight: 700 }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Comment / Reason</label>
+                                            <textarea
+                                                rows="3"
+                                                value={addTimeModal.comment}
+                                                onChange={e => setAddTimeModal({ ...addTimeModal, comment: e.target.value })}
+                                                placeholder="e.g., Technical issue delay"
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '2px solid var(--border)', outline: 'none', fontSize: '0.875rem', resize: 'none', fontFamily: 'inherit' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                                        <button onClick={() => setAddTimeModal(null)} style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: 'none', background: 'var(--bg-app)', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                                        <button onClick={handleAddTime} style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: 'none', background: 'var(--primary)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>Apply Time</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         <div style={{ display: 'flex', gap: '1.25rem', marginTop: '2.5rem' }}>
                             <button
