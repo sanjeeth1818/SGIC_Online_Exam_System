@@ -1,0 +1,8 @@
+categoryName,type,text,optionA,optionB,optionC,optionD,correctAnswer
+QA,MCQ,QA What comes next in the sequence: 2 4 8 16 ?,24,32,30,28,32
+QA,MCQ,QA Which number doesn't belong: 3 5 7 9 11 14?,3,9,14,11,14
+QA,MCQ,QA If all Bloops are Razzies and all Razzies are Lazzies then all Bloops are definitely Lazzies?,TRUE,FALSE,Sometimes,Cannot determine,TRUE
+QA,MCQ,QA What is the next letter in the series: A C E G ?,H,I,J,K,I
+QA,MCQ,QA Which shape has the most sides?,Triangle,Square,Hexagon,Pentagon,Hexagon
+QA,Short,QA What is 15% of 200?,,,,,30
+QA,Short,QA If a clock shows 3:15 what is the angle between the hour and minute hands?,,,,,7.5 degrees

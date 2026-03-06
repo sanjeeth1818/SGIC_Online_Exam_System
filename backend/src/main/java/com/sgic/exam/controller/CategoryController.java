@@ -1,0 +1,75 @@
+package com.sgic.exam.controller;
+
+import com.sgic.exam.model.Category;
+import com.sgic.exam.repository.CategoryRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/categories")
+public class CategoryController {
+
+    @Autowired
+    private CategoryRepository categoryRepository;
+
+    @GetMapping
+    public List<Category> getAllCategories() {
+        return categoryRepository.findAll();
+    }
+
+    @PostMapping
+    public Category createCategory(@Valid @RequestBody Category category) {
+        if (category.getQuestionCount() == null) {
+            category.setQuestionCount(0);
+        }
+        return categoryRepository.save(category);
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Category> updateCategoryStatus(@PathVariable Long id, @RequestBody String status) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+
+        // String status comes wrapped in quotes if sent via JSON.stringify
+        String cleanStatus = status.replace("\"", "");
+        category.setStatus(cleanStatus);
+        return ResponseEntity.ok(categoryRepository.save(category));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Category> updateCategory(@PathVariable Long id,
+            @Valid @RequestBody Category categoryDetails) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+
+        category.setName(categoryDetails.getName());
+        category.setDescription(categoryDetails.getDescription());
+        if (categoryDetails.getColor() != null) {
+            category.setColor(categoryDetails.getColor());
+        }
+        if (categoryDetails.getStatus() != null) {
+            category.setStatus(categoryDetails.getStatus());
+        }
+        // Do not blindly overwrite questionCount if not provided. In real logic, it
+        // might sync from Question table.
+        if (categoryDetails.getQuestionCount() != null) {
+            category.setQuestionCount(categoryDetails.getQuestionCount());
+        }
+
+        final Category updatedCategory = categoryRepository.save(category);
+        return ResponseEntity.ok(updatedCategory);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+
+        categoryRepository.delete(category);
+        return ResponseEntity.noContent().build();
+    }
+}
