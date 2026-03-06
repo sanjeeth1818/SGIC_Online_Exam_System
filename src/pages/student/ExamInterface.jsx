@@ -42,18 +42,40 @@ const ExamInterface = () => {
             setTimeMode(tMode);
 
             // Calculate duration in seconds
-            let durationSeconds = parseInt(testData.timeValue) * (testData.timeUnit === 'secs' ? 1 : 60);
-            if (testData.timeUnit === 'hours') durationSeconds *= 3600;
+            let durationSeconds = 0;
+            if (testData.isReopened) {
+                // Re-opened exams only use the additional time block
+                durationSeconds = (parseInt(testData.additionalTime) || 0) * 60;
+            } else {
+                durationSeconds = parseInt(testData.timeValue) * (testData.timeUnit === 'secs' ? 1 : 60);
+                if (testData.timeUnit === 'hours') durationSeconds *= 3600;
 
-            // Add additional time if granted
-            if (testData.additionalTime) {
-                durationSeconds += (parseInt(testData.additionalTime) * 60);
+                // Add additional time if granted
+                if (testData.additionalTime) {
+                    durationSeconds += (parseInt(testData.additionalTime) * 60);
+                }
             }
 
             setBaseDuration(durationSeconds);
-            setInitialTimeForStep(durationSeconds); // Set initial time for the first step
-            setTimeLeft(durationSeconds); // For initial display
-            setStartTime(Date.now()); // Start timer reference
+
+            // TIMER PERSISTENCE: Check when the exam actually started
+            let effectiveStartTime = Date.now();
+            let initialTimeLeft = durationSeconds;
+
+            const serverStartedAt = testData.startedAt || localStorage.getItem('examStartedAt');
+            if (serverStartedAt) {
+                const startTimeMs = new Date(serverStartedAt).getTime();
+                const nowMs = Date.now();
+                const elapsedSeconds = Math.floor((nowMs - startTimeMs) / 1000);
+
+                initialTimeLeft = Math.max(0, durationSeconds - elapsedSeconds);
+                effectiveStartTime = nowMs; // Timer continues from NOW but with reduced initialTimeLeft
+                console.log(`Timer Sync: ${elapsedSeconds}s elapsed. Remaining: ${initialTimeLeft}s`);
+            }
+
+            setInitialTimeForStep(initialTimeLeft);
+            setTimeLeft(initialTimeLeft);
+            setStartTime(effectiveStartTime);
 
             // Force 'step' mode if timing is per question
             if (tMode === 'question') {
@@ -90,6 +112,37 @@ const ExamInterface = () => {
             questionsList.forEach(q => { initialSpent[q.id] = 0; });
             setTimeSpent(initialSpent);
 
+            // RESUMPTION LOGIC: Fetch previous answers if any
+            try {
+                const resumeRes = await fetch(`http://localhost:8080/api/exam-portal/resume-state/${code}`);
+                if (resumeRes.ok) {
+                    const resumeData = await resumeRes.json();
+                    if (resumeData.answers && Object.keys(resumeData.answers).length > 0) {
+                        console.log("Resuming exam: restoring previous answers", resumeData.answers);
+                        setAnswers(resumeData.answers);
+                    }
+                }
+            } catch (resumeErr) {
+                console.warn("Failed to fetch resume state:", resumeErr);
+            }
+
+            // INSTANT PERSISTENCE: Restore locally cached answers (important for immediate refresh)
+            const cachedAnswers = localStorage.getItem(`examAnswers_${code}`);
+            if (cachedAnswers) {
+                try {
+                    const parsed = JSON.parse(cachedAnswers);
+                    setAnswers(prev => ({ ...prev, ...parsed }));
+                } catch (e) {
+                    console.error("Failed to parse cached answers", e);
+                }
+            }
+
+            // NAVIGATION PERSISTENCE: Restore question position
+            const savedStep = localStorage.getItem('examCurrentStep');
+            if (savedStep && parseInt(savedStep) < questionsList.length) {
+                setCurrentStep(parseInt(savedStep));
+            }
+
             setIsLoading(false);
         } catch (error) {
             console.error(error);
@@ -105,7 +158,34 @@ const ExamInterface = () => {
     };
 
     const handleAnswerChange = (qId, value) => {
-        setAnswers(prev => ({ ...prev, [qId]: value }));
+        setAnswers(prev => {
+            const next = { ...prev, [qId]: value };
+            // Save to local cache immediately
+            const code = localStorage.getItem('currentExamCode');
+            localStorage.setItem(`examAnswers_${code}`, JSON.stringify(next));
+            return next;
+        });
+    };
+
+    const saveProgress = async (updatedTimeSpent) => {
+        const currentQId = questions[currentStep].id;
+        const payload = {
+            studentName: localStorage.getItem('studentName') || 'Guest',
+            examCode: localStorage.getItem('currentExamCode'),
+            testId: localStorage.getItem('testId'),
+            answers: answers,
+            timeSpent: updatedTimeSpent || timeSpent
+        };
+
+        try {
+            await fetch('http://localhost:8080/api/submissions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (error) {
+            console.error('Auto-save failed:', error);
+        }
     };
 
     const handleSubmit = async () => {
@@ -151,6 +231,11 @@ const ExamInterface = () => {
             }
 
             localStorage.setItem('lastSubmission', JSON.stringify(resultData));
+            // Clear persistence on completion
+            localStorage.removeItem('examCurrentStep');
+            localStorage.removeItem('examStartedAt');
+            localStorage.removeItem('examSessionToken');
+
             navigate('/complete');
         } catch (error) {
             console.error('Submission Error:', error);
@@ -172,15 +257,23 @@ const ExamInterface = () => {
 
             // 2. Prepare for next step
             setInitialTimeForStep(perQuestionTime[newStep] ?? baseDuration);
+        } else {
+            // Whole Test Mode: We MUST carry over the remaining time to the next question
+            setInitialTimeForStep(prev => Math.max(0, prev - elapsed));
         }
 
         // 3. Accumulate time spent
-        setTimeSpent(prev => ({
-            ...prev,
-            [currentQId]: (prev[currentQId] || 0) + elapsed
-        }));
+        const updatedSpent = {
+            ...timeSpent,
+            [currentQId]: (timeSpent[currentQId] || 0) + elapsed
+        };
+        setTimeSpent(updatedSpent);
 
-        // 4. Reset anchors
+        // 4. Persistence & Auto-save
+        localStorage.setItem('examCurrentStep', newStep.toString());
+        saveProgress(updatedSpent);
+
+        // 5. Reset anchors
         setStartTime(Date.now());
         setCurrentStep(newStep);
     };
@@ -220,6 +313,41 @@ const ExamInterface = () => {
 
         return () => clearInterval(interval);
     }, [isLoading, startTime, initialTimeForStep, currentStep, questions.length, timeMode, isTransitioning, handleSubmit, handleStepChange]);
+
+    // LIVE TIME UPDATES: Background polling for extra time
+    useEffect(() => {
+        if (isLoading) return;
+
+        const pollInterval = setInterval(async () => {
+            try {
+                const code = localStorage.getItem('currentExamCode');
+                const testRes = await fetch(`http://localhost:8080/api/exam-portal/verify/${code}`);
+                if (!testRes.ok) return;
+
+                const testData = await testRes.json();
+                const newAdditionalMinutes = parseInt(testData.additionalTime || 0);
+
+                // Calculate expected total duration with new additional time
+                let baseDur = parseInt(testData.timeValue) * (testData.timeUnit === 'secs' ? 1 : 60);
+                if (testData.timeUnit === 'hours') baseDur *= 3600;
+                const newTotalDuration = baseDur + (newAdditionalMinutes * 60);
+
+                // If duration changed (extra time added), update the timer state
+                if (newTotalDuration !== baseDuration) {
+                    const diff = newTotalDuration - baseDuration;
+                    console.log(`Live Time Sync: Detected ${diff}s of extra time! Updating timer...`);
+
+                    setBaseDuration(newTotalDuration);
+                    setInitialTimeForStep(prev => prev + diff);
+                    // timeLeft will be updated by the main timer effect in the next tick
+                }
+            } catch (err) {
+                console.warn("Live Time Sync checking failed:", err);
+            }
+        }, 30000); // Poll every 30 seconds
+
+        return () => clearInterval(pollInterval);
+    }, [isLoading, baseDuration]);
 
     const answeredCount = Object.keys(answers).filter(k => answers[k] !== '' && answers[k] !== null).length;
     const progressPercent = (answeredCount / questions.length) * 100;

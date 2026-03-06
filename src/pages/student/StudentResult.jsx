@@ -134,7 +134,7 @@ const StudentResult = () => {
                                                     display: 'flex', alignItems: 'flex-start', gap: '0.5rem'
                                                 }}>
                                                     <span style={{ fontWeight: 600, color: q.isCorrect ? 'var(--success)' : 'var(--error)', width: '60px' }}>You:</span>
-                                                    <span style={{ color: 'var(--text-primary)' }}>{q.studentAnswer || 'No Answer'}</span>
+                                                    <span style={{ color: q.isCorrect ? 'var(--success)' : 'var(--text-primary)', fontWeight: q.isCorrect ? 700 : 400 }}>{q.studentAnswer || 'No Answer'}</span>
                                                 </div>
 
                                                 {!q.isCorrect && (

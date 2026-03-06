@@ -23,6 +23,8 @@ import java.util.Optional;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.HashSet;
 
 @RestController
 @RequestMapping("/api/tests")
@@ -112,9 +114,21 @@ public class TestController {
                         studentId);
                 if (codeOpt.isPresent()) {
                     StudentExamCode code = codeOpt.get();
-                    code.setAdditionalTime(
-                            (code.getAdditionalTime() != null ? code.getAdditionalTime() : 0) + extraTime);
                     code.setTimeExtensionComment(comment);
+
+                    // Re-open if finished
+                    if ("USED".equalsIgnoreCase(code.getStatus())) {
+                        code.setStatus("ACTIVE");
+                        code.setIsReopened(true);
+                        code.setAdditionalTime(extraTime); // FRESH start for re-opening
+                        code.setStartedAt(null);
+                        code.setCurrentSessionToken(null);
+                    } else {
+                        // Accumulate time if already active/started
+                        code.setAdditionalTime(
+                                (code.getAdditionalTime() != null ? code.getAdditionalTime() : 0) + extraTime);
+                    }
+
                     studentExamCodeRepository.save(code);
 
                     // Update Student Entity Status History
@@ -179,13 +193,18 @@ public class TestController {
                 test.setStatus("Published");
             }
 
-            // Calculate student count
+            // Calculate student count (Total unique assigned students)
             int totalStudents = 0;
             if (test.getStudentGroups() != null) {
-                totalStudents = test.getStudentGroups().stream()
-                        .filter(g -> g.getStudents() != null)
-                        .mapToInt(g -> g.getStudents().size())
-                        .sum();
+                Set<Long> uniqueIds = new HashSet<>();
+                for (TestStudentGroup group : test.getStudentGroups()) {
+                    if (group.getStudents() != null) {
+                        for (Student s : group.getStudents()) {
+                            uniqueIds.add(s.getId());
+                        }
+                    }
+                }
+                totalStudents = uniqueIds.size();
             }
             test.setStudentCount(totalStudents);
 
@@ -223,10 +242,15 @@ public class TestController {
 
             int totalStudents = 0;
             if (test.getStudentGroups() != null) {
-                totalStudents = test.getStudentGroups().stream()
-                        .filter(g -> g.getStudents() != null)
-                        .mapToInt(g -> g.getStudents().size())
-                        .sum();
+                Set<Long> uniqueIds = new HashSet<>();
+                for (TestStudentGroup group : test.getStudentGroups()) {
+                    if (group.getStudents() != null) {
+                        for (Student s : group.getStudents()) {
+                            uniqueIds.add(s.getId());
+                        }
+                    }
+                }
+                totalStudents = uniqueIds.size();
             }
             test.setStudentCount(totalStudents);
 
@@ -396,7 +420,10 @@ public class TestController {
                     try {
                         com.sgic.exam.model.Student studentEntity = studentRepository.findById(student.getId())
                                 .orElse(null);
-                        if (studentEntity != null) {
+                        // Only update status and history if it's a new allocation or not already
+                        // finished/allocated
+                        if (isNew[0] || (!"Took Exam".equals(studentEntity.getStatus())
+                                && !"Allocated".equals(studentEntity.getStatus()))) {
                             String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
                                     .format(new java.util.Date());
                             String logEntry = String.format("[%s] Status: Allocated (Exam: %s on %s, Code: %s)",
@@ -410,6 +437,9 @@ public class TestController {
                             studentEntity.setExamCode(codeEntry.getExamCode());
                             studentRepository.save(studentEntity);
                             System.out.println("Updated student " + student.getName() + " status to Allocated.");
+                        } else {
+                            System.out.println("Student " + student.getName() + " already has status: "
+                                    + studentEntity.getStatus() + ". Skipping status reset.");
                         }
                     } catch (Exception statusEx) {
                         System.err.println("Warning: Could not update student status: " + statusEx.getMessage());

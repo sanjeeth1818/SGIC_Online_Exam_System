@@ -78,7 +78,7 @@ const CreateTest = () => {
         }
     };
 
-    const fetchData = async () => {
+    const fetchData = async (isSilent = false) => {
         try {
             const [catRes, testRes] = await Promise.all([
                 fetch('http://localhost:8080/api/categories'),
@@ -173,7 +173,18 @@ const CreateTest = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+        // Auto-refresh Manage Tests every 10 seconds
+        const interval = setInterval(() => {
+            // Only refresh if we are in 'manage' view or looking at student codes
+            if (view === 'manage' || showDetailsModal) {
+                fetchData(true); // Silent refresh
+                if (showDetailsModal) {
+                    fetchStudentCodes(showDetailsModal.id, true); // Silent refresh
+                }
+            }
+        }, 10000);
+        return () => clearInterval(interval);
+    }, [view, showDetailsModal]);
 
     useEffect(() => {
         if (step === 2 && testData.selectionMode === 'manual' && allQuestions.length === 0) {
@@ -199,8 +210,8 @@ const CreateTest = () => {
         }
     }, [showDetailsModal]);
 
-    const fetchStudentCodes = async (testId) => {
-        setFetchingCodes(true);
+    const fetchStudentCodes = async (testId, isSilent = false) => {
+        if (!isSilent) setFetchingCodes(true);
         try {
             const res = await fetch(`http://localhost:8080/api/tests/${testId}/student-codes`);
             if (res.ok) {
@@ -1451,28 +1462,114 @@ const CreateTest = () => {
                                                 type="text"
                                                 placeholder="Search manual questions..."
                                                 value={questionSearchTerm}
-                                                onChange={e => setQuestionSearchTerm(e.target.value)}
+                                                onChange={e => {
+                                                    setQuestionSearchTerm(e.target.value);
+                                                    if (e.target.value) {
+                                                        // Auto-expand categories that match search
+                                                        const matchedCat = Object.entries(groupedQuestions).find(([catName, questions]) =>
+                                                            catName.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                                                            questions.some(q => q.text.toLowerCase().includes(e.target.value.toLowerCase()))
+                                                        );
+                                                        if (matchedCat) setExpandedCategory(matchedCat[0]);
+                                                    }
+                                                }}
                                                 style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '12px', border: '1px solid var(--border)', outline: 'none', background: 'var(--bg-surface)' }}
                                             />
                                         </div>
-                                        <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '12px', background: 'var(--bg-surface)' }} className="hide-scrollbar">
-                                            {allQuestions
-                                                .filter(q => q.text.toLowerCase().includes(questionSearchTerm.toLowerCase()))
-                                                .map(q => (
-                                                    <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderBottom: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => {
-                                                        const current = editModalData.manualQuestionIds || [];
-                                                        const updated = current.includes(q.id) ? current.filter(id => id !== q.id) : [...current, q.id];
-                                                        setEditModalData({ ...editModalData, manualQuestionIds: updated });
-                                                    }}>
-                                                        <div style={{ width: '20px', height: '20px', borderRadius: '4px', border: `2px solid ${editModalData.manualQuestionIds?.includes(q.id) ? 'var(--primary)' : 'var(--border)'}`, background: editModalData.manualQuestionIds?.includes(q.id) ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            {editModalData.manualQuestionIds?.includes(q.id) && <Check size={14} color="white" />}
+
+                                        <div style={{ maxHeight: '600px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '0.875rem', padding: '0.5rem 0.75rem 0.5rem 0.5rem', margin: '0 -0.5rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px' }} className="fine-scrollbar">
+                                            {Object.entries(groupedQuestions).map(([catName, questions]) => {
+                                                const filteredQs = questions.filter(q =>
+                                                    q.text.toLowerCase().includes(questionSearchTerm.toLowerCase()) ||
+                                                    catName.toLowerCase().includes(questionSearchTerm.toLowerCase())
+                                                );
+                                                if (filteredQs.length === 0 && questionSearchTerm) return null;
+
+                                                const isExpanded = expandedCategory === catName;
+                                                const catQuestionIds = filteredQs.map(q => q.id);
+                                                const selectedInCat = (editModalData.manualQuestionIds || []).filter(id => catQuestionIds.includes(id));
+                                                const allSelected = catQuestionIds.length > 0 && catQuestionIds.length === selectedInCat.length;
+
+                                                return (
+                                                    <div key={catName} style={{ border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden', background: 'white', transition: 'all 0.2s' }}>
+                                                        <div
+                                                            style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', borderBottom: isExpanded ? '1px solid var(--border)' : 'none', background: isExpanded ? 'rgba(59,130,246,0.02)' : 'white' }}
+                                                            onClick={() => setExpandedCategory(isExpanded ? null : catName)}
+                                                        >
+                                                            <div
+                                                                style={{ width: '22px', height: '22px', borderRadius: '6px', border: `2px solid ${allSelected ? 'var(--primary)' : 'var(--border)'}`, background: allSelected ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const current = editModalData.manualQuestionIds || [];
+                                                                    let updated;
+                                                                    if (allSelected) {
+                                                                        updated = current.filter(id => !catQuestionIds.includes(id));
+                                                                    } else {
+                                                                        updated = [...new Set([...current, ...catQuestionIds])];
+                                                                    }
+                                                                    setEditModalData({ ...editModalData, manualQuestionIds: updated });
+                                                                }}
+                                                            >
+                                                                {allSelected && <Check size={14} color="white" />}
+                                                            </div>
+                                                            <div style={{ flex: 1 }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>{catName}</div>
+                                                                    {selectedInCat.length > 0 && (
+                                                                        <div style={{ background: 'var(--primary)', color: 'white', padding: '0.125rem 0.5rem', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 900 }}>
+                                                                            {selectedInCat.length} Selected
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>{filteredQs.length} Questions Available</div>
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                <ArrowRight size={16} style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', color: 'var(--text-tertiary)' }} />
+                                                            </div>
                                                         </div>
-                                                        <div style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 500 }}>{q.text}</div>
+
+                                                        {isExpanded && (
+                                                            <div
+                                                                style={{
+                                                                    padding: '0.5rem',
+                                                                    background: 'var(--bg-app)',
+                                                                    display: 'flex',
+                                                                    flexDirection: 'column',
+                                                                    gap: '0.4rem',
+                                                                    borderTop: '1px solid var(--border)',
+                                                                    maxHeight: '320px',
+                                                                    overflowY: 'auto'
+                                                                }}
+                                                                className="fine-scrollbar"
+                                                            >
+                                                                {filteredQs.map(q => {
+                                                                    const isSelected = (editModalData.manualQuestionIds || []).includes(q.id);
+                                                                    return (
+                                                                        <div
+                                                                            key={q.id}
+                                                                            onClick={() => {
+                                                                                const current = editModalData.manualQuestionIds || [];
+                                                                                const updated = isSelected ? current.filter(id => id !== q.id) : [...current, q.id];
+                                                                                setEditModalData({ ...editModalData, manualQuestionIds: updated });
+                                                                            }}
+                                                                            style={{ padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', borderRadius: '10px', cursor: 'pointer', background: isSelected ? 'white' : 'transparent', border: isSelected ? '1px solid var(--primary-border)' : '1px solid transparent', boxShadow: isSelected ? 'var(--shadow-xs)' : 'none', transition: 'all 0.1s' }}
+                                                                        >
+                                                                            <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: `2.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                                {isSelected && <Check size={12} color="white" />}
+                                                                            </div>
+                                                                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>{q.text}</div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                ))}
+                                                );
+                                            })}
                                         </div>
-                                        <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--primary)', textAlign: 'right' }}>
-                                            {editModalData.manualQuestionIds?.length || 0} Questions Selected
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--primary-light)', padding: '0.75rem 1.25rem', borderRadius: '12px', border: '1px solid var(--primary-border)' }}>
+                                            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--primary)' }}>Selection Status</span>
+                                            <span style={{ fontSize: '0.94rem', fontWeight: 800, color: 'var(--primary)' }}>{editModalData.manualQuestionIds?.length || 0} Questions Selected</span>
                                         </div>
                                     </div>
                                 )}
@@ -1812,7 +1909,8 @@ const CreateTest = () => {
                                                 testId: showDetailsModal.id,
                                                 studentIds: studentCodes.map(c => c.studentId).filter(Boolean),
                                                 extraTime: 15,
-                                                comment: ''
+                                                comment: '',
+                                                isUsedStatus: studentCodes.some(c => c.status === 'USED')
                                             })}
                                             style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.4rem 0.75rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, border: '1px solid var(--primary-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                                         >
@@ -1857,13 +1955,14 @@ const CreateTest = () => {
                                                                     testId: showDetailsModal.id,
                                                                     studentIds: [codeData.studentId],
                                                                     extraTime: 15,
-                                                                    comment: ''
+                                                                    comment: '',
+                                                                    isUsedStatus: codeData.status === 'USED'
                                                                 });
                                                             }}
                                                             title="Add Extra Time"
-                                                            style={{ border: 'none', background: 'var(--bg-app)', color: 'var(--primary)', padding: '0.4rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                            style={{ border: 'none', background: 'var(--bg-app)', color: 'var(--primary)', padding: '0.5rem 0.75rem', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border)' }}
                                                         >
-                                                            <Plus size={16} />
+                                                            <Clock size={14} /> <Plus size={12} />
                                                         </button>
                                                         <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.05em', background: 'var(--primary-light)', padding: '0.4rem 1rem', borderRadius: '12px', border: '1px solid var(--primary-border)', minWidth: '100px', textAlign: 'center' }}>
                                                             {codeData.examCode}
@@ -1900,6 +1999,17 @@ const CreateTest = () => {
                                     <p style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', marginBottom: '1.5rem' }}>
                                         Grant additional minutes to {addTimeModal.studentIds.length === 1 ? 'this student' : `${addTimeModal.studentIds.length} students`}.
                                     </p>
+
+                                    {addTimeModal.isUsedStatus && (
+                                        <div style={{ background: 'rgba(59, 130, 246, 0.08)', color: 'var(--primary)', padding: '1rem', borderRadius: '16px', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.8125rem' }}>
+                                                <XCircle size={16} /> RE-OPENING NOTICE
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.9 }}>
+                                                This will professionally re-activate the finished exam session for this student.
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                         <div>

@@ -54,4 +54,7 @@ public class Test {
 
     @Transient
     private Integer additionalTime = 0;
+
+    @Transient
+    private Boolean isReopened = false;
 }

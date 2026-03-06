@@ -60,7 +60,8 @@ const TestStart = () => {
                 id: data.testId,
                 name: data.testName,
                 studentId: data.studentId,
-                additionalTime: data.additionalTime || 0
+                additionalTime: data.additionalTime || 0,
+                isReopened: data.isReopened
             });
 
             // Fetch extra test config if needed (duration etc)
@@ -88,11 +89,51 @@ const TestStart = () => {
         }
     };
 
-    const handleStart = () => {
-        if (isCodeVerified) {
+    const handleStart = async () => {
+        if (!isCodeVerified) return;
+
+        setError('');
+        setIsStarting(true);
+        setCountdown(3);
+
+        try {
+            const res = await fetch('http://localhost:8080/api/exam-entry/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: localStorage.getItem('currentExamCode'),
+                    studentId: localStorage.getItem('studentId'),
+                    sessionToken: localStorage.getItem('examSessionToken') // Send existing token if any
+                })
+            });
+
+            const data = await res.json();
+            if (!data.success) {
+                window.alert(data.message || 'Failed to start exam.');
+                setIsStarting(false);
+                setIsCodeVerified(false);
+                setExamCode('');
+                localStorage.removeItem('currentExamCode');
+                return;
+            }
+
+            // Store the Session Token (Device Lock)
+            if (data.sessionToken) {
+                localStorage.setItem('examSessionToken', data.sessionToken);
+            }
+
+            // Save startedAt for timer persistence in ExamInterface
+            if (data.startedAt) {
+                localStorage.setItem('examStartedAt', data.startedAt);
+            }
+
             localStorage.setItem('studentName', studentName);
             window.dispatchEvent(new Event('studentNameUpdated'));
-            setIsStarting(true);
+            // Countdown effect will handle navigation
+        } catch (error) {
+            console.error(error);
+            setError('System error while starting exam.');
+            setIsStarting(false);
         }
     };
 
@@ -201,12 +242,18 @@ const TestStart = () => {
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Available Time</div>
                                         <div style={{ fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                            {testDetails?.duration} {getTimeUnitLabel()}
-                                            {testDetails?.timeMode === 'question' ? ' (Per Question)' : ''}
-                                            {testDetails?.additionalTime > 0 && (
-                                                <span style={{ fontSize: '0.75rem', background: 'var(--success-light)', color: 'var(--success)', padding: '0.2rem 0.5rem', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                                                    + {testDetails.additionalTime} mins Extra
-                                                </span>
+                                            {testDetails?.isReopened ? (
+                                                <span style={{ color: 'var(--primary)' }}>{testDetails.additionalTime} Minutes (Remaining Session)</span>
+                                            ) : (
+                                                <>
+                                                    {testDetails?.duration} {getTimeUnitLabel()}
+                                                    {testDetails?.timeMode === 'question' ? ' (Per Question)' : ''}
+                                                    {testDetails?.additionalTime > 0 && (
+                                                        <span style={{ fontSize: '0.75rem', background: 'var(--success-light)', color: 'var(--success)', padding: '0.2rem 0.5rem', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                                                            + {testDetails.additionalTime} mins Extra
+                                                        </span>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     </div>

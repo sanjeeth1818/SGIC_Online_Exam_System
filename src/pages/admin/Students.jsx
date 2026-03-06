@@ -265,16 +265,23 @@ const Students = () => {
 
     useEffect(() => {
         fetchStudents();
-    }, []);
+        // Auto-refresh every 10 seconds, but ONLY if no modals are open to avoid UI flickering/jumps
+        const interval = setInterval(() => {
+            if (!isAnyModalOpen) {
+                fetchStudents(true); // Silent refresh
+            }
+        }, 10000);
+        return () => clearInterval(interval);
+    }, [isAnyModalOpen]);
 
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
     };
 
-    const fetchStudents = async () => {
+    const fetchStudents = async (isSilent = false) => {
         try {
-            setLoading(true);
+            if (!isSilent) setLoading(true);
             const response = await fetch('http://localhost:8080/api/students');
             if (response.ok) {
                 const data = await response.json();

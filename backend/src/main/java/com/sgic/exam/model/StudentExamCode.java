@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "student_exam_codes", uniqueConstraints = {
@@ -27,7 +28,7 @@ public class StudentExamCode {
     @Column(name = "exam_code", nullable = false, length = 4)
     private String examCode;
 
-    private String status = "ACTIVE"; // ACTIVE, USED, EXPIRED
+    private String status = "ACTIVE"; // ACTIVE, STARTED, USED, EXPIRED
 
     private String expiryDate; // The date when the code expires (usually the exam date)
 
@@ -36,4 +37,16 @@ public class StudentExamCode {
 
     @Column(name = "time_extension_comment", columnDefinition = "TEXT")
     private String timeExtensionComment;
+
+    @Column(name = "assigned_question_ids", columnDefinition = "TEXT")
+    private String assignedQuestionIds;
+
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
+    @Column(name = "current_session_token")
+    private String currentSessionToken;
+
+    @Column(name = "is_reopened")
+    private Boolean isReopened = false;
 }

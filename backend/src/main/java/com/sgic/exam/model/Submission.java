@@ -39,5 +39,8 @@ public class Submission {
     @Column(columnDefinition = "LONGTEXT")
     private String detailedBreakdownJson; // Detailed question-by-question metrics
 
+    private Long studentId;
+    private String examCode;
+
     private LocalDateTime submittedAt;
 }

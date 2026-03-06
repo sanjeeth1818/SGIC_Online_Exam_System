@@ -25,6 +25,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
         try (Connection conn = dataSource.getConnection()) {
             fixTestCodeColumn(conn);
             fixStudentExamCodeTable(conn);
+            fixSubmissionTable(conn);
         } catch (Exception e) {
             System.err.println("Warning: DatabaseMigrationRunner encountered an error: " + e.getMessage());
             // Non-critical — don't block startup
@@ -78,6 +79,70 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             System.out.println("Migration: Adding 'time_extension_comment' to 'student_exam_codes'...");
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("ALTER TABLE student_exam_codes ADD COLUMN time_extension_comment TEXT");
+            }
+        }
+        rs2.close();
+
+        // Check for assigned_question_ids
+        ResultSet rs3 = meta.getColumns(null, null, "student_exam_codes", "assigned_question_ids");
+        if (!rs3.next()) {
+            System.out.println("Migration: Adding 'assigned_question_ids' to 'student_exam_codes'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE student_exam_codes ADD COLUMN assigned_question_ids TEXT");
+            }
+        }
+        rs3.close();
+
+        // Check for started_at
+        ResultSet rs4 = meta.getColumns(null, null, "student_exam_codes", "started_at");
+        if (!rs4.next()) {
+            System.out.println("Migration: Adding 'started_at' to 'student_exam_codes'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE student_exam_codes ADD COLUMN started_at DATETIME");
+            }
+        }
+        rs4.close();
+
+        // Check for current_session_token
+        ResultSet rs5 = meta.getColumns(null, null, "student_exam_codes", "current_session_token");
+        if (!rs5.next()) {
+            System.out.println("Migration: Adding 'current_session_token' to 'student_exam_codes'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE student_exam_codes ADD COLUMN current_session_token VARCHAR(255)");
+            }
+        }
+        rs5.close();
+
+        // Check for is_reopened
+        ResultSet rs6 = meta.getColumns(null, null, "student_exam_codes", "is_reopened");
+        if (!rs6.next()) {
+            System.out.println("Migration: Adding 'is_reopened' to 'student_exam_codes'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE student_exam_codes ADD COLUMN is_reopened BOOLEAN DEFAULT FALSE");
+            }
+        }
+        rs6.close();
+    }
+
+    private void fixSubmissionTable(Connection conn) throws Exception {
+        DatabaseMetaData meta = conn.getMetaData();
+
+        // Check for student_id
+        ResultSet rs1 = meta.getColumns(null, null, "submissions", "student_id");
+        if (!rs1.next()) {
+            System.out.println("Migration: Adding 'student_id' to 'submissions'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE submissions ADD COLUMN student_id BIGINT");
+            }
+        }
+        rs1.close();
+
+        // Check for exam_code
+        ResultSet rs2 = meta.getColumns(null, null, "submissions", "exam_code");
+        if (!rs2.next()) {
+            System.out.println("Migration: Adding 'exam_code' to 'submissions'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE submissions ADD COLUMN exam_code VARCHAR(10)");
             }
         }
         rs2.close();

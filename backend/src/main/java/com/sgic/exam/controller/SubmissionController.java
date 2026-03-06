@@ -8,6 +8,7 @@ import com.sgic.exam.repository.SubmissionRepository;
 import com.sgic.exam.repository.StudentRepository;
 import com.sgic.exam.repository.TestRepository;
 import com.sgic.exam.repository.StudentExamCodeRepository;
+import com.sgic.exam.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -37,6 +38,9 @@ public class SubmissionController {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private EmailService emailService;
 
     @GetMapping
     public ResponseEntity<List<Submission>> getAllSubmissions() {
@@ -73,9 +77,21 @@ public class SubmissionController {
                     .orElseThrow(() -> new RuntimeException("Test not found for code: " + request.getExamCode()));
 
             // Extract answers and IDs
-            Map<Long, String> studentAnswers = request.getAnswers() != null ? request.getAnswers()
-                    : new HashMap<>();
-            List<Question> questions = questionRepository.findAllById(studentAnswers.keySet());
+            Map<Long, String> studentAnswers = request.getAnswers() != null ? request.getAnswers() : new HashMap<>();
+
+            // PRESERVE ORDER: Fetch questions in the exact order assigned to the student
+            List<Question> questions = new ArrayList<>();
+            if (codeEntry.getAssignedQuestionIds() != null && !codeEntry.getAssignedQuestionIds().isEmpty()) {
+                String[] ids = codeEntry.getAssignedQuestionIds().split(",");
+                for (String sId : ids) {
+                    if (!sId.trim().isEmpty()) {
+                        questionRepository.findById(Long.valueOf(sId.trim())).ifPresent(questions::add);
+                    }
+                }
+            } else {
+                // Fallback to unordered if for some reason IDs aren't persisted
+                questions = questionRepository.findAllById(studentAnswers.keySet());
+            }
 
             int score = 0;
             List<QuestionResult> breakdown = new ArrayList<>();
@@ -93,12 +109,16 @@ public class SubmissionController {
                 }
             }
 
-            Submission submission = new Submission();
+            // Check for existing submission for this attempt (resumption support)
+            Submission submission = submissionRepository.findByExamCode(request.getExamCode()).orElse(new Submission());
+
             submission.setStudentName(request.getStudentName() != null && !request.getStudentName().trim().isEmpty()
                     ? request.getStudentName()
                     : "Guest");
             submission.setTestId(test.getId());
             submission.setTestName(test.getName());
+            submission.setStudentId(codeEntry.getStudentId());
+            submission.setExamCode(codeEntry.getExamCode());
             submission.setScore(score);
             submission.setTotalQuestions(questions.size());
             submission.setSubmittedAt(LocalDateTime.now());
@@ -143,12 +163,18 @@ public class SubmissionController {
                 System.err.println("Warning: Could not update student status to Took Exam: " + statusEx.getMessage());
             }
 
-            // Update stats
+            // Trigger Result Email
             try {
-                test.setStudentCount((test.getStudentCount() != null ? test.getStudentCount() : 0) + 1);
-                testRepository.save(test);
-            } catch (Exception testEx) {
-                System.err.println("Test Stat Update Warning: " + testEx.getMessage());
+                if (Boolean.TRUE.equals(test.getShowResult())) {
+                    com.sgic.exam.model.Student student = studentRepository.findById(codeEntry.getStudentId())
+                            .orElse(null);
+                    if (student != null) {
+                        emailService.sendResultEmail(student, test, savedSubmission, breakdown);
+                    }
+                }
+            } catch (Exception emailEx) {
+                System.err.println("Warning: Failed to trigger result email: " + emailEx.getMessage());
+                emailEx.printStackTrace();
             }
 
             // Return DTO instead of full entity to avoid serialization issues
@@ -225,8 +251,13 @@ public class SubmissionController {
             this.timeSpent = timeSpent;
 
             String correct = q.getCorrectAnswer();
-            this.isCorrect = studentAnswer != null && correct != null &&
-                    studentAnswer.trim().equalsIgnoreCase(correct.trim());
+            this.isCorrect = compareAnswers(studentAnswer, correct);
+        }
+
+        private boolean compareAnswers(String s1, String s2) {
+            if (s1 == null || s2 == null)
+                return false;
+            return s1.trim().equalsIgnoreCase(s2.trim());
         }
     }
 

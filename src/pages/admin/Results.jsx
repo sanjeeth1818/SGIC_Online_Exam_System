@@ -30,8 +30,9 @@ const Results = () => {
         };
     }, [isCalendarOpen]);
 
-    const fetchData = async () => {
+    const fetchData = async (isSilent = false) => {
         try {
+            if (!isSilent) setIsLoading(true);
             const [resSub, resStats] = await Promise.all([
                 fetch('http://localhost:8080/api/submissions'),
                 fetch('http://localhost:8080/api/submissions/stats')
@@ -115,7 +116,15 @@ const Results = () => {
 
     React.useEffect(() => {
         fetchData();
-    }, []);
+        // Auto-refresh Results every 10 seconds
+        const interval = setInterval(() => {
+            // Only refresh if no student is currently being viewed in detail to avoid UI shifts
+            if (!selectedStudent) {
+                fetchData(true); // Silent refresh
+            }
+        }, 10000);
+        return () => clearInterval(interval);
+    }, [selectedStudent]);
 
     const getScoreColor = (score) => {
         if (score >= 90) return '#22c55e'; // Success
