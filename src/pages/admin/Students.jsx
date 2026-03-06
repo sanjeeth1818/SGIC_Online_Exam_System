@@ -515,6 +515,7 @@ const Students = () => {
     const getStatusBadge = (status) => {
         const styles = {
             'Pending Exam': { bg: 'var(--primary-light)', color: 'var(--primary)', icon: <Clock3 size={12} />, label: 'PENDING' },
+            'Allocated': { bg: 'rgba(139, 92, 246, 0.1)', color: '#7c3aed', icon: <Calendar size={12} />, label: 'ALLOCATED' },
             'Took Exam': { bg: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', icon: <CheckCircle size={12} />, label: 'COMPLETED' },
             'Absent': { bg: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', icon: <UserX size={12} />, label: 'ABSENT' },
             'Rescheduled': { bg: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', icon: <RefreshCw size={12} />, label: 'RESCHEDULED' },
@@ -684,6 +685,7 @@ const Students = () => {
                                 >
                                     <option value="All">All Statuses</option>
                                     <option value="Pending Exam">Pending</option>
+                                    <option value="Allocated">Allocated</option>
                                     <option value="Took Exam">Completed</option>
                                     <option value="Rescheduled">Rescheduled</option>
                                     <option value="Absent">Absent</option>

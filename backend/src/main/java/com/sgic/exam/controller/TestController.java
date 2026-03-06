@@ -323,6 +323,29 @@ public class TestController {
                         System.out.println(
                                 "Student " + student.getEmail() + " already has a code. Skipping notification.");
                     }
+
+                    // Always update student status to Allocated with exam details
+                    try {
+                        com.sgic.exam.model.Student studentEntity = studentRepository.findById(student.getId())
+                                .orElse(null);
+                        if (studentEntity != null) {
+                            String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                    .format(new java.util.Date());
+                            String logEntry = String.format("[%s] Status: Allocated (Exam: %s on %s, Code: %s)",
+                                    timestamp, test.getName(), examDate, codeEntry.getExamCode());
+                            String history = studentEntity.getStatusHistory();
+                            studentEntity.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
+
+                            studentEntity.setStatus("Allocated");
+                            studentEntity.setExamName(test.getName());
+                            studentEntity.setExamDate(examDate);
+                            studentEntity.setExamCode(codeEntry.getExamCode());
+                            studentRepository.save(studentEntity);
+                            System.out.println("Updated student " + student.getName() + " status to Allocated.");
+                        }
+                    } catch (Exception statusEx) {
+                        System.err.println("Warning: Could not update student status: " + statusEx.getMessage());
+                    }
                 }
             }
         } catch (Exception e) {

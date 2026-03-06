@@ -5,6 +5,7 @@ import com.sgic.exam.model.Submission;
 import com.sgic.exam.model.Test;
 import com.sgic.exam.repository.QuestionRepository;
 import com.sgic.exam.repository.SubmissionRepository;
+import com.sgic.exam.repository.StudentRepository;
 import com.sgic.exam.repository.TestRepository;
 import com.sgic.exam.repository.StudentExamCodeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ public class SubmissionController {
 
     @Autowired
     private StudentExamCodeRepository studentExamCodeRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
 
     @GetMapping
     public ResponseEntity<List<Submission>> getAllSubmissions() {
@@ -120,6 +124,23 @@ public class SubmissionController {
                 System.err.println("DATABASE PERSISTENCE ERROR: " + dbEx.getMessage());
                 dbEx.printStackTrace();
                 return ResponseEntity.status(500).body("Database Error: " + dbEx.getMessage());
+            }
+
+            // Update student status to 'Took Exam'
+            try {
+                com.sgic.exam.model.Student student = studentRepository.findById(codeEntry.getStudentId()).orElse(null);
+                if (student != null) {
+                    String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                            .format(new java.util.Date());
+                    String logEntry = String.format("[%s] Status: Took Exam (Exam: %s)", timestamp, test.getName());
+                    String history = student.getStatusHistory();
+                    student.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
+                    student.setStatus("Took Exam");
+                    studentRepository.save(student);
+                    System.out.println("Updated student " + student.getName() + " status to Took Exam.");
+                }
+            } catch (Exception statusEx) {
+                System.err.println("Warning: Could not update student status to Took Exam: " + statusEx.getMessage());
             }
 
             // Update stats
