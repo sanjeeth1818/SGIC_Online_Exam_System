@@ -34,9 +34,15 @@ public class CategoryController {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
 
-        // String status comes wrapped in quotes if sent via JSON.stringify
-        String cleanStatus = status.replace("\"", "");
-        category.setStatus(cleanStatus);
+        // Sanitize status: remove quotes, braces, or whitespace if sent as raw string
+        String cleanStatus = status.replaceAll("[\"{}]", "").trim();
+
+        // Ensure only valid statuses are accepted
+        if (cleanStatus.equalsIgnoreCase("Active") || cleanStatus.equalsIgnoreCase("Inactive")) {
+            // Standardize casing
+            category.setStatus(cleanStatus.substring(0, 1).toUpperCase() + cleanStatus.substring(1).toLowerCase());
+        }
+
         return ResponseEntity.ok(categoryRepository.save(category));
     }
 

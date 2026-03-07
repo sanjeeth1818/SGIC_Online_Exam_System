@@ -97,6 +97,18 @@ public class QuestionController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Question> updateQuestionStatus(@PathVariable Long id, @RequestBody String status) {
+        Question question = questionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Question not found with id: " + id));
+
+        String cleanStatus = status.replaceAll("[\"{}]", "").trim();
+        if (cleanStatus.equalsIgnoreCase("Active") || cleanStatus.equalsIgnoreCase("Inactive")) {
+            question.setStatus(cleanStatus.substring(0, 1).toUpperCase() + cleanStatus.substring(1).toLowerCase());
+        }
+        return ResponseEntity.ok(questionRepository.save(question));
+    }
+
     @PostMapping("/bulk-upload")
     public ResponseEntity<Map<String, Object>> bulkUpload(@RequestParam("file") MultipartFile file) {
         Map<String, Object> result = new HashMap<>();

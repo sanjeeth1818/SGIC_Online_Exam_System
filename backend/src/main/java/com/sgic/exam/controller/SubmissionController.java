@@ -257,7 +257,43 @@ public class SubmissionController {
         private boolean compareAnswers(String s1, String s2) {
             if (s1 == null || s2 == null)
                 return false;
-            return s1.trim().equalsIgnoreCase(s2.trim());
+
+            // 1. Aggressive Normalization:
+            // - Normalize Unicode characters (Form NFC)
+            // - Remove control characters
+            // - Replace all types of whitespace (including &nbsp; \u00A0) with a standard
+            // space
+            // - Trim
+            String norm1 = java.text.Normalizer.normalize(s1, java.text.Normalizer.Form.NFC)
+                    .replaceAll("[\\p{Cntrl}\\p{Cc}\\p{Cf}\\p{Co}\\p{Cn}]", "")
+                    .replaceAll("\\s+", " ").trim();
+            String norm2 = java.text.Normalizer.normalize(s2, java.text.Normalizer.Form.NFC)
+                    .replaceAll("[\\p{Cntrl}\\p{Cc}\\p{Cf}\\p{Co}\\p{Cn}]", "")
+                    .replaceAll("\\s+", " ").trim();
+
+            // 2. Simple case-insensitive comparison
+            if (norm1.equalsIgnoreCase(norm2))
+                return true;
+
+            // 3. Ultra-strict comparison (Remove ALL spaces) as final fallback
+            String strict1 = norm1.replaceAll("\\s", "");
+            String strict2 = norm2.replaceAll("\\s", "");
+            if (!strict1.isEmpty() && strict1.equalsIgnoreCase(strict2))
+                return true;
+
+            // 4. Numeric Fallback: If both are potentially numbers, compare their values
+            try {
+                // Remove commas and any remaining spaces
+                String num1 = strict1.replace(",", "");
+                String num2 = strict2.replace(",", "");
+
+                double d1 = Double.parseDouble(num1);
+                double d2 = Double.parseDouble(num2);
+
+                return d1 == d2;
+            } catch (NumberFormatException e) {
+                return false;
+            }
         }
     }
 

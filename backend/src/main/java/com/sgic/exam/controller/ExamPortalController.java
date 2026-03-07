@@ -129,10 +129,17 @@ public class ExamPortalController {
         } else {
             // Generate for the first time
             if ("manual".equalsIgnoreCase(test.getSelectionMode())) {
-                allSelectedQuestions.addAll(test.getManualQuestions());
+                // For manual mode, only include Active questions
+                allSelectedQuestions.addAll(
+                        test.getManualQuestions().stream()
+                                .filter(q -> !"Inactive".equalsIgnoreCase(q.getStatus()))
+                                .collect(Collectors.toList()));
             } else {
                 for (TestCategoryConfig config : test.getCategoryConfigs()) {
-                    List<Question> categoryQuestions = questionRepository.findByCategoryId(config.getCategoryId());
+                    List<Question> categoryQuestions = questionRepository.findByCategoryId(config.getCategoryId())
+                            .stream()
+                            .filter(q -> !"Inactive".equalsIgnoreCase(q.getStatus()))
+                            .collect(Collectors.toList());
                     Collections.shuffle(categoryQuestions);
 
                     int limit = Math.min(config.getQuestionCount(), categoryQuestions.size());

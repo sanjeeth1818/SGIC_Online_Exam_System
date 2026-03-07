@@ -26,6 +26,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             fixTestCodeColumn(conn);
             fixStudentExamCodeTable(conn);
             fixSubmissionTable(conn);
+            fixQuestionsTable(conn);
         } catch (Exception e) {
             System.err.println("Warning: DatabaseMigrationRunner encountered an error: " + e.getMessage());
             // Non-critical — don't block startup
@@ -146,5 +147,20 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             }
         }
         rs2.close();
+    }
+
+    private void fixQuestionsTable(Connection conn) throws Exception {
+        DatabaseMetaData meta = conn.getMetaData();
+
+        // Add 'status' column to questions if not present
+        ResultSet rs1 = meta.getColumns(null, null, "questions", "status");
+        if (!rs1.next()) {
+            System.out.println("Migration: Adding 'status' to 'questions'...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE questions ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'Active'");
+            }
+            System.out.println("Migration: 'status' column added to 'questions'.");
+        }
+        rs1.close();
     }
 }

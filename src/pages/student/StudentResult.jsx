@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, Clock, Target, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
+import { Award, Clock, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 
 const StudentResult = () => {
     const navigate = useNavigate();
@@ -12,21 +12,6 @@ const StudentResult = () => {
     const scorePercent = submission.totalQuestions > 0
         ? Math.round((submission.score / submission.totalQuestions) * 100)
         : 0;
-
-    // Calculate Category Breakdown
-    const categoryStats = breakdown.reduce((acc, q) => {
-        if (!acc[q.categoryName]) acc[q.categoryName] = { correct: 0, total: 0 };
-        acc[q.categoryName].total++;
-        if (q.isCorrect) acc[q.categoryName].correct++;
-        return acc;
-    }, {});
-
-    const categoryList = Object.keys(categoryStats).map(name => ({
-        name,
-        score: Math.round((categoryStats[name].correct / categoryStats[name].total) * 100),
-        color: (categoryStats[name].correct / categoryStats[name].total) >= 0.8 ? 'var(--success)' : (categoryStats[name].correct / categoryStats[name].total) >= 0.5 ? 'var(--primary)' : 'var(--error)'
-    }));
-
 
     const showAnswers = data.showAnswers !== undefined ? data.showAnswers : true;
 
@@ -72,90 +57,73 @@ const StudentResult = () => {
                 </div>
             </div>
 
-            {/* Detailed Breakdown */}
-            <div style={{ display: 'grid', gridTemplateColumns: showAnswers ? '1fr 2fr' : '1fr', gap: '2rem' }}>
-
-                {/* Category Performance */}
-                <div style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', alignSelf: 'start' }}>
-                    <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Target size={20} color="var(--primary)" /> Category Analysis</h2>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {categoryList.map(cat => (
-                            <div key={cat.name}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>
-                                    <span>{cat.name}</span>
-                                    <span>{cat.score}%</span>
-                                </div>
-                                <div style={{ height: '8px', background: 'var(--bg-app)', borderRadius: '4px', overflow: 'hidden' }}>
-                                    <div style={{ width: `${cat.score}%`, height: '100%', background: cat.color, borderRadius: '4px' }} />
-                                </div>
-                            </div>
-                        ))}
+            {/* Questions Review - Flat List */}
+            {showAnswers && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '4rem' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                        <div style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '3px' }} />
+                        Review Responses
                     </div>
 
-                    <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
-                        <button
-                            onClick={() => {
-                                localStorage.removeItem('lastSubmission');
-                                navigate('/');
-                            }}
-                            style={{ width: '100%', padding: '0.875rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                        >
-                            Return to Home <ChevronRight size={18} />
-                        </button>
-                    </div>
-                </div>
+                    {breakdown.map((q, i) => {
+                        // Resilient Matching Logic: If they look identical visually, show as correct
+                        // even if the backend isCorrect flag is false (to handle historical inconsistencies)
+                        const normalize = (str) => (str || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
+                        const isVisualCorrect = q.isCorrect || (normalize(q.studentAnswer) === normalize(q.correctAnswer));
 
-                {/* Question Review */}
-                {showAnswers && (
-                    <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
-                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-app)' }}>
-                            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Question Review</h2>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            {breakdown.map((q, i) => (
-                                <div key={i} style={{ padding: '2rem', borderBottom: i < breakdown.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                                        <div style={{ marginTop: '0.25rem' }}>
-                                            {q.isCorrect ? <CheckCircle size={24} color="var(--success)" /> : <XCircle size={24} color="var(--error)" />}
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '1.125rem', fontWeight: 500, marginBottom: '1rem', color: 'var(--text-primary)' }}>
-                                                <span style={{ color: 'var(--text-tertiary)', marginRight: '0.5rem' }}>{i + 1}.</span>
-                                                {q.questionText}
-                                            </div>
-
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                <div style={{
-                                                    padding: '1rem', borderRadius: 'var(--radius-md)',
-                                                    background: q.isCorrect ? 'var(--success-bg)' : 'var(--error-bg)',
-                                                    border: `1px solid ${q.isCorrect ? 'var(--success)' : 'var(--error)'}`,
-                                                    display: 'flex', alignItems: 'flex-start', gap: '0.5rem'
-                                                }}>
-                                                    <span style={{ fontWeight: 600, color: q.isCorrect ? 'var(--success)' : 'var(--error)', width: '60px' }}>You:</span>
-                                                    <span style={{ color: q.isCorrect ? 'var(--success)' : 'var(--text-primary)', fontWeight: q.isCorrect ? 700 : 400 }}>{q.studentAnswer || 'No Answer'}</span>
-                                                </div>
-
-                                                {!q.isCorrect && (
-                                                    <div style={{
-                                                        padding: '1rem', borderRadius: 'var(--radius-md)',
-                                                        background: 'var(--success-bg)', border: '1px dashed var(--success)',
-                                                        display: 'flex', alignItems: 'flex-start', gap: '0.5rem'
-                                                    }}>
-                                                        <span style={{ fontWeight: 600, color: 'var(--success)', width: '60px' }}>Correct:</span>
-                                                        <span style={{ color: 'var(--text-primary)' }}>{q.correctAnswer}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
+                        return (
+                            <div key={i} style={{ padding: '2.5rem', background: 'white', borderRadius: '32px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.75rem' }}>
+                                    <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', lineHeight: 1.5, flex: 1, paddingRight: '2rem' }}>
+                                        <span style={{ color: 'var(--primary)', fontStyle: 'italic', marginRight: '0.5rem' }}>Q{i + 1}:</span>
+                                        {q.categoryName && <span style={{ color: 'var(--text-tertiary)', marginRight: '0.5rem', fontSize: '1rem' }}>[{q.categoryName}]</span>}
+                                        {q.questionText}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 1rem', background: 'var(--bg-app)', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                        <Clock size={16} /> {q.timeSpent !== undefined ? (q.timeSpent < 60 ? `${q.timeSpent}s` : `${Math.floor(q.timeSpent / 60)}m ${q.timeSpent % 60}s`) : '0s'}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem', alignItems: 'center' }}>
+                                    {isVisualCorrect ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.5rem', background: '#f0fdf4', color: '#16a34a', borderRadius: '14px', border: '1px solid #bbf7d0', fontWeight: 900, fontSize: '1.1rem' }}>
+                                            <CheckCircle size={20} />
+                                            <span style={{ fontSize: '0.85rem', opacity: 0.8, fontWeight: 700 }}>You:</span>
+                                            {q.studentAnswer}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.5rem', background: '#fef2f2', color: '#dc2626', borderRadius: '14px', border: '1px solid #fecaca', fontWeight: 900, fontSize: '1.1rem' }}>
+                                                <XCircle size={20} />
+                                                <span style={{ fontSize: '0.85rem', opacity: 0.8, fontWeight: 700 }}>You:</span>
+                                                {q.studentAnswer || 'NO RESPONSE'}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.5rem', background: '#f0fdf4', color: '#16a34a', borderRadius: '14px', border: '1px dashed #22c55e', fontWeight: 900, fontSize: '1.1rem' }}>
+                                                <CheckCircle size={20} />
+                                                <span style={{ fontSize: '0.85rem', opacity: 0.8, fontWeight: 700 }}>Correct Answer:</span>
+                                                {q.correctAnswer}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '4rem' }}>
+                <button
+                    onClick={() => {
+                        localStorage.removeItem('lastSubmission');
+                        navigate('/');
+                    }}
+                    style={{ padding: '1rem 3rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-xl)', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem', boxShadow: '0 10px 20px rgba(var(--primary-rgb), 0.2)', transition: 'all 0.3s' }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                    Return to Portal Home <ChevronRight size={20} />
+                </button>
             </div>
         </div>
     );

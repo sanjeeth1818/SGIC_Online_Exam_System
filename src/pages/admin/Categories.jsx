@@ -11,6 +11,8 @@ const Categories = () => {
     const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: '#1e40af' });
     const [notification, setNotification] = useState(null);
 
+    const [searchTerm, setSearchTerm] = useState('');
+
     const fetchCategories = async () => {
         try {
             const res = await fetch('http://localhost:8080/api/categories');
@@ -53,7 +55,11 @@ const Categories = () => {
                 const res = await fetch(`http://localhost:8080/api/categories/${editingCategory.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(categoryForm)
+                    body: JSON.stringify({
+                        ...categoryForm,
+                        status: editingCategory.status,
+                        questionCount: editingCategory.questionCount
+                    })
                 });
                 if (!res.ok) throw new Error('Failed to update');
                 setNotification({ type: 'success', message: 'Category updated successfully!' });
@@ -61,7 +67,7 @@ const Categories = () => {
                 const res = await fetch('http://localhost:8080/api/categories', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...categoryForm, status: 'Active' })
+                    body: JSON.stringify({ ...categoryForm, status: 'Active', questionCount: 0 })
                 });
                 if (!res.ok) throw new Error('Failed to create');
                 setNotification({ type: 'success', message: 'Category created successfully!' });
@@ -99,8 +105,8 @@ const Categories = () => {
             const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
             const res = await fetch(`http://localhost:8080/api/categories/${id}/status`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newStatus)
+                headers: { 'Content-Type': 'text/plain' },
+                body: newStatus
             });
             if (!res.ok) throw new Error('Failed to update status');
             fetchCategories();
@@ -109,6 +115,11 @@ const Categories = () => {
             setNotification({ type: 'error', message: 'Failed to update status.' });
         }
     };
+
+    const filteredCategories = categories.filter(cat =>
+        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cat.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <div style={{ animation: 'fadeIn 0.3s ease-in-out', position: 'relative' }}>
@@ -162,6 +173,8 @@ const Categories = () => {
                         <input
                             type="text"
                             placeholder="Search categories..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '0.875rem' }}
                         />
                     </div>
@@ -173,13 +186,12 @@ const Categories = () => {
                             <tr>
                                 <th style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Category Name</th>
                                 <th style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Description</th>
-                                <th style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</th>
                                 <th style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {categories.map((cat, idx) => (
-                                <tr key={cat.id} style={{ borderBottom: idx === categories.length - 1 ? 'none' : '1px solid var(--border)', transition: 'background 0.2s' }}
+                            {filteredCategories.map((cat, idx) => (
+                                <tr key={cat.id} style={{ borderBottom: idx === filteredCategories.length - 1 ? 'none' : '1px solid var(--border)', transition: 'background 0.2s' }}
                                     onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-app)'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >
@@ -198,25 +210,7 @@ const Categories = () => {
                                     <td style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                                         {cat.description}
                                     </td>
-                                    <td style={{ padding: '1.25rem 1.5rem' }}>
-                                        <div
-                                            onClick={() => toggleStatus(cat.id, cat.status)}
-                                            style={{
-                                                width: '44px', height: '22px',
-                                                background: cat.status === 'Active' ? 'var(--primary)' : 'var(--border)',
-                                                borderRadius: '20px', cursor: 'pointer', position: 'relative',
-                                                transition: 'background 0.3s ease'
-                                            }}
-                                        >
-                                            <div style={{
-                                                width: '18px', height: '18px', background: 'white', borderRadius: '50%',
-                                                position: 'absolute', top: '2px',
-                                                left: cat.status === 'Active' ? '24px' : '2px',
-                                                transition: 'left 0.3s ease',
-                                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                                            }} />
-                                        </div>
-                                    </td>
+
                                     <td style={{ padding: '1.25rem 1.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                             <button

@@ -38,4 +38,6 @@ public class Question {
 
     @NotBlank(message = "Correct answer is required")
     private String correctAnswer;
+
+    private String status = "Active"; // Active or Inactive
 }

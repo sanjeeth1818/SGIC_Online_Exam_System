@@ -49,7 +49,8 @@ const QuestionBank = () => {
                 type: q.type,
                 text: q.text,
                 options: q.options,
-                correct: q.correctAnswer
+                correct: q.correctAnswer,
+                status: q.status || 'Active'
             })));
         } catch (error) {
             console.error(error);
@@ -156,6 +157,22 @@ const QuestionBank = () => {
         } catch (error) {
             console.error(error);
             setNotification({ type: 'error', message: 'Failed to delete question.' });
+        }
+    };
+
+    const toggleQuestionStatus = async (id, currentStatus) => {
+        try {
+            const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+            const res = await fetch(`http://localhost:8080/api/questions/${id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'text/plain' },
+                body: newStatus
+            });
+            if (!res.ok) throw new Error('Failed to update status');
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            setNotification({ type: 'error', message: 'Failed to update question status.' });
         }
     };
 
@@ -432,7 +449,43 @@ const QuestionBank = () => {
                                             {q.type === 'MCQ' ? 'Multiple Choice' : 'Short Answer'}
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                        {/* Active/Inactive Toggle */}
+                                        <div
+                                            onClick={() => toggleQuestionStatus(q.id, q.status)}
+                                            title={q.status === 'Active' ? 'Click to deactivate' : 'Click to activate'}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                                padding: '0.35rem 0.75rem',
+                                                borderRadius: '999px',
+                                                border: `1px solid ${q.status === 'Active' ? '#bbf7d0' : '#fecaca'}`,
+                                                background: q.status === 'Active' ? '#f0fdf4' : '#fef2f2',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                userSelect: 'none'
+                                            }}
+                                        >
+                                            <div style={{
+                                                width: '28px', height: '14px',
+                                                background: q.status === 'Active' ? '#22c55e' : '#ef4444',
+                                                borderRadius: '999px', position: 'relative',
+                                                transition: 'background 0.3s'
+                                            }}>
+                                                <div style={{
+                                                    width: '10px', height: '10px', background: 'white', borderRadius: '50%',
+                                                    position: 'absolute', top: '2px',
+                                                    left: q.status === 'Active' ? '16px' : '2px',
+                                                    transition: 'left 0.3s',
+                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                                                }} />
+                                            </div>
+                                            <span style={{
+                                                fontSize: '0.725rem', fontWeight: 700,
+                                                color: q.status === 'Active' ? '#16a34a' : '#dc2626'
+                                            }}>
+                                                {q.status === 'Active' ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
                                         <button onClick={() => handleEditQuestion(q)} style={{ padding: '0.5rem', color: 'var(--text-tertiary)', borderRadius: 'var(--radius-md)', border: 'none', background: 'none', cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-light)'; }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.background = 'none'; }}><Edit2 size={18} /></button>
                                         <button onClick={() => confirmDeleteQuestion(q)} style={{ padding: '0.5rem', color: 'var(--text-tertiary)', borderRadius: 'var(--radius-md)', border: 'none', background: 'none', cursor: 'pointer' }} onMouseEnter={e => { e.currentTarget.style.color = 'var(--error)'; e.currentTarget.style.background = 'var(--error-bg)'; }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.background = 'none'; }}><Trash2 size={18} /></button>
                                     </div>
