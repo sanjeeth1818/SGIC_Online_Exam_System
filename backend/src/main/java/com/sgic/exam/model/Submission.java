@@ -18,6 +18,7 @@ public class Submission {
     private Long id;
 
     private String studentName;
+    private String studentEmail;
     private Long testId;
 
     public Long getTestId() {

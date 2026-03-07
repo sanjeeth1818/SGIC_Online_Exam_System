@@ -265,14 +265,7 @@ const Students = () => {
 
     useEffect(() => {
         fetchStudents();
-        // Auto-refresh every 10 seconds, but ONLY if no modals are open to avoid UI flickering/jumps
-        const interval = setInterval(() => {
-            if (!isAnyModalOpen) {
-                fetchStudents(true); // Silent refresh
-            }
-        }, 10000);
-        return () => clearInterval(interval);
-    }, [isAnyModalOpen]);
+    }, []);
 
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });

@@ -7,9 +7,9 @@ const AdminLayout = () => {
 
     const navItems = [
         { name: 'Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard size={20} /> },
-        { name: 'Students', path: '/admin/students', icon: <Users size={20} /> },
         { name: 'Create Test', path: '/admin/create-test', icon: <FilePlus size={20} /> },
         { name: 'Results', path: '/admin/results', icon: <ClipboardList size={20} /> },
+        { name: 'Students', path: '/admin/students', icon: <Users size={20} /> },
         { name: 'Question Bank', path: '/admin/questions', icon: <FileQuestion size={20} /> },
         { name: 'Categories', path: '/admin/categories', icon: <FolderTree size={20} /> },
         { name: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },

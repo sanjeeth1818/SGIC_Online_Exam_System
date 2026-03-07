@@ -27,6 +27,6 @@ public class Admin {
 
     private String name;
 
-    // In a real app we'd use BCrypt, but for this basic implementation we will just
-    // use plain text or a simple hash.
+    private String resetOtp;
+    private java.time.LocalDateTime resetOtpExpiry;
 }

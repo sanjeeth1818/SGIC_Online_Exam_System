@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Eye, Download, PieChart, TrendingUp, Clock, Calendar, CheckCircle2, XCircle, ChevronDown, ChevronUp, Users, BookOpen, FileSpreadsheet, FileText as FilePdf } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, Eye, Download, PieChart, TrendingUp, Clock, Calendar, CheckCircle2, XCircle, ChevronDown, ChevronUp, Users, BookOpen, FileSpreadsheet, FileText as FilePdf, Mail, Trophy, ArrowLeft, AlertTriangle, BarChart2, UserX } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -15,6 +16,14 @@ const Results = () => {
     const [resultsData, setResultsData] = useState([]);
     const [stats, setStats] = useState({ totalAttempts: 0, averageScore: 0, passRate: 0 });
     const [isLoading, setIsLoading] = useState(true);
+    const [isClosing, setIsClosing] = useState(false);
+
+    // Exam-level dashboard state
+    const [selectedExam, setSelectedExam] = useState(null); // null = exam list, string = exam name
+    const [examStudentCodes, setExamStudentCodes] = useState([]);
+    const [loadingCodes, setLoadingCodes] = useState(false);
+    const [expandedStudentRow, setExpandedStudentRow] = useState(null);
+    const [expandedCategoryBreakdown, setExpandedCategoryBreakdown] = useState(null);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -73,7 +82,7 @@ const Results = () => {
                 return {
                     id: s.id,
                     name: s.studentName,
-                    email: s.studentName, // Fallback since email isn't in submission
+                    email: s.studentEmail || (s.studentName?.includes('@') ? s.studentName : 'No Email Registered'),
                     score: Math.round((s.score / s.totalQuestions) * 100),
                     actualScore: s.score,
                     maxScore: s.totalQuestions,
@@ -116,15 +125,7 @@ const Results = () => {
 
     React.useEffect(() => {
         fetchData();
-        // Auto-refresh Results every 10 seconds
-        const interval = setInterval(() => {
-            // Only refresh if no student is currently being viewed in detail to avoid UI shifts
-            if (!selectedStudent) {
-                fetchData(true); // Silent refresh
-            }
-        }, 10000);
-        return () => clearInterval(interval);
-    }, [selectedStudent]);
+    }, []);
 
     const getScoreColor = (score) => {
         if (score >= 90) return '#22c55e'; // Success
@@ -132,6 +133,25 @@ const Results = () => {
         if (score >= 50) return '#f59e0b'; // Warning
         return '#ef4444'; // Error
     };
+
+    const closeModal = () => {
+        setIsClosing(true);
+        setTimeout(() => {
+            setSelectedStudent(null);
+            setIsClosing(false);
+            setExpandedCategories({});
+        }, 300); // Match animation duration
+    };
+
+    // Body scroll lock
+    useEffect(() => {
+        if (selectedStudent) {
+            document.body.classList.add('no-scroll');
+        } else {
+            document.body.classList.remove('no-scroll');
+        }
+        return () => document.body.classList.remove('no-scroll');
+    }, [selectedStudent]);
 
     const toggleCategory = (catName) => {
         setExpandedCategories(prev => ({
@@ -149,6 +169,51 @@ const Results = () => {
 
     const uniqueExams = Array.from(new Set(resultsData.map(r => r.testName)));
     const examDates = Array.from(new Set(resultsData.map(r => r.date)));
+
+    // Group results by exam name
+    const examGroups = resultsData.reduce((acc, r) => {
+        if (!acc[r.testName]) acc[r.testName] = [];
+        acc[r.testName].push(r);
+        return acc;
+    }, {});
+
+    const fetchExamStudentCodes = async (testName) => {
+        setLoadingCodes(true);
+        try {
+            // Find a testId from submissions for this exam
+            const examSub = resultsData.find(r => r.testName === testName);
+            if (!examSub) { setLoadingCodes(false); return; }
+            // Fetch all tests to find the matching test id
+            const testsRes = await fetch('http://localhost:8080/api/tests');
+            if (testsRes.ok) {
+                const tests = await testsRes.json();
+                const match = tests.find(t => t.name === testName);
+                if (match) {
+                    const codesRes = await fetch(`http://localhost:8080/api/tests/${match.id}/student-codes`);
+                    if (codesRes.ok) {
+                        const data = await codesRes.json();
+                        setExamStudentCodes(data);
+                    }
+                }
+            }
+        } catch (e) { console.error(e); }
+        setLoadingCodes(false);
+    };
+
+    const openExam = (examName) => {
+        setSelectedExam(examName);
+        setExamStudentCodes([]);
+        setExpandedStudentRow(null);
+        setExpandedCategoryBreakdown(null);
+        fetchExamStudentCodes(examName);
+    };
+
+    const closeExam = () => {
+        setSelectedExam(null);
+        setExamStudentCodes([]);
+        setExpandedStudentRow(null);
+        setExpandedCategoryBreakdown(null);
+    };
 
     const CustomCalendar = () => {
         const today = new Date();
@@ -523,385 +588,488 @@ const Results = () => {
         );
     }
 
+    // ── Level 2: Exam Detail View ──────────────────────────────────────────────
+    if (selectedExam) {
+        const examResults = examGroups[selectedExam] || [];
+        const avgScore = examResults.length ? Math.round(examResults.reduce((s, r) => s + r.score, 0) / examResults.length) : 0;
+        const passCount = examResults.filter(r => r.score >= 50).length;
+
+        // Category breakdown for whole exam
+        const catMap = {};
+        examResults.forEach(r => {
+            if (r.answers) {
+                r.answers.forEach(a => {
+                    const catName = a.category || 'Uncategorized';
+                    if (!catMap[catName]) {
+                        catMap[catName] = {
+                            correctAttempts: 0,
+                            totalAttempts: 0,
+                            uniqueQuestions: new Set(),
+                            questionStats: {}
+                        };
+                    }
+                    catMap[catName].correctAttempts += a.isCorrect ? 1 : 0;
+                    catMap[catName].totalAttempts += 1;
+                    catMap[catName].uniqueQuestions.add(a.question);
+
+                    if (!catMap[catName].questionStats[a.question]) {
+                        catMap[catName].questionStats[a.question] = { correct: 0, total: 0 };
+                    }
+                    catMap[catName].questionStats[a.question].correct += a.isCorrect ? 1 : 0;
+                    catMap[catName].questionStats[a.question].total += 1;
+                });
+            }
+        });
+        const examCategories = Object.entries(catMap).map(([name, d]) => {
+            const pct = d.totalAttempts > 0 ? Math.round((d.correctAttempts / d.totalAttempts) * 100) : 0;
+            const questions = Object.entries(d.questionStats).map(([qName, qStats]) => ({
+                question: qName,
+                correct: qStats.correct,
+                total: qStats.total,
+                pct: qStats.total > 0 ? Math.round((qStats.correct / qStats.total) * 100) : 0
+            })).sort((a, b) => b.pct - a.pct);
+
+            return {
+                name,
+                uniqueTotal: d.uniqueQuestions.size,
+                pct: pct,
+                questions
+            };
+        }).sort((a, b) => b.pct - a.pct);
+
+        // Absent / not-submitted students: allocated (examStudentCodes) but NOT in examResults
+        const submittedIds = new Set(examResults.map(r => r.email?.toLowerCase()));
+        const absentStudents = examStudentCodes.filter(c => {
+            const status = (c.status || '').toUpperCase();
+            return status !== 'USED';
+        });
+
+        return (
+            <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button
+                            onClick={closeExam}
+                            style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'white', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'inherit'; }}
+                        ><ArrowLeft size={20} /></button>
+                        <div>
+                            <h1 style={{ fontSize: '2rem', fontWeight: 900, margin: 0, letterSpacing: '-0.02em' }}>{selectedExam}</h1>
+                            <p style={{ color: 'var(--text-secondary)', margin: 0, marginTop: '0.2rem' }}>{examResults.length} submissions · Avg {avgScore}% · {passCount}/{examResults.length} passed</p>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <button onClick={handleExportCSV} style={{ padding: '0.875rem 1.5rem', background: 'white', border: '2px solid var(--border)', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 800, cursor: 'pointer' }}><FileSpreadsheet size={18} color="var(--success)" /> CSV</button>
+                        <button onClick={handleExportPDF} style={{ padding: '0.875rem 1.5rem', background: 'var(--primary)', border: 'none', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 800, color: 'white', cursor: 'pointer' }}><FilePdf size={18} /> PDF Report</button>
+                    </div>
+                </div>
+
+                {/* ── Section A: Student Results Table ── */}
+                <div style={{ background: 'var(--bg-surface)', borderRadius: '28px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--bg-app)' }}>
+                        <Users size={20} color="var(--primary)" />
+                        <span style={{ fontWeight: 900, fontSize: '1.1rem' }}>Student Results</span>
+                        <span style={{ marginLeft: 'auto', fontSize: '0.85rem', color: 'var(--text-tertiary)', fontWeight: 700 }}>{examResults.length} participants</span>
+                    </div>
+                    {examResults.length === 0 ? (
+                        <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No submissions yet for this exam.</div>
+                    ) : (
+                        <div>
+                            {examResults.map((r) => (
+                                <div key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <div
+                                        style={{ padding: '1.25rem 2rem', display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'background 0.2s' }}
+                                        onClick={() => setExpandedStudentRow(expandedStudentRow === r.id ? null : r.id)}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-app)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.1rem', flexShrink: 0 }}>{r.name[0]}</div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{r.name}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}><Mail size={12} />{r.email}</div>
+                                        </div>
+                                        <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: getScoreColor(r.score) }}>{r.score}%</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Score</div>
+                                        </div>
+                                        <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                            <div style={{ fontWeight: 800 }}>{r.actualScore}/{r.maxScore}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Correct</div>
+                                        </div>
+                                        <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                            <div style={{ fontWeight: 800, color: '#f59e0b' }}>{r.timeTaken}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Time</div>
+                                        </div>
+                                        <button
+                                            onClick={e => { e.stopPropagation(); setSelectedStudent(r); setExpandedCategories({}); }}
+                                            style={{ padding: '0.5rem 1.2rem', borderRadius: '12px', background: 'var(--bg-app)', border: '1.5px solid var(--border)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
+                                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                                        ><Eye size={16} /> View Report</button>
+                                        <div style={{ transform: expandedStudentRow === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}><ChevronDown size={18} color="var(--text-tertiary)" /></div>
+                                    </div>
+
+                                    {/* Inline category breakdown */}
+                                    {expandedStudentRow === r.id && (
+                                        <div style={{ padding: '1rem 2rem 1.5rem 4rem', background: 'var(--bg-app)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                            {r.categories.map(c => (
+                                                <div key={c.name} style={{ flex: '1', minWidth: '180px', background: 'white', borderRadius: '16px', padding: '1rem 1.25rem', border: '1px solid var(--border)' }}>
+                                                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{c.name}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                        <div style={{ flex: 1, height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                            <div style={{ width: `${c.score}%`, height: '100%', background: c.color, borderRadius: '4px' }} />
+                                                        </div>
+                                                        <span style={{ fontWeight: 900, color: c.color, minWidth: '38px', textAlign: 'right' }}>{c.score}%</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.3rem' }}>{c.correct}/{c.total} correct</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Section B: Category Performance Breakdown ── */}
+                <div style={{ background: 'var(--bg-surface)', borderRadius: '28px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-app)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <BarChart2 size={20} color="var(--primary)" />
+                            <span style={{ fontWeight: 900, fontSize: '1.1rem' }}>Category Performance Breakdown</span>
+                        </div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', fontWeight: 700 }}>{examCategories.length} categories analyzed</span>
+                    </div>
+
+                    <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {examCategories.length === 0 ? (
+                            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)', background: 'var(--bg-app)', borderRadius: '20px' }}>No category data available.</div>
+                        ) : examCategories.map(c => {
+                            const isStrength = c.pct >= 75;
+                            const isWeakness = c.pct < 50;
+
+                            return (
+                                <div key={c.name} style={{
+                                    background: 'white', borderRadius: '24px', border: expandedCategoryBreakdown === c.name ? '2px solid var(--primary)' : '1.5px solid var(--border)',
+                                    overflow: 'hidden', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: expandedCategoryBreakdown === c.name ? '0 12px 30px rgba(99,102,241,0.08)' : 'none'
+                                }}>
+                                    {/* Category Row */}
+                                    <div
+                                        onClick={() => setExpandedCategoryBreakdown(expandedCategoryBreakdown === c.name ? null : c.name)}
+                                        style={{ padding: '1.5rem 2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2rem', background: expandedCategoryBreakdown === c.name ? 'rgba(99,102,241,0.02)' : 'white' }}
+                                    >
+                                        <div style={{ flex: '1', minWidth: '200px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.4rem' }}>
+                                                <div style={{ fontWeight: 900, color: 'var(--text-primary)', fontSize: '1.1rem' }}>{c.name}</div>
+                                                {isStrength && <span style={{ padding: '2px 10px', background: 'rgba(16,185,129,0.1)', color: '#10b981', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase' }}>Strength</span>}
+                                                {isWeakness && <span style={{ padding: '2px 10px', background: 'rgba(239,68,68,0.1)', color: 'var(--error)', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase' }}>Needs Focus</span>}
+                                            </div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>{c.uniqueTotal} unique questions used</div>
+                                        </div>
+
+                                        <div style={{ flex: '1.5', minWidth: '300px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', fontSize: '0.85rem', fontWeight: 800 }}>
+                                                <span style={{ color: 'var(--text-tertiary)' }}>Category Mastery</span>
+                                                <span style={{ color: getScoreColor(c.pct) }}>{c.pct}%</span>
+                                            </div>
+                                            <div style={{ height: '12px', background: 'rgba(0,0,0,0.05)', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(0,0,0,0.02)' }}>
+                                                <div style={{ width: `${c.pct}%`, height: '100%', background: getScoreColor(c.pct), borderRadius: '6px', transition: 'width 1s ease' }} />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', transform: expandedCategoryBreakdown === c.name ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                                            <ChevronDown size={22} color="var(--text-tertiary)" />
+                                        </div>
+                                    </div>
+
+                                    {/* Question Breakdown Details */}
+                                    {expandedCategoryBreakdown === c.name && (
+                                        <div style={{ padding: '0 2rem 2rem 2rem', background: 'white', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            <div style={{ height: '1px', background: 'var(--border)', marginBottom: '1rem', opacity: 0.6 }} />
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Question-Level Performance</div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1rem' }}>
+                                                {c.questions.map((q, idx) => (
+                                                    <div key={idx} style={{ padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)', background: 'var(--bg-app)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.5, flex: 1 }}>{q.question}</div>
+                                                        <div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                                                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-tertiary)' }}>{q.correct} / {q.total} correct</span>
+                                                                <span style={{ fontSize: '0.9rem', fontWeight: 900, color: getScoreColor(q.pct) }}>{q.pct}%</span>
+                                                            </div>
+                                                            <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${q.pct}%`, height: '100%', background: getScoreColor(q.pct), borderRadius: '3px' }} />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* ── Section C: Absent / Pending Students ── */}
+                <div style={{ background: 'var(--bg-surface)', borderRadius: '28px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-app)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <UserX size={20} color="var(--error)" />
+                        <span style={{ fontWeight: 900, fontSize: '1.1rem' }}>Absent / Not Submitted Students</span>
+                        <span style={{ marginLeft: 'auto', background: 'rgba(239,68,68,0.1)', color: 'var(--error)', padding: '2px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800 }}>
+                            {loadingCodes ? '...' : absentStudents.length}
+                        </span>
+                    </div>
+                    {loadingCodes ? (
+                        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>Loading allocated students...</div>
+                    ) : absentStudents.length === 0 ? (
+                        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                            {examStudentCodes.length === 0 ? 'No student allocation data found for this exam.' : '✅ All allocated students have submitted.'}
+                        </div>
+                    ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ background: 'var(--bg-app)', fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                        <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontWeight: 800 }}>Student Name</th>
+                                        <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontWeight: 800 }}>Email</th>
+                                        <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontWeight: 800 }}>Exam Date</th>
+                                        <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontWeight: 800 }}>Code Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {absentStudents.map((c, i) => (
+                                        <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                                            <td style={{ padding: '1rem 1.5rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(239,68,68,0.1)', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, flexShrink: 0 }}>{(c.studentName || '?')[0]}</div>
+                                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{c.studentName || 'Unknown'}</span>
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{c.studentEmail || '—'}</td>
+                                            <td style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{c.examDate || '—'}</td>
+                                            <td style={{ padding: '1rem 1.5rem' }}>
+                                                <span style={{
+                                                    padding: '3px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800,
+                                                    background: c.status === 'STARTED' ? 'rgba(245,158,11,0.1)' : c.status === 'EXPIRED' ? 'rgba(239,68,68,0.1)' : 'rgba(99,102,241,0.1)',
+                                                    color: c.status === 'STARTED' ? '#f59e0b' : c.status === 'EXPIRED' ? 'var(--error)' : 'var(--primary)'
+                                                }}>{c.status || 'PENDING'}</span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                {/* Report Modal stays mounted on top */}
+                {selectedStudent && createPortal(
+                    <div onClick={closeModal} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '2rem', backdropFilter: 'blur(16px)', animation: isClosing ? 'fadeOut 0.3s ease-in forwards' : 'fadeIn 0.3s ease-out forwards' }}>
+                        <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-surface)', borderRadius: '40px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', animation: isClosing ? 'modalSlideDown 0.3s cubic-bezier(0.4,0,0.2,1) forwards' : 'modalSlideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards', width: '100%', maxWidth: '1200px', maxHeight: '94vh', overflow: 'hidden' }}>
+                            <div style={{ padding: '2rem 3rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-app)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1.75rem' }}>
+                                    <div style={{ width: '70px', height: '70px', borderRadius: '24px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 950 }}>{selectedStudent.name[0]}</div>
+                                    <div>
+                                        <h2 style={{ fontSize: '2.25rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>{selectedStudent.name}</h2>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginTop: '0.4rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Mail size={18} /> {selectedStudent.email}</p>
+                                    </div>
+                                </div>
+                                <button onClick={closeModal} style={{ background: 'white', border: '2px solid var(--border)', width: '48px', height: '48px', borderRadius: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, transition: 'all 0.3s', color: 'var(--text-tertiary)' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--error)'; e.currentTarget.style.color = 'var(--error)'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-tertiary)'; }}>✕</button>
+                            </div>
+                            <div style={{ padding: '2.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                                    <div style={{ background: 'white', padding: '1.25rem 1.5rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Success Rate</div><div style={{ fontSize: '2rem', fontWeight: 1000, color: getScoreColor(selectedStudent.score) }}>{selectedStudent.score}%</div></div>
+                                    <div style={{ background: 'white', padding: '1.25rem 1.5rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Raw Score</div><div style={{ fontSize: '2rem', fontWeight: 1000, color: 'var(--text-primary)' }}>{selectedStudent.actualScore}/{selectedStudent.maxScore}</div></div>
+                                    <div style={{ background: 'white', padding: '1.25rem 1.5rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Total Duration</div><div style={{ fontSize: '2rem', fontWeight: 1000, color: '#f59e0b' }}>{selectedStudent.timeTaken}</div></div>
+                                </div>
+                                <div style={{ padding: '2rem 2.5rem', background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)', borderRadius: '32px', border: '1.5px solid var(--border)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2rem', flexWrap: 'nowrap' }}>
+                                        <div style={{ flex: '1', minWidth: '200px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}><div style={{ width: '40px', height: '40px', background: 'var(--primary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Trophy size={20} color="white" /></div><h3 style={{ fontSize: '1.4rem', fontWeight: 1000, color: 'var(--text-primary)', margin: 0 }}>Achievement Analysis</h3></div>
+                                            <p style={{ color: 'var(--text-tertiary)', fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>Candidate's mastery across all assessment categories.</p>
+                                        </div>
+                                        <div style={{ position: 'relative', width: '190px', height: '190px', flexShrink: 0 }}>
+                                            <svg viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                                                <circle cx="50" cy="50" r="42" fill="transparent" stroke="rgba(0,0,0,0.06)" strokeWidth="10" />
+                                                {(() => { const circum = 2 * Math.PI * 42; return <circle cx="50" cy="50" r="42" fill="transparent" stroke="var(--success)" strokeWidth="10" strokeDasharray={`${(selectedStudent.actualScore / selectedStudent.maxScore) * circum} ${circum}`} strokeLinecap="round" style={{ transition: 'all 1.5s cubic-bezier(0.16,1,0.3,1)' }} />; })()}
+                                            </svg>
+                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: '2.5rem', fontWeight: 1000, color: 'var(--text-primary)', lineHeight: 1 }}>{selectedStudent.score}%</div><div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '0.2rem' }}>Accuracy</div></div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: '220px' }}>
+                                            <div style={{ padding: '1.25rem 1.5rem', background: 'white', borderRadius: '20px', border: '1.2px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem' }}><div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#ecfdf5', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CheckCircle2 size={24} /></div><div><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Correct</div><div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)' }}>{selectedStudent.actualScore} Items</div></div></div>
+                                            <div style={{ padding: '1.25rem 1.5rem', background: 'white', borderRadius: '20px', border: '1.2px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem' }}><div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#fef2f2', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><XCircle size={24} /></div><div><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Incorrect</div><div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)' }}>{selectedStudent.maxScore - selectedStudent.actualScore} Items</div></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}><div style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '3px' }} />Detailed Performance Analysis</div>
+                                    {selectedStudent.categories.map(cat => {
+                                        const catAnswers = selectedStudent.answers.filter(a => a.category === cat.name);
+                                        const isExpanded = expandedCategories[cat.name];
+                                        return (
+                                            <div key={cat.name} style={{ background: 'white', borderRadius: '32px', border: `2px solid ${isExpanded ? 'var(--primary)' : 'var(--border)'}`, overflow: 'hidden', transition: 'all 0.4s', boxShadow: isExpanded ? '0 12px 30px rgba(0,0,0,0.08)' : 'none' }}>
+                                                <div onClick={() => toggleCategory(cat.name)} style={{ padding: '2rem 2.5rem', background: isExpanded ? 'var(--bg-app)' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem', flex: 1 }}>
+                                                        <div style={{ position: 'relative', width: '60px', height: '60px', flexShrink: 0 }}>
+                                                            <svg viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}><circle cx="50" cy="50" r="40" fill="transparent" stroke="rgba(0,0,0,0.05)" strokeWidth="12" /><circle cx="50" cy="50" r="40" fill="transparent" stroke={cat.color} strokeWidth="12" strokeDasharray={`${(cat.score / 100) * 2 * Math.PI * 40} ${2 * Math.PI * 40}`} strokeLinecap="round" /></svg>
+                                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{cat.score}%</div>
+                                                        </div>
+                                                        <div style={{ minWidth: '160px' }}><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Category</div><div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)' }}>{cat.name}</div></div>
+                                                        <div style={{ flex: 1, maxWidth: '500px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 800, marginBottom: '0.6rem' }}><span>Accuracy: {cat.score}%</span><span style={{ color: 'var(--text-tertiary)' }}>{cat.correct}/{cat.total} Correct</span></div>
+                                                            <div style={{ height: '10px', background: 'rgba(0,0,0,0.05)', borderRadius: '5px', overflow: 'hidden' }}><div style={{ width: `${cat.score}%`, height: '100%', background: cat.color, transition: 'width 1.5s cubic-bezier(0.34,1.56,0.64,1)' }} /></div>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ marginLeft: '2rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                                        <div style={{ textAlign: 'right' }}><div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-secondary)' }}>{catAnswers.length}</div><div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Items</div></div>
+                                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-app)', transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.4s' }}><ChevronDown size={20} color="var(--text-tertiary)" /></div>
+                                                    </div>
+                                                </div>
+                                                {isExpanded && (
+                                                    <div style={{ padding: '2.5rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.8)', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+                                                        {catAnswers.map((q, idx) => (
+                                                            <div key={idx} style={{ padding: '2rem', background: 'white', borderRadius: '24px', border: '1px solid var(--border)' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.75rem' }}>
+                                                                    <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', lineHeight: 1.5, flex: 1, paddingRight: '2rem' }}><span style={{ color: 'var(--primary)', fontStyle: 'italic', marginRight: '0.5rem' }}>Q{q.originalIndex}:</span>{q.question}</div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 1rem', background: 'var(--bg-app)', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}><Clock size={16} />{q.timeSpent}</div>
+                                                                </div>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: q.isCorrect ? '1fr' : '1fr 1fr', gap: '1.25rem' }}>
+                                                                    {q.isCorrect ? (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.75rem', background: '#f0fdf4', color: '#16a34a', borderRadius: '18px', border: '2px solid #bbf7d0' }}><CheckCircle2 size={24} /><div><div style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.2rem', opacity: 0.8 }}>Final Answer</div><div style={{ fontWeight: 900, fontSize: '1.1rem' }}>{q.studentAnswer}</div></div><div style={{ marginLeft: 'auto', background: '#22c55e', color: 'white', padding: '0.3rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 900 }}>CORRECT</div></div>
+                                                                    ) : (<><div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.75rem', background: '#fef2f2', color: '#dc2626', borderRadius: '18px', border: '2px solid #fecaca' }}><XCircle size={24} /><div><div style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.2rem', opacity: 0.8 }}>Selected Answer</div><div style={{ fontWeight: 900, fontSize: '1.1rem' }}>{q.studentAnswer || 'NO RESPONSE'}</div></div></div><div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.75rem', background: '#f0fdf4', color: '#16a34a', borderRadius: '18px', border: '2px dashed #22c55e' }}><CheckCircle2 size={24} /><div><div style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.2rem', opacity: 0.8 }}>Correct Answer</div><div style={{ fontWeight: 900, fontSize: '1.1rem' }}>{q.correctAnswer}</div></div></div></>)}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div style={{ padding: '2rem 3.5rem', borderTop: '1px solid var(--border)', background: 'var(--bg-app)', display: 'flex', justifyContent: 'flex-end', gap: '1.25rem' }}>
+                                <button onClick={handleExportCSV} style={{ padding: '1rem 2rem', borderRadius: '18px', background: 'white', border: '2px solid var(--border)', fontWeight: 800, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}><FileSpreadsheet size={20} color="var(--success)" /> CSV</button>
+                                <button onClick={handleExportPDF} style={{ padding: '1rem 2rem', borderRadius: '18px', background: 'var(--primary)', border: 'none', fontWeight: 800, cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem' }}><FilePdf size={20} /> PDF Report</button>
+                                <button onClick={closeModal} style={{ padding: '1rem 3rem', borderRadius: '18px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 800, cursor: 'pointer' }}>Exit Assessment</button>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+
+                <style>{`
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+                    @keyframes modalSlideUp { from { transform: translateY(40px) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+                    @keyframes modalSlideDown { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(40px) scale(0.96); opacity: 0; } }
+                    :root { --primary-rgb: 99, 102, 241; }
+                `}</style>
+            </div>
+        );
+    }
+
+    // ── Level 1: Exam Cards Grid ──────────────────────────────────────────────
     return (
         <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-0.02em' }}>Result Analytics</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', margin: 0 }}>Comprehensive performance tracking and granular reporting.</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', margin: 0 }}>Click an exam to view detailed results and category breakdowns.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                        onClick={handleExportCSV}
-                        style={{
-                            padding: '1rem 2rem', background: 'white', border: '2px solid var(--border)', borderRadius: '18px',
-                            display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: 'var(--shadow-sm)'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                    >
-                        <FileSpreadsheet size={20} color="var(--success)" /> CSV
-                    </button>
-                    <button
-                        onClick={handleExportPDF}
-                        style={{
-                            padding: '1rem 2rem', background: 'var(--primary)', border: 'none', borderRadius: '18px',
-                            display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, color: 'white', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: '0 10px 20px rgba(99, 102, 241, 0.2)'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 30px rgba(99, 102, 241, 0.3)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 20px rgba(99, 102, 241, 0.2)'; }}
-                    >
-                        <FilePdf size={20} color="white" /> PDF Report
-                    </button>
+                    <button onClick={handleExportCSV} style={{ padding: '1rem 2rem', background: 'white', border: '2px solid var(--border)', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, cursor: 'pointer' }}><FileSpreadsheet size={20} color="var(--success)" /> CSV</button>
+                    <button onClick={handleExportPDF} style={{ padding: '1rem 2rem', background: 'var(--primary)', border: 'none', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, color: 'white', cursor: 'pointer' }}><FilePdf size={20} /> PDF Report</button>
                 </div>
             </div>
 
-            <div style={{ background: 'var(--bg-surface)', borderRadius: '32px', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)', position: 'relative', overflow: 'visible' }}>
-                <div style={{ padding: '1.75rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(8px)', display: 'flex', gap: '1rem', flexWrap: 'wrap', position: 'relative', zIndex: 10, overflow: 'visible' }}>
-                    {/* Student Search */}
-                    <div style={{ flex: '2', minWidth: '300px', display: 'flex', alignItems: 'center', gap: '1rem', background: 'white', border: '2px solid var(--border)', padding: '0.875rem 1.5rem', borderRadius: '20px', transition: 'all 0.3s' }} onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--primary)'} onBlurCapture={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-                        <Search size={20} color="var(--text-tertiary)" />
-                        <input
-                            type="text"
-                            placeholder="Find student results..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            style={{ border: 'none', outline: 'none', width: '100%', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}
-                        />
+            {/* Stats Bar */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                <div style={{ background: 'var(--bg-surface)', borderRadius: '24px', border: '1px solid var(--border)', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={24} color="white" /></div>
+                    <div><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Total Exams</div><div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{Object.keys(examGroups).length}</div></div>
+                </div>
+                <div style={{ background: 'var(--bg-surface)', borderRadius: '24px', border: '1px solid var(--border)', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Users size={24} color="white" /></div>
+                    <div><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Total Submissions</div><div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{resultsData.length}</div></div>
+                </div>
+                <div style={{ background: 'var(--bg-surface)', borderRadius: '24px', border: '1px solid var(--border)', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={24} color="white" /></div>
+                    <div><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Avg Pass Rate</div><div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{stats.passRate}%</div></div>
+                </div>
+            </div>
+
+            {/* Exam Cards Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+                {Object.keys(examGroups).length === 0 ? (
+                    <div style={{ gridColumn: '1/-1', padding: '6rem', textAlign: 'center', background: 'var(--bg-surface)', borderRadius: '28px', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+                        <h3 style={{ fontWeight: 800, color: 'var(--text-primary)' }}>No results yet</h3>
+                        <p style={{ color: 'var(--text-tertiary)' }}>Student submissions will appear here once exams are completed.</p>
                     </div>
-                    {/* Exam Dropdown */}
-                    <div style={{ flex: '1.5', minWidth: '220px', display: 'flex', alignItems: 'center', gap: '1rem', background: 'white', border: '2px solid var(--border)', padding: '0.875rem 1.5rem', borderRadius: '20px', transition: 'all 0.3s', position: 'relative' }} onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--primary)'} onBlurCapture={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-                        <BookOpen size={20} color="var(--text-tertiary)" />
-                        <select
-                            value={examFilter}
-                            onChange={e => setExamFilter(e.target.value)}
-                            style={{ border: 'none', outline: 'none', width: '100%', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', appearance: 'none', background: 'transparent', cursor: 'pointer' }}
-                        >
-                            <option value="">All Examinations</option>
-                            {uniqueExams.map(exam => (
-                                <option key={exam} value={exam}>{exam}</option>
-                            ))}
-                        </select>
-                        <ChevronDown size={16} color="var(--text-tertiary)" style={{ position: 'absolute', right: '1.5rem', pointerEvents: 'none' }} />
-                    </div>
-                    {/* Custom Calendar Filter */}
-                    <div style={{ flex: '1', minWidth: '240px', position: 'relative' }} ref={calendarRef}>
+                ) : Object.entries(examGroups).map(([examName, results]) => {
+                    const avg = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length);
+                    const passed = results.filter(r => r.score >= 50).length;
+                    const dates = [...new Set(results.map(r => r.date))].sort();
+                    return (
                         <div
-                            onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '1rem', background: 'white',
-                                border: '2px solid var(--border)', padding: '0.875rem 1.5rem', borderRadius: '20px',
-                                transition: 'all 0.3s', cursor: 'pointer',
-                                borderColor: isCalendarOpen || filterDate ? 'var(--primary)' : 'var(--border)'
-                            }}
+                            key={examName}
+                            onClick={() => openExam(examName)}
+                            style={{ background: 'var(--bg-surface)', borderRadius: '28px', border: '1.5px solid var(--border)', padding: '2rem', cursor: 'pointer', transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)', display: 'flex', flexDirection: 'column' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(99,102,241,0.12)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                         >
-                            <Calendar size={20} color={filterDate ? "var(--primary)" : "var(--text-tertiary)"} />
-                            <div style={{ fontSize: '1rem', fontWeight: 600, color: filterDate ? 'var(--text-primary)' : 'var(--text-tertiary)', flex: 1 }}>
-                                {filterDate ? new Date(filterDate).toLocaleDateString('en-GB') : "Select Date"}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={24} color="white" /></div>
+                                <div style={{ background: `${getScoreColor(avg)}15`, color: getScoreColor(avg), padding: '4px 14px', borderRadius: '10px', fontWeight: 900, fontSize: '1rem' }}>{avg}% avg</div>
                             </div>
-                            {filterDate && (
-                                <XCircle
-                                    size={18}
-                                    color="var(--text-tertiary)"
-                                    onClick={(e) => { e.stopPropagation(); setFilterDate(''); }}
-                                    style={{ cursor: 'pointer' }}
-                                />
-                            )}
+                            <h3 style={{ fontWeight: 900, fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '0.4rem', lineHeight: 1.3 }}>{examName}</h3>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '1.5rem', flex: 1 }}>{dates.length === 1 ? dates[0] : `${dates[0]} – ${dates[dates.length - 1]}`}</div>
+
+                            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                                <div style={{ flex: 1, background: 'var(--bg-app)', borderRadius: '14px', padding: '0.875rem', textAlign: 'center' }}>
+                                    <div style={{ fontWeight: 900, fontSize: '1.25rem', color: 'var(--text-primary)' }}>{results.length}</div>
+                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Submitted</div>
+                                </div>
+                                <div style={{ flex: 1, background: 'rgba(16,185,129,0.08)', borderRadius: '14px', padding: '0.875rem', textAlign: 'center' }}>
+                                    <div style={{ fontWeight: 900, fontSize: '1.25rem', color: '#10b981' }}>{passed}</div>
+                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Passed</div>
+                                </div>
+                                <div style={{ flex: 1, background: 'rgba(239,68,68,0.06)', borderRadius: '14px', padding: '0.875rem', textAlign: 'center' }}>
+                                    <div style={{ fontWeight: 900, fontSize: '1.25rem', color: 'var(--error)' }}>{results.length - passed}</div>
+                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Failed</div>
+                                </div>
+                            </div>
+
+                            <button
+                                style={{
+                                    width: '100%', padding: '1rem', borderRadius: '16px', background: 'var(--bg-app)', border: '1.5px solid var(--border)',
+                                    color: 'var(--primary)', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.3s',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                            >
+                                View Results Breakdown <ArrowLeft size={18} style={{ transform: 'rotate(180deg)' }} />
+                            </button>
                         </div>
-                        {isCalendarOpen && <CustomCalendar />}
-                    </div>
-                </div>
-
-                {/* Table part remains overflow hidden to keep corner curves */}
-
-                <div style={{ overflow: 'hidden', borderRadius: '0 0 32px 32px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                        <thead>
-                            <tr style={{ background: 'var(--bg-app)', fontSize: '0.875rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                <th style={{ padding: '1.5rem 2rem', fontWeight: 800, textAlign: 'left' }}>Candidate</th>
-                                <th style={{ padding: '1.5rem 2rem', fontWeight: 800, textAlign: 'left' }}>Examination Details</th>
-                                <th style={{ padding: '1.5rem 2rem', fontWeight: 800, textAlign: 'center' }}>Performance</th>
-                                <th style={{ padding: '1.5rem 2rem', fontWeight: 800, textAlign: 'right' }}>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredResults.map((result) => (
-                                <tr key={result.id} style={{ transition: 'all 0.2s', borderBottom: '1px solid var(--border)' }} className="result-row">
-                                    <td style={{ padding: '1.5rem 2rem' }}>
-                                        <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '1.1rem' }}>{result.name}</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
-                                            <BookOpen size={14} /> ID: {result.email}
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '1.5rem 2rem' }}>
-                                        <div style={{ fontWeight: 700, color: 'var(--text-secondary)', fontSize: '1rem' }}>{result.testName}</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <Calendar size={14} /> {result.participatedDate}
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '1.5rem 2rem', textAlign: 'center' }}>
-                                        <div style={{
-                                            display: 'inline-flex', padding: '0.5rem 1rem', borderRadius: '12px', fontSize: '1rem', fontWeight: 900,
-                                            background: `${getScoreColor(result.score)}11`,
-                                            color: getScoreColor(result.score),
-                                            border: `1.5px solid ${getScoreColor(result.score)}33`
-                                        }}>
-                                            {result.score}%
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '1.5rem 2rem', textAlign: 'right' }}>
-                                        <button
-                                            onClick={() => { setSelectedStudent(result); setExpandedCategories({}); }}
-                                            style={{
-                                                background: 'var(--bg-app)', border: '1.5px solid var(--border)', padding: '0.6rem 1.4rem', borderRadius: '14px',
-                                                color: 'var(--primary)', fontWeight: 800, fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', transition: 'all 0.3s'
-                                            }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                                        >
-                                            <Eye size={18} /> View Report
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                    );
+                })}
             </div>
-
-            {/* Detailed Result Modal Overlay */}
-            {selectedStudent && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '2rem', backdropFilter: 'blur(16px)' }}>
-                    <div style={{ background: 'var(--bg-surface)', borderRadius: '40px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', animation: 'modalSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)', width: '100%', maxWidth: '1200px', maxHeight: '94vh', overflow: 'hidden' }}>
-
-                        {/* Modal Header */}
-                        <div style={{ padding: '2rem 3rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-app)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.75rem' }}>
-                                <div style={{ width: '70px', height: '70px', borderRadius: '24px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 950, boxShadow: '0 12px 24px rgba(var(--primary-rgb), 0.3)' }}>
-                                    {selectedStudent.name[0]}
-                                </div>
-                                <div>
-                                    <h2 style={{ fontSize: '2.25rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>{selectedStudent.name}</h2>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginTop: '0.4rem', fontWeight: 500 }}>{selectedStudent.testName} • Examination Report</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setSelectedStudent(null)}
-                                style={{ background: 'white', border: '2px solid var(--border)', width: '48px', height: '48px', borderRadius: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, transition: 'all 0.3s', color: 'var(--text-tertiary)' }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--error)'; e.currentTarget.style.color = 'var(--error)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-tertiary)'; }}
-                            >✕</button>
-                        </div>
-
-                        <div style={{ padding: '3rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-
-                            {/* Summary Performance Benchmarks */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-                                <div style={{ background: 'white', padding: '1.5rem 2rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                                    <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>Success Rate</div>
-                                    <div style={{ fontSize: '2.25rem', fontWeight: 1000, color: getScoreColor(selectedStudent.score) }}>{selectedStudent.score}%</div>
-                                </div>
-                                <div style={{ background: 'white', padding: '1.5rem 2rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                                    <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>Raw Score</div>
-                                    <div style={{ fontSize: '2.25rem', fontWeight: 1000, color: 'var(--text-primary)' }}>{selectedStudent.actualScore}/{selectedStudent.maxScore}</div>
-                                </div>
-                                <div style={{ background: 'white', padding: '1.5rem 2rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                                    <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>Total Duration</div>
-                                    <div style={{ fontSize: '2.25rem', fontWeight: 1000, color: '#f59e0b' }}>{selectedStudent.timeTaken}</div>
-                                </div>
-                            </div>
-
-                            {/* Section breakdown with expandable category cards */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                                    <div style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '3px' }} />
-                                    Detailed Performance Analysis
-                                </div>
-
-                                {selectedStudent.categories.map(cat => {
-                                    const catAnswers = selectedStudent.answers.filter(a => a.category === cat.name);
-                                    const isExpanded = expandedCategories[cat.name];
-
-                                    return (
-                                        <div key={cat.name} style={{ background: 'white', borderRadius: '32px', border: `2px solid ${isExpanded ? 'var(--primary)' : 'var(--border)'}`, overflow: 'hidden', transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)', boxShadow: isExpanded ? '0 12px 30px rgba(0,0,0,0.08)' : 'none' }}>
-                                            {/* Accordion Header */}
-                                            <div
-                                                onClick={() => toggleCategory(cat.name)}
-                                                style={{ padding: '2rem 2.5rem', background: isExpanded ? 'var(--bg-app)' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem', flex: 1 }}>
-                                                    <div style={{ minWidth: '180px' }}>
-                                                        <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Category</div>
-                                                        <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--text-primary)' }}>{cat.name}</div>
-                                                    </div>
-                                                    <div style={{ flex: 1, maxWidth: '500px' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 800, marginBottom: '0.6rem' }}>
-                                                            <span>Accuracy: {cat.score}%</span>
-                                                            <span style={{ color: 'var(--text-tertiary)' }}>{cat.correct}/{cat.total} Correct</span>
-                                                        </div>
-                                                        <div style={{ height: '10px', background: 'rgba(0,0,0,0.05)', borderRadius: '5px', overflow: 'hidden' }}>
-                                                            <div style={{ width: `${cat.score}%`, height: '100%', background: cat.color, transition: 'width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div style={{ marginLeft: '2rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                                                    <div style={{ textAlign: 'right' }}>
-                                                        <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-secondary)' }}>{catAnswers.length}</div>
-                                                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Items</div>
-                                                    </div>
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-app)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.4s' }}>
-                                                        <ChevronDown size={20} color="var(--text-tertiary)" />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Accordion Questions */}
-                                            {isExpanded && (
-                                                <div style={{ padding: '2.5rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.8)', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-                                                    {catAnswers.map((q, idx) => (
-                                                        <div key={idx} style={{ padding: '2rem', background: 'white', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.75rem' }}>
-                                                                <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', lineHeight: 1.5, flex: 1, paddingRight: '2rem' }}>
-                                                                    <span style={{ color: 'var(--primary)', fontStyle: 'italic', marginRight: '0.5rem' }}>Q{q.originalIndex}:</span> {q.question}
-                                                                </div>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 1rem', background: 'var(--bg-app)', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                                                                    <Clock size={16} /> {q.timeSpent}
-                                                                </div>
-                                                            </div>
-
-                                                            <div style={{ display: 'grid', gridTemplateColumns: q.isCorrect ? '1fr' : '1fr 1fr', gap: '1.25rem' }}>
-                                                                {q.isCorrect ? (
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.75rem', background: '#f0fdf4', color: '#16a34a', borderRadius: '18px', border: '2px solid #bbf7d0' }}>
-                                                                        <CheckCircle2 size={24} />
-                                                                        <div>
-                                                                            <div style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.2rem', opacity: 0.8 }}>Final Answer</div>
-                                                                            <div style={{ fontWeight: 900, fontSize: '1.1rem' }}>{q.studentAnswer}</div>
-                                                                        </div>
-                                                                        <div style={{ marginLeft: 'auto', background: '#22c55e', color: 'white', padding: '0.3rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 900 }}>CORRECT</div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.75rem', background: '#fef2f2', color: '#dc2626', borderRadius: '18px', border: '2px solid #fecaca' }}>
-                                                                            <XCircle size={24} />
-                                                                            <div>
-                                                                                <div style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.2rem', opacity: 0.8 }}>Selected Answer</div>
-                                                                                <div style={{ fontWeight: 900, fontSize: '1.1rem' }}>{q.studentAnswer || 'NO RESPONSE'}</div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.75rem', background: '#f0fdf4', color: '#16a34a', borderRadius: '18px', border: '2px dashed #22c55e' }}>
-                                                                            <CheckCircle2 size={24} />
-                                                                            <div>
-                                                                                <div style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.2rem', opacity: 0.8 }}>Correct Answer</div>
-                                                                                <div style={{ fontWeight: 900, fontSize: '1.1rem' }}>{q.correctAnswer}</div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Overall Hollistic Category Chart */}
-                            <div style={{ marginTop: '2rem', padding: '3.5rem', background: 'linear-gradient(135deg, var(--bg-app), #f8fafc)', borderRadius: '40px', border: '1.5px solid var(--border)', position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'relative', zIndex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '3rem' }}>
-                                        <div style={{ width: '50px', height: '50px', background: 'white', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                                            <PieChart size={24} color="var(--primary)" />
-                                        </div>
-                                        <div>
-                                            <h3 style={{ fontSize: '1.75rem', fontWeight: 1000, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Holistic Performance Chart</h3>
-                                            <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-tertiary)', fontWeight: 600 }}>Statistical distribution across all test domains</p>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-                                        {selectedStudent.categories.map(cat => (
-                                            <div key={cat.name}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'flex-end' }}>
-                                                    <span style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{cat.name}</span>
-                                                    <div style={{ textAlign: 'right' }}>
-                                                        <span style={{ fontWeight: 1000, color: cat.color, fontSize: '1.5rem' }}>{cat.score}%</span>
-                                                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-tertiary)', marginLeft: '0.5rem' }}>ACCURACY</span>
-                                                    </div>
-                                                </div>
-                                                <div style={{
-                                                    height: '18px',
-                                                    background: 'white',
-                                                    borderRadius: '9px',
-                                                    overflow: 'hidden',
-                                                    border: '2px solid rgba(0,0,0,0.04)',
-                                                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
-                                                }}>
-                                                    <div style={{
-                                                        width: `${cat.score}%`,
-                                                        height: '100%',
-                                                        background: cat.color,
-                                                        boxShadow: `4px 0 12px ${cat.color}66`,
-                                                        transition: 'width 2s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                                                    }} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div style={{ position: 'absolute', bottom: '-40px', right: '-40px', width: '200px', height: '200px', background: 'var(--primary)', opacity: 0.03, borderRadius: '50%' }} />
-                            </div>
-                        </div>
-
-                        {/* Modal Footer Controls */}
-                        <div style={{ padding: '2rem 3.5rem', borderTop: '1px solid var(--border)', background: 'var(--bg-app)', display: 'flex', justifyContent: 'flex-end', gap: '1.25rem' }}>
-                            <button
-                                onClick={handleExportCSV}
-                                style={{ padding: '1rem 2rem', borderRadius: '18px', background: 'white', border: '2px solid var(--border)', fontWeight: 800, cursor: 'pointer', color: 'var(--text-primary)', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
-                                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                            >
-                                <FileSpreadsheet size={20} color="var(--success)" /> CSV
-                            </button>
-                            <button
-                                onClick={handleExportPDF}
-                                style={{ padding: '1rem 2rem', borderRadius: '18px', background: 'var(--primary)', border: 'none', fontWeight: 800, cursor: 'pointer', color: 'white', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
-                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                            >
-                                <FilePdf size={20} color="white" /> PDF Report
-                            </button>
-                            <button
-                                onClick={() => setSelectedStudent(null)}
-                                style={{ padding: '1rem 3rem', borderRadius: '18px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 800, cursor: 'pointer', boxShadow: '0 12px 24px rgba(var(--primary-rgb), 0.3)', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
-                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)'}
-                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0) scale(1)'}
-                            >Exit Assessment</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <style>{`
-                @keyframes fadeInUp {
-                    from { transform: translateY(10px); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
-                }
-                @keyframes modalSlideUp {
-                    from { transform: translateY(40px) scale(0.96); opacity: 0; }
-                    to { transform: translateY(0) scale(1); opacity: 1; }
-                }
-                .result-row:hover {
-                    background: rgba(99, 102, 241, 0.03);
-                    transform: translateX(4px);
-                }
-                :root {
-                    --primary-rgb: 99, 102, 241;
-                }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+                @keyframes modalSlideUp { from { transform: translateY(40px) scale(0.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+                @keyframes modalSlideDown { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(40px) scale(0.96); opacity: 0; } }
+                :root { --primary-rgb: 99, 102, 241; }
             `}</style>
         </div>
     );

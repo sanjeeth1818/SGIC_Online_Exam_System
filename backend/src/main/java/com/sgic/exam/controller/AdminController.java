@@ -18,6 +18,9 @@ public class AdminController {
     @Autowired
     private AdminRepository adminRepository;
 
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     @GetMapping("/profile/{username}")
     public ResponseEntity<?> getProfile(@PathVariable String username) {
         Optional<Admin> adminOpt = adminRepository.findByUsername(username);
@@ -96,13 +99,25 @@ public class AdminController {
 
         Admin admin = adminOpt.get();
 
-        // Verify current password
-        if (!admin.getPassword().equals(request.getCurrentPassword())) {
+        // Verify current password (handle both hashed and legacy plain text)
+        boolean currentMatch = false;
+        try {
+            if (passwordEncoder.matches(request.getCurrentPassword(), admin.getPassword())) {
+                currentMatch = true;
+            }
+        } catch (Exception e) {
+        }
+
+        if (!currentMatch && admin.getPassword().equals(request.getCurrentPassword())) {
+            currentMatch = true;
+        }
+
+        if (!currentMatch) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Incorrect current password"));
         }
 
-        // Update with new password
-        admin.setPassword(request.getNewPassword());
+        // Update with new hashed password
+        admin.setPassword(passwordEncoder.encode(request.getNewPassword()));
         adminRepository.save(admin);
 
         return ResponseEntity.ok(Map.of("message", "Password changed successfully"));

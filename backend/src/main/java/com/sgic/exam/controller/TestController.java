@@ -216,9 +216,10 @@ public class TestController {
             try {
                 if ("Published".equalsIgnoreCase(savedTest.getStatus())) {
                     notifyScheduledStudents(savedTest);
+                    emailService.sendAdminTestCreationNotification(savedTest);
                 }
             } catch (Exception e) {
-                System.err.println("Non-critical error during student notification: " + e.getMessage());
+                System.err.println("Non-critical error during notifications: " + e.getMessage());
                 e.printStackTrace();
                 // We DON'T return 500 here because the test IS saved.
             }
@@ -260,9 +261,10 @@ public class TestController {
             try {
                 if ("Published".equalsIgnoreCase(savedTest.getStatus())) {
                     notifyScheduledStudents(savedTest);
+                    emailService.sendAdminTestCreationNotification(savedTest);
                 }
             } catch (Exception e) {
-                System.err.println("Non-critical error during student notification: " + e.getMessage());
+                System.err.println("Non-critical error during notification: " + e.getMessage());
                 e.printStackTrace();
             }
 
@@ -299,6 +301,7 @@ public class TestController {
 
             if ("Published".equalsIgnoreCase(newStatus)) {
                 notifyScheduledStudents(savedTest);
+                emailService.sendAdminTestCreationNotification(savedTest);
             }
 
             return ResponseEntity.ok(convertToResponse(savedTest));

@@ -197,18 +197,7 @@ const CreateTest = () => {
 
     useEffect(() => {
         fetchData();
-        // Auto-refresh Manage Tests every 10 seconds
-        const interval = setInterval(() => {
-            // Only refresh if we are in 'manage' view or looking at student codes
-            if (view === 'manage' || showDetailsModal) {
-                fetchData(true); // Silent refresh
-                if (showDetailsModal) {
-                    fetchStudentCodes(showDetailsModal.id, true); // Silent refresh
-                }
-            }
-        }, 10000);
-        return () => clearInterval(interval);
-    }, [view, showDetailsModal]);
+    }, []);
 
     useEffect(() => {
         if (step === 2 && testData.selectionMode === 'manual' && allQuestions.length === 0) {
@@ -229,6 +218,11 @@ const CreateTest = () => {
     useEffect(() => {
         if (showDetailsModal) {
             fetchStudentCodes(showDetailsModal.id);
+            // Silent background refresh every 10s while modal is open
+            const interval = setInterval(() => {
+                fetchStudentCodes(showDetailsModal.id, true);
+            }, 10000);
+            return () => clearInterval(interval);
         } else {
             setStudentCodes([]);
         }

@@ -19,6 +19,7 @@ public class EmailConfig {
     private String smtpServer;
     private String smtpPort;
     private String senderEmail;
+    private String senderName;
     private String username;
     private String password;
 

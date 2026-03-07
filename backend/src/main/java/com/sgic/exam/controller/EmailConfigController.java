@@ -47,6 +47,8 @@ public class EmailConfigController {
         existingConfig.setSmtpPort(emailConfig.getSmtpPort() != null ? emailConfig.getSmtpPort().trim() : null);
         existingConfig
                 .setSenderEmail(emailConfig.getSenderEmail() != null ? emailConfig.getSenderEmail().trim() : null);
+        existingConfig
+                .setSenderName(emailConfig.getSenderName() != null ? emailConfig.getSenderName().trim() : null);
         existingConfig.setUsername(emailConfig.getUsername() != null ? emailConfig.getUsername().trim() : null);
 
         // Only update password if provided
@@ -111,7 +113,11 @@ public class EmailConfigController {
 
                 // Connection successful, now send a small test email
                 MimeMessage message = new MimeMessage(session);
-                message.setFrom(new InternetAddress(testConfig.getSenderEmail()));
+                if (testConfig.getSenderName() != null && !testConfig.getSenderName().isEmpty()) {
+                    message.setFrom(new InternetAddress(testConfig.getSenderEmail(), testConfig.getSenderName()));
+                } else {
+                    message.setFrom(new InternetAddress(testConfig.getSenderEmail()));
+                }
                 message.addRecipient(MimeMessage.RecipientType.TO, new InternetAddress(testConfig.getSenderEmail()));
                 message.setSubject("SGIC Exam System - SMTP Test");
                 message.setText("This is a test email from your SGIC Exam system.\n\n" +

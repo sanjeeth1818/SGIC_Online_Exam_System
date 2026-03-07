@@ -12,6 +12,7 @@ const Settings = () => {
         smtpServer: '',
         smtpPort: '',
         senderEmail: '',
+        senderName: '',
         username: '',
         password: ''
     });
@@ -52,6 +53,7 @@ const Settings = () => {
                         smtpServer: data.smtpServer || '',
                         smtpPort: (data.smtpPort || '').toString(),
                         senderEmail: data.senderEmail || '',
+                        senderName: data.senderName || '',
                         username: data.username || '',
                         password: data.password ? '••••••••••••' : ''
                     });
@@ -494,17 +496,32 @@ const Settings = () => {
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <label style={labelStyle}>Sender Email (From Address)</label>
-                                    <input
-                                        type="email"
-                                        value={emailData.senderEmail}
-                                        onChange={e => setEmailData({ ...emailData, senderEmail: e.target.value })}
-                                        style={inputStyle}
-                                        required
-                                        onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                                        onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                                    />
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                    <div>
+                                        <label style={labelStyle}>Sender Email (From Address)</label>
+                                        <input
+                                            type="email"
+                                            value={emailData.senderEmail}
+                                            onChange={e => setEmailData({ ...emailData, senderEmail: e.target.value })}
+                                            style={inputStyle}
+                                            required
+                                            onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                            onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                            placeholder="sanjeeth@example.com"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={labelStyle}>Display Name (Sender Name)</label>
+                                        <input
+                                            type="text"
+                                            value={emailData.senderName}
+                                            onChange={e => setEmailData({ ...emailData, senderName: e.target.value })}
+                                            style={inputStyle}
+                                            placeholder="e.g. SGIC Academy"
+                                            onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                            onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                        />
+                                    </div>
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                     <div style={{ position: 'relative' }}>

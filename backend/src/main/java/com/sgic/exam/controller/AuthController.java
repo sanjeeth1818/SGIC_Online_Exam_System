@@ -18,6 +18,9 @@ public class AuthController {
     @Autowired
     private AdminRepository adminRepository;
 
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         String username = loginRequest.getUsername();
@@ -31,8 +34,26 @@ public class AuthController {
 
         if (adminOpt.isPresent()) {
             Admin admin = adminOpt.get();
-            // Basic password check without hashing for simplicity
-            if (admin.getPassword().equals(password)) {
+            boolean passwordMatches = false;
+
+            // 1. Try matching with hash
+            try {
+                if (passwordEncoder.matches(password, admin.getPassword())) {
+                    passwordMatches = true;
+                }
+            } catch (Exception e) {
+                // Not a valid hash or encoder error
+            }
+
+            // 2. Migration: Try matching with plain text if hash failed
+            if (!passwordMatches && admin.getPassword().equals(password)) {
+                passwordMatches = true;
+                // Migrate to hash immediately
+                admin.setPassword(passwordEncoder.encode(password));
+                adminRepository.save(admin);
+            }
+
+            if (passwordMatches) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("message", "Login successful");
                 response.put("admin", Map.of(
@@ -40,8 +61,6 @@ public class AuthController {
                         "username", admin.getUsername(),
                         "email", admin.getEmail() != null ? admin.getEmail() : "",
                         "name", admin.getName() != null ? admin.getName() : "Admin"));
-                // You could generate a simple token here, but for this basic implementation we
-                // will just confirm success.
                 response.put("token", "admin-auth-token-mock-" + admin.getId());
                 return ResponseEntity.ok(response);
             }
@@ -49,13 +68,12 @@ public class AuthController {
 
         // Hardcoded fallback for initial setup if table is empty
         if ("admin_user".equals(username) && "admin123".equals(password)) {
-            // Check if admin exists to prevent duplicates on restart
             if (adminOpt.isEmpty()) {
                 try {
                     Admin defaultAdmin = new Admin();
                     defaultAdmin.setUsername("admin_user");
                     defaultAdmin.setEmail("admin@sgic.com");
-                    defaultAdmin.setPassword("admin123");
+                    defaultAdmin.setPassword(passwordEncoder.encode("admin123"));
                     defaultAdmin.setName("System Admin");
                     adminRepository.save(defaultAdmin);
                 } catch (Exception e) {

@@ -1,8 +1,10 @@
 package com.sgic.exam.scheduler;
 
 import com.sgic.exam.model.StudentExamCode;
+import com.sgic.exam.model.Test;
 import com.sgic.exam.repository.StudentExamCodeRepository;
 import com.sgic.exam.repository.StudentRepository;
+import com.sgic.exam.repository.TestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -20,6 +22,9 @@ public class ExamExpiryScheduler {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private TestRepository testRepository;
 
     /**
      * Runs every hour to check for expired exam codes.
@@ -45,10 +50,26 @@ public class ExamExpiryScheduler {
                         code.setStatus("EXPIRED");
                         studentExamCodeRepository.save(code);
 
-                        // Mark student as ABSENT
+                        // Mark student as ABSENT with detailed history
                         studentRepository.findById(Objects.requireNonNull(code.getStudentId())).ifPresent(student -> {
+                            String testName = "Unknown Exam";
+                            if (code.getTestId() != null) {
+                                testName = testRepository.findById(code.getTestId())
+                                        .map(Test::getName)
+                                        .orElse("Unknown Exam");
+                            }
+
+                            String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                    .format(new java.util.Date());
+                            String logEntry = String.format("[%s] Status: ABSENT (Missed Exam: %s on %s)",
+                                    timestamp, testName, code.getExpiryDate());
+
+                            String history = student.getStatusHistory();
+                            student.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
+
                             student.setStatus("ABSENT");
                             studentRepository.save(student);
+                            System.out.println("Marked student " + student.getName() + " as ABSENT for " + testName);
                         });
                     }
                 } catch (Exception e) {

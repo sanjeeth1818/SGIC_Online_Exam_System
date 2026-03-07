@@ -3,6 +3,8 @@ package com.sgic.exam.controller;
 import com.sgic.exam.model.Question;
 import com.sgic.exam.model.Submission;
 import com.sgic.exam.model.Test;
+import com.sgic.exam.model.Student;
+import com.sgic.exam.model.StudentExamCode;
 import com.sgic.exam.repository.QuestionRepository;
 import com.sgic.exam.repository.SubmissionRepository;
 import com.sgic.exam.repository.StudentRepository;
@@ -12,13 +14,14 @@ import com.sgic.exam.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Objects;
 
 @RestController
@@ -45,7 +48,30 @@ public class SubmissionController {
 
     @GetMapping
     public ResponseEntity<List<Submission>> getAllSubmissions() {
-        return ResponseEntity.ok(submissionRepository.findAll());
+        List<Submission> all = submissionRepository.findAll();
+        for (Submission s : all) {
+            // Backfill email for older records if missing
+            if (s.getStudentEmail() == null) {
+                if (s.getStudentId() != null) {
+                    studentRepository.findById(s.getStudentId()).ifPresent(student -> {
+                        s.setStudentEmail(student.getEmail());
+                        submissionRepository.save(s);
+                        System.out.println("Backfilled email for " + student.getName());
+                    });
+                } else if (s.getStudentName() != null) {
+                    // Fallback to lookup by name if studentId is missing
+                    studentRepository.findAll().stream()
+                            .filter(st -> s.getStudentName().equals(st.getName()))
+                            .findFirst()
+                            .ifPresent(student -> {
+                                s.setStudentEmail(student.getEmail());
+                                submissionRepository.save(s);
+                                System.out.println("Backfilled email by name for " + s.getStudentName());
+                            });
+                }
+            }
+        }
+        return ResponseEntity.ok(all);
     }
 
     @GetMapping("/stats")
@@ -70,7 +96,7 @@ public class SubmissionController {
             }
 
             // Look up test ID from student exam code
-            com.sgic.exam.model.StudentExamCode codeEntry = studentExamCodeRepository
+            StudentExamCode codeEntry = studentExamCodeRepository
                     .findByExamCode(request.getExamCode())
                     .orElseThrow(() -> new RuntimeException("Invalid examination code: " + request.getExamCode()));
 
@@ -117,6 +143,14 @@ public class SubmissionController {
             submission.setStudentName(request.getStudentName() != null && !request.getStudentName().trim().isEmpty()
                     ? request.getStudentName()
                     : "Guest");
+
+            // Populate student email from student record
+            if (codeEntry.getStudentId() != null) {
+                studentRepository.findById(codeEntry.getStudentId()).ifPresent(s -> {
+                    submission.setStudentEmail(s.getEmail());
+                });
+            }
+
             submission.setTestId(test.getId());
             submission.setTestName(test.getName());
             submission.setStudentId(codeEntry.getStudentId());
@@ -129,7 +163,7 @@ public class SubmissionController {
             // Serialize breakdown to JSON
             try {
                 ObjectMapper mapper = new ObjectMapper();
-                mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+                mapper.registerModule(new JavaTimeModule());
                 submission.setDetailedBreakdownJson(mapper.writeValueAsString(breakdown));
             } catch (Exception e) {
                 System.err.println("JSON Serialization failed: " + e.getMessage());
@@ -150,7 +184,7 @@ public class SubmissionController {
 
             // Update student status to 'Took Exam'
             try {
-                com.sgic.exam.model.Student student = studentRepository
+                Student student = studentRepository
                         .findById(Objects.requireNonNull(codeEntry.getStudentId())).orElse(null);
                 if (student != null) {
                     String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
@@ -168,13 +202,16 @@ public class SubmissionController {
 
             // Trigger Result Email
             try {
-                if (Boolean.TRUE.equals(test.getShowResult())) {
-                    com.sgic.exam.model.Student student = studentRepository
-                            .findById(Objects.requireNonNull(codeEntry.getStudentId()))
-                            .orElse(null);
-                    if (student != null) {
+                Student student = studentRepository
+                        .findById(Objects.requireNonNull(codeEntry.getStudentId()))
+                        .orElse(null);
+                if (student != null) {
+                    if (Boolean.TRUE.equals(test.getShowResult())) {
                         emailService.sendResultEmail(student, test, savedSubmission, breakdown);
                     }
+                    // Always notify admin on completion
+                    emailService.sendAdminStudentFinishedNotification(student, test, savedSubmission, breakdown,
+                            codeEntry.getStartedAt());
                 }
             } catch (Exception emailEx) {
                 System.err.println("Warning: Failed to trigger result email: " + emailEx.getMessage());
@@ -213,6 +250,7 @@ public class SubmissionController {
     public static class SubmissionDTO {
         private Long id;
         private String studentName;
+        private String studentEmail;
         private String testName;
         private Long testId;
         private int score;
@@ -223,6 +261,7 @@ public class SubmissionController {
         public SubmissionDTO(Submission s, int totalSeconds) {
             this.id = s.getId();
             this.studentName = s.getStudentName();
+            this.studentEmail = s.getStudentEmail();
             this.testName = s.getTestName();
             this.testId = s.getTestId();
             this.score = s.getScore();
