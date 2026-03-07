@@ -25,6 +25,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/tests")
@@ -132,7 +133,7 @@ public class TestController {
                     studentExamCodeRepository.save(code);
 
                     // Update Student Entity Status History
-                    Optional<Student> studentOpt = studentRepository.findById(studentId);
+                    Optional<Student> studentOpt = studentRepository.findById(Objects.requireNonNull(studentId));
                     if (studentOpt.isPresent()) {
                         Student student = studentOpt.get();
                         String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
@@ -418,7 +419,8 @@ public class TestController {
 
                     // Always update student status to Allocated with exam details
                     try {
-                        com.sgic.exam.model.Student studentEntity = studentRepository.findById(student.getId())
+                        com.sgic.exam.model.Student studentEntity = studentRepository
+                                .findById(Objects.requireNonNull(student.getId()))
                                 .orElse(null);
                         // Only update status and history if it's a new allocation or not already
                         // finished/allocated
@@ -473,7 +475,8 @@ public class TestController {
         test.setTotalQuestions(req.getTotalQuestions());
 
         if (req.getManualQuestionIds() != null) {
-            List<Question> questions = questionRepository.findAllById(req.getManualQuestionIds());
+            List<Question> questions = questionRepository
+                    .findAllById(Objects.requireNonNull(req.getManualQuestionIds()));
             if (test.getManualQuestions() != null) {
                 test.getManualQuestions().clear();
                 test.getManualQuestions().addAll(questions);
@@ -506,7 +509,8 @@ public class TestController {
                         TestStudentGroup group = new TestStudentGroup();
                         group.setExamDate(gReq.getExamDate());
                         if (gReq.getStudentIds() != null) {
-                            List<Student> students = studentRepository.findAllById(gReq.getStudentIds());
+                            List<Student> students = studentRepository
+                                    .findAllById(Objects.requireNonNull(gReq.getStudentIds()));
                             group.setStudents(students);
                         }
                         return group;

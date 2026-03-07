@@ -90,13 +90,37 @@ const CreateTest = () => {
             const catData = await catRes.json();
             const testDataFromBackend = await testRes.json();
 
-            setCategories(catData.map(c => ({
-                id: c.id,
-                name: c.name,
-                available: c.questionCount || 0,
-                selected: false,
-                count: Math.min(c.questionCount || 0, 10)
-            })));
+            let activeQCounts = {};
+            if (view === 'create' && !isSilent) {
+                try {
+                    const qRes = await fetch('http://localhost:8080/api/questions');
+                    if (qRes.ok) {
+                        const allQ = await qRes.json();
+                        const activeQ = allQ.filter(q => q.status !== 'Inactive');
+                        setAllQuestions(activeQ);
+                        activeQ.forEach(q => {
+                            let cat = 'Uncategorized';
+                            if (q.category) {
+                                cat = typeof q.category === 'string' ? q.category : q.category.name || 'Uncategorized';
+                            }
+                            activeQCounts[cat] = (activeQCounts[cat] || 0) + 1;
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error fetching questions for counts:', e);
+                }
+            }
+
+            setCategories(catData.filter(c => c.status !== 'Inactive').map(c => {
+                const availableCount = (view === 'create' && !isSilent) ? (activeQCounts[c.name] || 0) : (c.questionCount || 0);
+                return {
+                    id: c.id,
+                    name: c.name,
+                    available: availableCount,
+                    selected: false,
+                    count: Math.min(availableCount, 10)
+                };
+            }));
 
             setPastTests(testDataFromBackend.map(t => {
                 const groups = t.studentGroups || [];
@@ -143,7 +167,7 @@ const CreateTest = () => {
             const res = await fetch('http://localhost:8080/api/questions');
             if (res.ok) {
                 const data = await res.json();
-                setAllQuestions(data);
+                setAllQuestions(data.filter(q => q.status !== 'Inactive'));
             }
         } catch (error) {
             console.error('Error fetching questions:', error)

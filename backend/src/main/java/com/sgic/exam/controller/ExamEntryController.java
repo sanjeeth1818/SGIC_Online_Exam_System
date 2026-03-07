@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/exam-entry")
@@ -48,7 +49,7 @@ public class ExamEntryController {
             return ResponseEntity.ok(response);
         }
 
-        Test test = testRepository.findById(entry.getTestId()).orElse(null);
+        Test test = testRepository.findById(Objects.requireNonNull(entry.getTestId())).orElse(null);
         if (test == null || !"Published".equalsIgnoreCase(test.getStatus())) {
             response.put("success", false);
             response.put("message", "The examination is not currently available.");

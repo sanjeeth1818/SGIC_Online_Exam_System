@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/submissions")
@@ -73,7 +74,7 @@ public class SubmissionController {
                     .findByExamCode(request.getExamCode())
                     .orElseThrow(() -> new RuntimeException("Invalid examination code: " + request.getExamCode()));
 
-            Test test = testRepository.findById(codeEntry.getTestId())
+            Test test = testRepository.findById(Objects.requireNonNull(codeEntry.getTestId()))
                     .orElseThrow(() -> new RuntimeException("Test not found for code: " + request.getExamCode()));
 
             // Extract answers and IDs
@@ -85,7 +86,8 @@ public class SubmissionController {
                 String[] ids = codeEntry.getAssignedQuestionIds().split(",");
                 for (String sId : ids) {
                     if (!sId.trim().isEmpty()) {
-                        questionRepository.findById(Long.valueOf(sId.trim())).ifPresent(questions::add);
+                        questionRepository.findById(Objects.requireNonNull(Long.valueOf(sId.trim())))
+                                .ifPresent(questions::add);
                     }
                 }
             } else {
@@ -148,7 +150,8 @@ public class SubmissionController {
 
             // Update student status to 'Took Exam'
             try {
-                com.sgic.exam.model.Student student = studentRepository.findById(codeEntry.getStudentId()).orElse(null);
+                com.sgic.exam.model.Student student = studentRepository
+                        .findById(Objects.requireNonNull(codeEntry.getStudentId())).orElse(null);
                 if (student != null) {
                     String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
                             .format(new java.util.Date());
@@ -166,7 +169,8 @@ public class SubmissionController {
             // Trigger Result Email
             try {
                 if (Boolean.TRUE.equals(test.getShowResult())) {
-                    com.sgic.exam.model.Student student = studentRepository.findById(codeEntry.getStudentId())
+                    com.sgic.exam.model.Student student = studentRepository
+                            .findById(Objects.requireNonNull(codeEntry.getStudentId()))
                             .orElse(null);
                     if (student != null) {
                         emailService.sendResultEmail(student, test, savedSubmission, breakdown);

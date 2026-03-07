@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.*;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/questions")
@@ -36,7 +37,7 @@ public class QuestionController {
 
     @PostMapping
     public ResponseEntity<Question> createQuestion(@Valid @RequestBody QuestionRequest questionRequest) {
-        Category category = categoryRepository.findById(questionRequest.getCategoryId())
+        Category category = categoryRepository.findById(Objects.requireNonNull(questionRequest.getCategoryId()))
                 .orElseThrow(() -> new RuntimeException("Category not found"));
 
         Question question = new Question();
@@ -67,7 +68,7 @@ public class QuestionController {
             oldCategory.setQuestionCount(Math.max(0, oldCategory.getQuestionCount() - 1));
             categoryRepository.save(oldCategory);
 
-            Category newCategory = categoryRepository.findById(questionRequest.getCategoryId())
+            Category newCategory = categoryRepository.findById(Objects.requireNonNull(questionRequest.getCategoryId()))
                     .orElseThrow(() -> new RuntimeException("New category not found"));
             newCategory.setQuestionCount(newCategory.getQuestionCount() + 1);
             categoryRepository.save(newCategory);
@@ -106,7 +107,24 @@ public class QuestionController {
         if (cleanStatus.equalsIgnoreCase("Active") || cleanStatus.equalsIgnoreCase("Inactive")) {
             question.setStatus(cleanStatus.substring(0, 1).toUpperCase() + cleanStatus.substring(1).toLowerCase());
         }
-        return ResponseEntity.ok(questionRepository.save(question));
+        Question savedQuestion = Objects.requireNonNull(questionRepository.save(question));
+
+        // Auto-update category status based on questions
+        Category category = savedQuestion.getCategory();
+        if (category != null) {
+            List<Question> categoryQuestions = questionRepository.findByCategoryId(category.getId());
+            boolean hasActive = categoryQuestions.stream().anyMatch(q -> "Active".equalsIgnoreCase(q.getStatus()));
+
+            if (!hasActive && "Active".equalsIgnoreCase(category.getStatus())) {
+                category.setStatus("Inactive");
+                categoryRepository.save(category);
+            } else if (hasActive && "Inactive".equalsIgnoreCase(category.getStatus())) {
+                category.setStatus("Active");
+                categoryRepository.save(category);
+            }
+        }
+
+        return ResponseEntity.ok(savedQuestion);
     }
 
     @PostMapping("/bulk-upload")

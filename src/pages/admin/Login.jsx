@@ -4,17 +4,46 @@ import { Lock, Mail, ArrowRight } from 'lucide-react';
 
 const AdminLogin = () => {
     const navigate = useNavigate();
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
+        setErrorMsg('');
+
+        if (!username.trim() || !password.trim()) {
+            setErrorMsg('Username and password are required.');
+            return;
+        }
+
+        // Removed email regex checking since we are using a plain username now
+
         setIsLoading(true);
-        // Simulate login delay
-        setTimeout(() => {
+        try {
+            const res = await fetch('http://localhost:8080/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || 'Login failed. Please check your credentials.');
+            }
+
+            // Save basic auth details (mock mechanism for now)
+            localStorage.setItem('adminToken', data.token);
+            localStorage.setItem('adminUser', JSON.stringify(data.admin));
+
             navigate('/admin/dashboard');
-        }, 800);
+        } catch (err) {
+            setErrorMsg(err.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -53,16 +82,32 @@ const AdminLogin = () => {
                     <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: 500 }}>SGIC Exam Portal</p>
                 </div>
 
+                {errorMsg && (
+                    <div style={{
+                        background: 'var(--error-light, #fee2e2)',
+                        color: 'var(--error, #ef4444)',
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--radius-md)',
+                        marginBottom: '1.5rem',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        textAlign: 'center'
+                    }}>
+                        {errorMsg}
+                    </div>
+                )}
+
                 <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Email Address</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Username</label>
                         <div style={{ position: 'relative' }}>
                             <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                             <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin@sgic.com"
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="admin_user"
                                 required
                                 style={{
                                     width: '100%',

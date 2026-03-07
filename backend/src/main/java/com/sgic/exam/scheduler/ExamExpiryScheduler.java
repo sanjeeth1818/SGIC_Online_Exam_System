@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public class ExamExpiryScheduler {
@@ -45,7 +46,7 @@ public class ExamExpiryScheduler {
                         studentExamCodeRepository.save(code);
 
                         // Mark student as ABSENT
-                        studentRepository.findById(code.getStudentId()).ifPresent(student -> {
+                        studentRepository.findById(Objects.requireNonNull(code.getStudentId())).ifPresent(student -> {
                             student.setStatus("ABSENT");
                             studentRepository.save(student);
                         });

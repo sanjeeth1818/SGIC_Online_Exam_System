@@ -5,8 +5,8 @@ const Settings = () => {
     const [activeTab, setActiveTab] = useState('profile');
     const [notification, setNotification] = useState(null);
 
-    // Mock State Data
-    const [profileData, setProfileData] = useState({ fullName: 'Admin User', email: 'admin@sgic.edu' });
+    // State Data Setup
+    const [profileData, setProfileData] = useState({ name: 'System Admin', username: 'admin_user', email: 'admin@sgic.com' });
     const [securityData, setSecurityData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     const [emailData, setEmailData] = useState({
         smtpServer: '',
@@ -15,8 +15,34 @@ const Settings = () => {
         username: '',
         password: ''
     });
+    const [showPassword, setShowPassword] = useState(false);
 
+    // Fetch profile and security on mount
     useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                // Get username from localStorage if available, else default to 'admin_user'
+                let savedAdmin = localStorage.getItem('adminUser');
+                let currentUsername = 'admin_user';
+                if (savedAdmin) {
+                    const parsed = JSON.parse(savedAdmin);
+                    currentUsername = parsed.username || currentUsername;
+                }
+
+                const res = await fetch(`http://localhost:8080/api/admin/profile/${currentUsername}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setProfileData({
+                        name: data.name || '',
+                        username: data.username || '',
+                        email: data.email || ''
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to fetch profile settings", err);
+            }
+        };
+
         const fetchEmailSettings = async () => {
             try {
                 const res = await fetch('http://localhost:8080/api/settings/email');
@@ -51,6 +77,8 @@ const Settings = () => {
                 });
             }
         };
+
+        fetchProfile();
         fetchEmailSettings();
     }, []);
 
@@ -59,19 +87,95 @@ const Settings = () => {
         setTimeout(() => setNotification(null), 3000);
     };
 
-    const handleProfileSubmit = (e) => {
+    const handleProfileSubmit = async (e) => {
         e.preventDefault();
-        showNotification('Profile updated successfully!');
+
+        try {
+            // Get current username that we used to log in
+            let savedAdmin = localStorage.getItem('adminUser');
+            let currentUsername = 'admin_user'; // fallback
+            if (savedAdmin) {
+                const parsed = JSON.parse(savedAdmin);
+                currentUsername = parsed.username || currentUsername;
+            }
+
+            const res = await fetch(`http://localhost:8080/api/admin/profile/${currentUsername}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: profileData.name,
+                    username: profileData.username,
+                    email: profileData.email
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                showNotification('Profile updated successfully!');
+                // Update localStorage with new username
+                if (savedAdmin) {
+                    let parsed = JSON.parse(savedAdmin);
+                    parsed.username = profileData.username;
+                    parsed.name = profileData.name;
+                    localStorage.setItem('adminUser', JSON.stringify(parsed));
+                } else {
+                    localStorage.setItem('adminUser', JSON.stringify(data.admin));
+                }
+            } else {
+                showNotification(data.message || 'Failed to update profile', 'error');
+            }
+
+        } catch (err) {
+            console.error(err);
+            showNotification('Server Error. Please check backend connection.', 'error');
+        }
     };
 
-    const handleSecuritySubmit = (e) => {
+    const handleSecuritySubmit = async (e) => {
         e.preventDefault();
+
+        if (!securityData.currentPassword || !securityData.newPassword) {
+            showNotification('All fields are required!', 'error');
+            return;
+        }
+
         if (securityData.newPassword !== securityData.confirmPassword) {
             showNotification('New passwords do not match!', 'error');
             return;
         }
-        showNotification('Password changed successfully!');
-        setSecurityData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+        try {
+            // Get current username that we used to log in
+            let savedAdmin = localStorage.getItem('adminUser');
+            let currentUsername = 'admin_user'; // fallback
+            if (savedAdmin) {
+                const parsed = JSON.parse(savedAdmin);
+                currentUsername = parsed.username || currentUsername;
+            }
+
+            const res = await fetch(`http://localhost:8080/api/admin/change-password/${currentUsername}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    currentPassword: securityData.currentPassword,
+                    newPassword: securityData.newPassword
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                showNotification('Password changed successfully!');
+                setSecurityData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            } else {
+                showNotification(data.message || 'Failed to change password', 'error');
+            }
+
+        } catch (err) {
+            console.error(err);
+            showNotification('Server Error. Please check backend connection.', 'error');
+        }
     };
 
     const handleEmailSubmit = async (e) => {
@@ -241,15 +345,27 @@ const Settings = () => {
                                     <label style={labelStyle}>Full Name</label>
                                     <input
                                         type="text"
-                                        value={profileData.fullName}
-                                        onChange={e => setProfileData({ ...profileData, fullName: e.target.value })}
+                                        value={profileData.name}
+                                        onChange={e => setProfileData({ ...profileData, name: e.target.value })}
                                         style={inputStyle}
                                         onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                         onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                     />
                                 </div>
                                 <div>
-                                    <label style={labelStyle}>Administrator Email Address</label>
+                                    <label style={labelStyle}>Administrator Username</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.username}
+                                        onChange={e => setProfileData({ ...profileData, username: e.target.value })}
+                                        style={inputStyle}
+                                        onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                        onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                    />
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>This username acts as your primary login identifier.</p>
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Administrator Email</label>
                                     <input
                                         type="email"
                                         value={profileData.email}
@@ -279,7 +395,7 @@ const Settings = () => {
                                 <div>
                                     <label style={labelStyle}>Current Password</label>
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         value={securityData.currentPassword}
                                         onChange={e => setSecurityData({ ...securityData, currentPassword: e.target.value })}
                                         style={inputStyle}
@@ -292,7 +408,7 @@ const Settings = () => {
                                 <div>
                                     <label style={labelStyle}>New Password</label>
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         value={securityData.newPassword}
                                         onChange={e => setSecurityData({ ...securityData, newPassword: e.target.value })}
                                         style={inputStyle}
@@ -305,7 +421,7 @@ const Settings = () => {
                                 <div>
                                     <label style={labelStyle}>Confirm New Password</label>
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         value={securityData.confirmPassword}
                                         onChange={e => setSecurityData({ ...securityData, confirmPassword: e.target.value })}
                                         style={{ ...inputStyle, borderColor: securityData.confirmPassword && securityData.newPassword !== securityData.confirmPassword ? 'var(--error)' : 'var(--border)' }}
@@ -317,6 +433,19 @@ const Settings = () => {
                                     {securityData.confirmPassword && securityData.newPassword !== securityData.confirmPassword && (
                                         <p style={{ fontSize: '0.75rem', color: 'var(--error)', marginTop: '0.5rem' }}>Passwords do not match.</p>
                                     )}
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="showPassword"
+                                        checked={showPassword}
+                                        onChange={() => setShowPassword(!showPassword)}
+                                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary)' }}
+                                    />
+                                    <label htmlFor="showPassword" style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                        Show Passwords
+                                    </label>
                                 </div>
                                 <div style={{ borderTop: '2px solid var(--border)', paddingTop: '2rem', marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                                     <button type="submit" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2.5rem', borderRadius: '14px', background: 'var(--primary)', color: 'white', fontWeight: 700, border: 'none', cursor: 'pointer', boxShadow: '0 8px 16px rgba(0,0,0,0.1)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'}>

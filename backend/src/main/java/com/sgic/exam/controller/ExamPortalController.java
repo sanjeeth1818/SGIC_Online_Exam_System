@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/exam-portal")
@@ -123,7 +124,7 @@ public class ExamPortalController {
             }
             // Fetch in exact order if possible, or just fetch all
             allSelectedQuestions = questionIds.stream()
-                    .map(qid -> questionRepository.findById(qid).orElse(null))
+                    .map(qid -> questionRepository.findById(Objects.requireNonNull(qid)).orElse(null))
                     .filter(java.util.Objects::nonNull)
                     .collect(Collectors.toList());
         } else {

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import java.util.Objects;
 
 import java.util.List;
 
@@ -43,7 +44,7 @@ public class CategoryController {
             category.setStatus(cleanStatus.substring(0, 1).toUpperCase() + cleanStatus.substring(1).toLowerCase());
         }
 
-        return ResponseEntity.ok(categoryRepository.save(category));
+        return ResponseEntity.ok(Objects.requireNonNull(categoryRepository.save(category)));
     }
 
     @PutMapping("/{id}")
@@ -75,7 +76,7 @@ public class CategoryController {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
 
-        categoryRepository.delete(category);
+        categoryRepository.delete(Objects.requireNonNull(category));
         return ResponseEntity.noContent().build();
     }
 }
