@@ -81,8 +81,8 @@ const CreateTest = () => {
     const fetchData = async (isSilent = false) => {
         try {
             const [catRes, testRes] = await Promise.all([
-                fetch('http://localhost:8080/api/categories'),
-                fetch('http://localhost:8080/api/tests')
+                fetch('/api/categories'),
+                fetch('/api/tests')
             ]);
 
             if (!catRes.ok || !testRes.ok) throw new Error('Failed to fetch data');
@@ -93,7 +93,7 @@ const CreateTest = () => {
             let activeQCounts = {};
             if (view === 'create' && !isSilent) {
                 try {
-                    const qRes = await fetch('http://localhost:8080/api/questions');
+                    const qRes = await fetch('/api/questions');
                     if (qRes.ok) {
                         const allQ = await qRes.json();
                         const activeQ = allQ.filter(q => q.status !== 'Inactive');
@@ -164,7 +164,7 @@ const CreateTest = () => {
     const fetchQuestions = async () => {
         setFetchingQuestions(true);
         try {
-            const res = await fetch('http://localhost:8080/api/questions');
+            const res = await fetch('/api/questions');
             if (res.ok) {
                 const data = await res.json();
                 setAllQuestions(data.filter(q => q.status !== 'Inactive'));
@@ -179,7 +179,7 @@ const CreateTest = () => {
     const fetchAvailableStudents = async () => {
         setFetchingStudents(true);
         try {
-            const res = await fetch('http://localhost:8080/api/students');
+            const res = await fetch('/api/students');
             if (res.ok) {
                 const data = await res.json();
                 const filtered = data.filter(s =>
@@ -231,7 +231,7 @@ const CreateTest = () => {
     const fetchStudentCodes = async (testId, isSilent = false) => {
         if (!isSilent) setFetchingCodes(true);
         try {
-            const res = await fetch(`http://localhost:8080/api/tests/${testId}/student-codes`);
+            const res = await fetch(`/api/tests/${testId}/student-codes`);
             if (res.ok) {
                 const data = await res.json();
                 setStudentCodes(data);
@@ -293,7 +293,7 @@ const CreateTest = () => {
 
     const handleStatusChange = async (id, newStatus) => {
         try {
-            const res = await fetch(`http://localhost:8080/api/tests/${id}/status`, {
+            const res = await fetch(`/api/tests/${id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newStatus)
@@ -317,7 +317,7 @@ const CreateTest = () => {
             return;
         }
         try {
-            const res = await fetch(`http://localhost:8080/api/tests/${addTimeModal.testId}/add-time`, {
+            const res = await fetch(`/api/tests/${addTimeModal.testId}/add-time`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -348,7 +348,7 @@ const CreateTest = () => {
     const handleDeleteTest = async (id) => {
         if (!window.confirm('Are you sure you want to delete this test?')) return;
         try {
-            const res = await fetch(`http://localhost:8080/api/tests/${id}`, {
+            const res = await fetch(`/api/tests/${id}`, {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error('Failed to delete');
@@ -424,7 +424,7 @@ const CreateTest = () => {
         };
 
         try {
-            const res = await fetch(`http://localhost:8080/api/tests/${editModalData.id}`, {
+            const res = await fetch(`/api/tests/${editModalData.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -479,7 +479,7 @@ const CreateTest = () => {
         };
 
         try {
-            const res = await fetch('http://localhost:8080/api/tests', {
+            const res = await fetch('/api/tests', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

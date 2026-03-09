@@ -275,7 +275,7 @@ const Students = () => {
     const fetchStudents = async (isSilent = false) => {
         try {
             if (!isSilent) setLoading(true);
-            const response = await fetch('http://localhost:8080/api/students');
+            const response = await fetch('/api/students');
             if (response.ok) {
                 const data = await response.json();
                 setStudents(data);
@@ -407,8 +407,8 @@ const Students = () => {
         }
 
         const url = editingId
-            ? `http://localhost:8080/api/students/${editingId}`
-            : 'http://localhost:8080/api/students';
+            ? `/api/students/${editingId}`
+            : '/api/students';
 
         const method = editingId ? 'PUT' : 'POST';
 
@@ -452,7 +452,7 @@ const Students = () => {
         setSubmitting(true);
 
         try {
-            const response = await fetch(`http://localhost:8080/api/students/${statusData.id}/status`, {
+            const response = await fetch(`/api/students/${statusData.id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -492,7 +492,7 @@ const Students = () => {
     const confirmDelete = async (id) => {
         setSubmitting(true);
         try {
-            const response = await fetch(`http://localhost:8080/api/students/${id}`, {
+            const response = await fetch(`/api/students/${id}`, {
                 method: 'DELETE',
             });
 

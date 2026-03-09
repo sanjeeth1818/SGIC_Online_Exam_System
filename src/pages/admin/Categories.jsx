@@ -15,7 +15,7 @@ const Categories = () => {
 
     const fetchCategories = async () => {
         try {
-            const res = await fetch('http://localhost:8080/api/categories');
+            const res = await fetch('/api/categories');
             if (!res.ok) throw new Error('Failed to fetch categories');
             const data = await res.json();
             setCategories(data);
@@ -52,7 +52,7 @@ const Categories = () => {
 
         try {
             if (editingCategory) {
-                const res = await fetch(`http://localhost:8080/api/categories/${editingCategory.id}`, {
+                const res = await fetch(`/api/categories/${editingCategory.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -64,7 +64,7 @@ const Categories = () => {
                 if (!res.ok) throw new Error('Failed to update');
                 setNotification({ type: 'success', message: 'Category updated successfully!' });
             } else {
-                const res = await fetch('http://localhost:8080/api/categories', {
+                const res = await fetch('/api/categories', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...categoryForm, status: 'Active', questionCount: 0 })
@@ -87,7 +87,7 @@ const Categories = () => {
 
     const handleDelete = async () => {
         try {
-            const res = await fetch(`http://localhost:8080/api/categories/${categoryToDelete.id}`, {
+            const res = await fetch(`/api/categories/${categoryToDelete.id}`, {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error('Failed to delete');
@@ -103,7 +103,7 @@ const Categories = () => {
     const toggleStatus = async (id, currentStatus) => {
         try {
             const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
-            const res = await fetch(`http://localhost:8080/api/categories/${id}/status`, {
+            const res = await fetch(`/api/categories/${id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'text/plain' },
                 body: newStatus

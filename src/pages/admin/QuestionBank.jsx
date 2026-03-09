@@ -32,8 +32,8 @@ const QuestionBank = () => {
     const fetchData = async () => {
         try {
             const [catRes, questRes] = await Promise.all([
-                fetch('http://localhost:8080/api/categories'),
-                fetch('http://localhost:8080/api/questions')
+                fetch('/api/categories'),
+                fetch('/api/questions')
             ]);
 
             if (!catRes.ok || !questRes.ok) throw new Error('Failed to fetch data');
@@ -116,7 +116,7 @@ const QuestionBank = () => {
 
         try {
             if (editingQuestion) {
-                const res = await fetch(`http://localhost:8080/api/questions/${editingQuestion.id}`, {
+                const res = await fetch(`/api/questions/${editingQuestion.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(backendPayload)
@@ -124,7 +124,7 @@ const QuestionBank = () => {
                 if (!res.ok) throw new Error('Failed to update');
                 setNotification({ type: 'success', message: 'Question updated successfully!' });
             } else {
-                const res = await fetch('http://localhost:8080/api/questions', {
+                const res = await fetch('/api/questions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(backendPayload)
@@ -147,7 +147,7 @@ const QuestionBank = () => {
 
     const handleDeleteQuestion = async () => {
         try {
-            const res = await fetch(`http://localhost:8080/api/questions/${questionToDelete.id}`, {
+            const res = await fetch(`/api/questions/${questionToDelete.id}`, {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error('Failed to delete');
@@ -163,7 +163,7 @@ const QuestionBank = () => {
     const toggleQuestionStatus = async (id, currentStatus) => {
         try {
             const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
-            const res = await fetch(`http://localhost:8080/api/questions/${id}/status`, {
+            const res = await fetch(`/api/questions/${id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'text/plain' },
                 body: newStatus
@@ -185,7 +185,7 @@ const QuestionBank = () => {
         formData.append('file', uploadFile);
 
         try {
-            const res = await fetch('http://localhost:8080/api/questions/bulk-upload', {
+            const res = await fetch('/api/questions/bulk-upload', {
                 method: 'POST',
                 body: formData
             });

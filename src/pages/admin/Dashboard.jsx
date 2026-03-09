@@ -512,7 +512,7 @@ const Dashboard = () => {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const baseUrl = 'http://localhost:8080/api/dashboard';
+            const baseUrl = '/api/dashboard';
             const [statsRes, perfRes, calRes] = await Promise.all([
                 fetch(`${baseUrl}/stats?period=${period}`),
                 fetch(`${baseUrl}/category-performance?period=${period}`),

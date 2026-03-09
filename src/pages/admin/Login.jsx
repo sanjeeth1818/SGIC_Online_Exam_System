@@ -53,7 +53,7 @@ const AdminLogin = () => {
         setIsLoading(true);
         setStatusMsg('');
         try {
-            const res = await fetch('http://localhost:8080/api/auth/login', {
+            const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -85,7 +85,7 @@ const AdminLogin = () => {
         setStatusMsg('');
 
         try {
-            const res = await fetch('http://localhost:8080/api/auth/forgot-password/request', {
+            const res = await fetch('/api/auth/forgot-password/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -120,7 +120,7 @@ const AdminLogin = () => {
 
         setIsVerifying(true);
         try {
-            const res = await fetch('http://localhost:8080/api/auth/forgot-password/verify', {
+            const res = await fetch('/api/auth/forgot-password/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, otp })
@@ -167,7 +167,7 @@ const AdminLogin = () => {
         setIsLoading(true);
         setStatusMsg('');
         try {
-            const res = await fetch('http://localhost:8080/api/auth/forgot-password/reset', {
+            const res = await fetch('/api/auth/forgot-password/reset', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, otp: otpArray.join(''), newPassword })

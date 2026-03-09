@@ -36,7 +36,7 @@ const TestStart = () => {
         }
 
         try {
-            const res = await fetch('http://localhost:8080/api/exam-entry/validate', {
+            const res = await fetch('/api/exam-entry/validate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code })
@@ -50,7 +50,7 @@ const TestStart = () => {
             }
 
             // Fetch Student Name
-            const studentRes = await fetch(`http://localhost:8080/api/students/${data.studentId}`);
+            const studentRes = await fetch(`/api/students/${data.studentId}`);
             if (studentRes.ok) {
                 const studentData = await studentRes.json();
                 setStudentName(studentData.name);
@@ -65,7 +65,7 @@ const TestStart = () => {
             });
 
             // Fetch extra test config if needed (duration etc)
-            const testRes = await fetch(`http://localhost:8080/api/tests/${data.testId}`);
+            const testRes = await fetch(`/api/tests/${data.testId}`);
             if (testRes.ok) {
                 const fullTest = await testRes.json();
                 setTestDetails(prev => ({
@@ -97,7 +97,7 @@ const TestStart = () => {
         setCountdown(3);
 
         try {
-            const res = await fetch('http://localhost:8080/api/exam-entry/start', {
+            const res = await fetch('/api/exam-entry/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

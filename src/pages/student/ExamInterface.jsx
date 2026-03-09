@@ -33,7 +33,7 @@ const ExamInterface = () => {
 
         try {
             // Fetch test details first for duration and mode
-            const testRes = await fetch(`http://localhost:8080/api/exam-portal/verify/${code}`);
+            const testRes = await fetch(`/api/exam-portal/verify/${code}`);
             if (!testRes.ok) throw new Error('Test not found');
             const testData = await testRes.json();
 
@@ -85,7 +85,7 @@ const ExamInterface = () => {
             }
 
             // Fetch questions
-            const questRes = await fetch(`http://localhost:8080/api/exam-portal/questions/${code}`);
+            const questRes = await fetch(`/api/exam-portal/questions/${code}`);
             if (!questRes.ok) throw new Error('Failed to fetch questions');
             const questData = await questRes.json();
 
@@ -114,7 +114,7 @@ const ExamInterface = () => {
 
             // RESUMPTION LOGIC: Fetch previous answers if any
             try {
-                const resumeRes = await fetch(`http://localhost:8080/api/exam-portal/resume-state/${code}`);
+                const resumeRes = await fetch(`/api/exam-portal/resume-state/${code}`);
                 if (resumeRes.ok) {
                     const resumeData = await resumeRes.json();
                     if (resumeData.answers && Object.keys(resumeData.answers).length > 0) {
@@ -178,7 +178,7 @@ const ExamInterface = () => {
         };
 
         try {
-            await fetch('http://localhost:8080/api/submissions', {
+            await fetch('/api/submissions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -205,7 +205,7 @@ const ExamInterface = () => {
         };
 
         try {
-            const res = await fetch('http://localhost:8080/api/submissions', {
+            const res = await fetch('/api/submissions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -220,7 +220,7 @@ const ExamInterface = () => {
 
             // Mark the exam code as USED
             try {
-                await fetch('http://localhost:8080/api/exam-entry/complete', {
+                await fetch('/api/exam-entry/complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code: localStorage.getItem('currentExamCode') })
@@ -321,7 +321,7 @@ const ExamInterface = () => {
         const pollInterval = setInterval(async () => {
             try {
                 const code = localStorage.getItem('currentExamCode');
-                const testRes = await fetch(`http://localhost:8080/api/exam-portal/verify/${code}`);
+                const testRes = await fetch(`/api/exam-portal/verify/${code}`);
                 if (!testRes.ok) return;
 
                 const testData = await testRes.json();

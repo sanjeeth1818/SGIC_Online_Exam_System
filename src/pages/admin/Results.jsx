@@ -43,8 +43,8 @@ const Results = () => {
         try {
             if (!isSilent) setIsLoading(true);
             const [resSub, resStats] = await Promise.all([
-                fetch('http://localhost:8080/api/submissions'),
-                fetch('http://localhost:8080/api/submissions/stats')
+                fetch('/api/submissions'),
+                fetch('/api/submissions/stats')
             ]);
 
             const subs = await resSub.json();
@@ -184,12 +184,12 @@ const Results = () => {
             const examSub = resultsData.find(r => r.testName === testName);
             if (!examSub) { setLoadingCodes(false); return; }
             // Fetch all tests to find the matching test id
-            const testsRes = await fetch('http://localhost:8080/api/tests');
+            const testsRes = await fetch('/api/tests');
             if (testsRes.ok) {
                 const tests = await testsRes.json();
                 const match = tests.find(t => t.name === testName);
                 if (match) {
-                    const codesRes = await fetch(`http://localhost:8080/api/tests/${match.id}/student-codes`);
+                    const codesRes = await fetch(`/api/tests/${match.id}/student-codes`);
                     if (codesRes.ok) {
                         const data = await codesRes.json();
                         setExamStudentCodes(data);

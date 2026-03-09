@@ -34,7 +34,7 @@ const Settings = () => {
                     currentUsername = parsed.username || currentUsername;
                 }
 
-                const res = await fetch(`http://localhost:8080/api/admin/profile/${currentUsername}`);
+                const res = await fetch(`/api/admin/profile/${currentUsername}`);
                 if (res.ok) {
                     const data = await res.json();
                     setProfileData({
@@ -50,7 +50,7 @@ const Settings = () => {
 
         const fetchEmailSettings = async () => {
             try {
-                const res = await fetch('http://localhost:8080/api/settings/email');
+                const res = await fetch('/api/settings/email');
                 if (res.ok) {
                     const data = await res.json();
                     setEmailData({
@@ -105,7 +105,7 @@ const Settings = () => {
                 currentUsername = parsed.username || currentUsername;
             }
 
-            const res = await fetch(`http://localhost:8080/api/admin/profile/${currentUsername}`, {
+            const res = await fetch(`/api/admin/profile/${currentUsername}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -160,7 +160,7 @@ const Settings = () => {
                 currentUsername = parsed.username || currentUsername;
             }
 
-            const res = await fetch(`http://localhost:8080/api/admin/change-password/${currentUsername}`, {
+            const res = await fetch(`/api/admin/change-password/${currentUsername}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -194,7 +194,7 @@ const Settings = () => {
         }
 
         try {
-            const res = await fetch('http://localhost:8080/api/settings/email', {
+            const res = await fetch('/api/settings/email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(finalEmailData)
@@ -225,7 +225,7 @@ const Settings = () => {
         }
 
         try {
-            const res = await fetch('http://localhost:8080/api/settings/email/test', {
+            const res = await fetch('/api/settings/email/test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(finalEmailData)
@@ -268,7 +268,7 @@ const Settings = () => {
                 currentUsername = parsed.username || currentUsername;
             }
 
-            const res = await fetch(`http://localhost:8080/api/admin/verify-password/${currentUsername}`, {
+            const res = await fetch(`/api/admin/verify-password/${currentUsername}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: verificationPassword })
