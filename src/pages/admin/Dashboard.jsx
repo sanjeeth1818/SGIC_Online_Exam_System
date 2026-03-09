@@ -258,6 +258,204 @@ const CategoryAnalyticsCard = ({ category, onSelect, isSelected }) => (
     </div>
 );
 
+const TrendLineChart = ({ data, color }) => {
+    if (!data || data.length === 0) {
+        return <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', fontWeight: 600 }}>No trend data available for this range.</div>;
+    }
+
+    const height = 400; // Increased chart height
+    const width = 1000; // Increased width scaling
+    const padding = 50;
+    const paddingBottom = 60; // Extra padding for rotated labels
+
+    const maxVal = 100; // Since it's percentage
+    const minVal = 0;
+
+    // Scale functions
+    const scaleX = (index) => padding + (index * (width - 2 * padding)) / Math.max(1, data.length - 1);
+    const scaleY = (val) => height - paddingBottom - ((val - minVal) / (maxVal - minVal)) * (height - padding - paddingBottom);
+
+    // Path generator
+    const pathD = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)} ${scaleY(d.value)}`).join(' ');
+
+    // Gradient for area under line
+    const areaD = `${pathD} L ${scaleX(data.length - 1)} ${height - paddingBottom} L ${scaleX(0)} ${height - paddingBottom} Z`;
+
+    return (
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+            <defs>
+                <linearGradient id={`gradient-${color.replace('#', '')}`} x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+                    <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+            </defs>
+
+            {/* Grid lines */}
+            {[0, 25, 50, 75, 100].map(tick => (
+                <g key={tick}>
+                    <line x1={padding} y1={scaleY(tick)} x2={width - padding} y2={scaleY(tick)} stroke="var(--border)" strokeDasharray="4 4" />
+                    <text x={padding - 10} y={scaleY(tick) + 4} textAnchor="end" fill="var(--text-tertiary)" fontSize="12px" fontFamily="monospace">{tick}%</text>
+                </g>
+            ))}
+
+            {/* Area */}
+            <path d={areaD} fill={`url(#gradient-${color.replace('#', '')})`} />
+
+            {/* Line */}
+            <path d={pathD} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+            {/* Data points */}
+            {data.map((d, i) => (
+                <g key={i}>
+                    <circle cx={scaleX(i)} cy={scaleY(d.value)} r="5" fill="var(--bg-surface)" stroke={color} strokeWidth="2" style={{ transition: 'all 0.2s', cursor: 'pointer' }}
+                        onMouseEnter={e => { e.currentTarget.setAttribute('r', '7'); e.currentTarget.setAttribute('fill', color); }}
+                        onMouseLeave={e => { e.currentTarget.setAttribute('r', '5'); e.currentTarget.setAttribute('fill', 'var(--bg-surface)'); }}
+                    />
+                    {/* X-axis labels */}
+                    <text x={scaleX(i)} y={height - paddingBottom + 20} textAnchor="end" transform={`rotate(-45 ${scaleX(i)} ${height - paddingBottom + 20})`} fill="var(--text-secondary)" fontSize="11px" fontWeight="600" style={{ pointerEvents: 'none' }}>{d.time}</text>
+                    {/* Value label on top of point */}
+                    <text x={scaleX(i)} y={scaleY(d.value) - 15} textAnchor="middle" fill={color} fontSize="12px" fontWeight="bold">{d.value}%</text>
+                </g>
+            ))}
+        </svg>
+    );
+};
+
+const CategoryTrendModal = ({ category, onClose }) => {
+    const [filterType, setFilterType] = useState('Specific Year'); // 'Specific Year', 'Specific Month', 'Year Range', 'Month Range'
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [month, setMonth] = useState(new Date().getMonth() + 1);
+    const [startYear, setStartYear] = useState(new Date().getFullYear() - 1);
+    const [endYear, setEndYear] = useState(new Date().getFullYear());
+    const [startMonth, setStartMonth] = useState(1);
+    const [endMonth, setEndMonth] = useState(12);
+
+    const [data, setData] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    useEffect(() => {
+        const fetchTrend = async () => {
+            setIsLoading(true);
+            try {
+                let url = `/api/dashboard/trend?category=${encodeURIComponent(category.label)}`;
+                if (filterType === 'Specific Year') {
+                    url += `&period=year&year=${year}`;
+                } else if (filterType === 'Specific Month') {
+                    url += `&period=month&year=${year}&month=${month}`;
+                } else if (filterType === 'Year Range') {
+                    url += `&period=year_range&startYear=${startYear}&endYear=${endYear}`;
+                } else if (filterType === 'Month Range') {
+                    url += `&period=month_range&year=${year}&startMonth=${startMonth}&endMonth=${endMonth}`;
+                }
+
+                const res = await fetch(url);
+                if (res.ok) {
+                    setData(await res.json());
+                }
+            } catch (error) {
+                console.error("Failed to fetch trend", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchTrend();
+    }, [category, filterType, year, month, startYear, endYear, startMonth, endMonth]);
+
+    return (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+            animation: 'fadeIn 0.3s ease'
+        }} onClick={onClose}>
+            <div style={{
+                background: 'var(--bg-surface)', width: '95%', maxWidth: '1200px', // Increased maximum width
+                borderRadius: '28px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+                border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
+            }} onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: `${category.color}10` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: category.color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Activity size={28} />
+                        </div>
+                        <div>
+                            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{category.label} Mastery Analysis</h2>
+                            <p style={{ margin: 0, fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Historical performance tracking</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'var(--bg-app)', border: '1px solid var(--border)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.transform = 'scale(1.05)' }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.transform = 'none' }}>
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Filters */}
+                <div style={{ padding: '1.25rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg-app)' }}>
+                    <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+                        <option>Specific Year</option>
+                        <option>Specific Month</option>
+                        <option>Year Range</option>
+                        <option>Month Range</option>
+                    </select>
+
+                    <div style={{ width: '1px', height: '30px', background: 'var(--border)' }} />
+
+                    {filterType === 'Specific Year' && (
+                        <input type="number" value={year} onChange={e => setYear(e.target.value)} min="2000" max="2100" style={{ padding: '0.6rem 1rem', width: '100px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', boxShadow: 'var(--shadow-sm)' }} />
+                    )}
+
+                    {filterType === 'Specific Month' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <input type="number" value={year} onChange={e => setYear(e.target.value)} min="2000" max="2100" style={{ padding: '0.6rem 1rem', width: '100px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', boxShadow: 'var(--shadow-sm)' }} />
+                            <select value={month} onChange={e => setMonth(e.target.value)} style={{ padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+                                {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                            </select>
+                        </div>
+                    )}
+
+                    {filterType === 'Year Range' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <input type="number" value={startYear} onChange={e => setStartYear(e.target.value)} min="2000" max="2100" style={{ padding: '0.6rem 1rem', width: '100px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', boxShadow: 'var(--shadow-sm)' }} />
+                            <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>to</span>
+                            <input type="number" value={endYear} onChange={e => setEndYear(e.target.value)} min="2000" max="2100" style={{ padding: '0.6rem 1rem', width: '100px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', boxShadow: 'var(--shadow-sm)' }} />
+                        </div>
+                    )}
+
+                    {filterType === 'Month Range' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <input type="number" value={year} onChange={e => setYear(e.target.value)} min="2000" max="2100" style={{ padding: '0.6rem 1rem', width: '100px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', boxShadow: 'var(--shadow-sm)' }} />
+                            <select value={startMonth} onChange={e => setStartMonth(e.target.value)} style={{ padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+                                {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                            </select>
+                            <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>to</span>
+                            <select value={endMonth} onChange={e => setEndMonth(e.target.value)} style={{ padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontWeight: 600, outline: 'none', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+                                {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                            </select>
+                        </div>
+                    )}
+                </div>
+
+                {/* Chart Area */}
+                <div style={{ padding: '2.5rem', height: '500px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {isLoading ? (
+                        <div style={{ color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div className="loader" style={{ width: '20px', height: '20px', border: `3px solid ${category.color}40`, borderTopColor: category.color, borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                            Loading analytics data...
+                        </div>
+                    ) : (
+                        <TrendLineChart data={data} color={category.color} />
+                    )}
+                </div>
+            </div>
+            <style>{`
+                @keyframes spin { to { transform: rotate(360deg); } }
+            `}</style>
+        </div>
+    );
+};
+
 const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
     const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -502,6 +700,7 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
 
 const Dashboard = () => {
     const [period, setPeriod] = useState('month'); // today, month, year
+    const [selectedCategoryModal, setSelectedCategoryModal] = useState(null);
     const [activeMonth, setActiveMonth] = useState(new Date());
     const [stats, setStats] = useState({ totalTests: 0, totalQuestions: 0, totalCategories: 0, studentsCount: 0 });
     const [performance, setPerformance] = useState([]);
@@ -582,8 +781,8 @@ const Dashboard = () => {
                                 <CategoryAnalyticsCard
                                     key={i}
                                     category={cat}
-                                    onSelect={() => { }}
-                                    isSelected={false}
+                                    onSelect={() => setSelectedCategoryModal(cat)}
+                                    isSelected={selectedCategoryModal?.label === cat.label}
                                 />
                             ))}
                             {performance.length === 0 && (
@@ -602,6 +801,12 @@ const Dashboard = () => {
                 </div>
 
             </div>
+            {selectedCategoryModal && (
+                <CategoryTrendModal
+                    category={selectedCategoryModal}
+                    onClose={() => setSelectedCategoryModal(null)}
+                />
+            )}
         </div >
     );
 };

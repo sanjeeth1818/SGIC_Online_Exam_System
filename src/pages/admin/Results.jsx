@@ -1,15 +1,107 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Eye, Download, PieChart, TrendingUp, Clock, Calendar, CheckCircle2, XCircle, ChevronDown, ChevronUp, Users, BookOpen, FileSpreadsheet, FileText as FilePdf, Mail, Trophy, ArrowLeft, AlertTriangle, BarChart2, UserX } from 'lucide-react';
+import { Search, Eye, Download, PieChart, TrendingUp, Clock, Calendar, CheckCircle2, XCircle, ChevronDown, ChevronUp, Users, BookOpen, FileSpreadsheet, FileText as FilePdf, Mail, Trophy, ArrowLeft, AlertTriangle, BarChart2, UserX, Check } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+const PremiumMultiSelect = ({ options, selected, onChange, placeholder, icon }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleOption = (opt) => {
+        if (selected.includes(opt.value)) {
+            onChange(selected.filter(v => v !== opt.value));
+        } else {
+            onChange([...selected, opt.value]);
+        }
+    };
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', minWidth: '160px' }}>
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    padding: '0.6rem 1rem', background: isOpen ? 'var(--primary-light)' : 'var(--bg-surface)',
+                    border: `1px solid ${isOpen ? 'var(--primary)' : 'var(--border)'}`, borderRadius: '14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem',
+                    cursor: 'pointer', transition: 'all 0.2s', color: isOpen ? 'var(--primary)' : 'var(--text-primary)',
+                    boxShadow: isOpen ? '0 0 0 3px rgba(99,102,241,0.1)' : 'var(--shadow-sm)'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.85rem' }}>
+                    {icon}
+                    {selected.length === 0 ? placeholder : `${selected.length} Selected`}
+                </div>
+                <ChevronDown size={14} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </div>
+
+            {isOpen && (
+                <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, width: '220px',
+                    background: 'white', borderRadius: '16px', border: '1px solid var(--border)',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.1)', padding: '0.5rem', zIndex: 100,
+                    animation: 'fadeInUp 0.2s ease-out'
+                }}>
+                    {options.map(opt => (
+                        <div
+                            key={opt.value}
+                            onClick={() => toggleOption(opt)}
+                            style={{
+                                padding: '0.6rem 0.8rem', borderRadius: '10px', display: 'flex',
+                                alignItems: 'center', gap: '0.75rem', cursor: 'pointer',
+                                background: selected.includes(opt.value) ? 'var(--bg-app)' : 'transparent',
+                                transition: 'background 0.15s'
+                            }}
+                            onMouseEnter={e => { if (!selected.includes(opt.value)) e.currentTarget.style.background = 'var(--bg-app)'; }}
+                            onMouseLeave={e => { if (!selected.includes(opt.value)) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                            <div style={{
+                                width: '18px', height: '18px', borderRadius: '6px',
+                                border: `2px solid ${selected.includes(opt.value) ? 'var(--primary)' : 'var(--border)'}`,
+                                background: selected.includes(opt.value) ? 'var(--primary)' : 'white',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                {selected.includes(opt.value) && <Check size={12} color="white" strokeWidth={3} />}
+                            </div>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{opt.label}</span>
+                        </div>
+                    ))}
+                    {selected.length > 0 && (
+                        <div
+                            onClick={() => onChange([])}
+                            style={{
+                                marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)',
+                                textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-tertiary)',
+                                cursor: 'pointer', fontWeight: 700
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-tertiary)'}
+                        >
+                            Clear Selection
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Results = () => {
     const [expandedCategories, setExpandedCategories] = useState({});
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedMainDates, setSelectedMainDates] = useState([]);
     const [examFilter, setExamFilter] = useState('');
-    const [filterDate, setFilterDate] = useState('');
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const calendarRef = React.useRef(null);
 
@@ -24,6 +116,23 @@ const Results = () => {
     const [loadingCodes, setLoadingCodes] = useState(false);
     const [expandedStudentRow, setExpandedStudentRow] = useState(null);
     const [expandedCategoryBreakdown, setExpandedCategoryBreakdown] = useState(null);
+
+    // Exam-level advanced filters
+    const [examSearchTerm, setExamSearchTerm] = useState('');
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
+    const [selectedScores, setSelectedScores] = useState([]);
+    const [selectedDates, setSelectedDates] = useState([]);
+    const [selectedTimes, setSelectedTimes] = useState([]);
+
+    const parseTimeStr = (str) => {
+        if (!str) return 0;
+        let total = 0;
+        const mins = str.match(/(\d+)m/);
+        const secs = str.match(/(\d+)s/);
+        if (mins) total += parseInt(mins[1]) * 60;
+        if (secs) total += parseInt(secs[1]);
+        return total;
+    };
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -101,7 +210,8 @@ const Results = () => {
                         isCorrect: b.correct !== undefined ? b.correct : b.isCorrect,
                         timeSpent: formatDuration(b.timeSpent || 0)
                     })),
-                    categories: categories
+                    categories: categories,
+                    rawTimeSeconds: totalTimeSeconds // Raw numeric for filtering
                 };
             });
 
@@ -161,19 +271,22 @@ const Results = () => {
     };
 
     const filteredResults = resultsData.filter(r => {
-        const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesExam = !examFilter || r.testName === examFilter;
-        const matchesDate = !filterDate || r.date === filterDate;
-        return matchesSearch && matchesExam && matchesDate;
+        const matchesExamFilter = !examFilter || r.testName === examFilter;
+        return matchesExamFilter;
     });
 
     const uniqueExams = Array.from(new Set(resultsData.map(r => r.testName)));
     const examDates = Array.from(new Set(resultsData.map(r => r.date)));
 
-    // Group results by exam name
+    // Group results by exam name, applying the top-level filters FIRST
     const examGroups = resultsData.reduce((acc, r) => {
-        if (!acc[r.testName]) acc[r.testName] = [];
-        acc[r.testName].push(r);
+        const matchesSearch = r.testName.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesDate = selectedMainDates.length === 0 || selectedMainDates.includes(r.date);
+
+        if (matchesSearch && matchesDate) {
+            if (!acc[r.testName]) acc[r.testName] = [];
+            acc[r.testName].push(r);
+        }
         return acc;
     }, {});
 
@@ -213,6 +326,11 @@ const Results = () => {
         setExamStudentCodes([]);
         setExpandedStudentRow(null);
         setExpandedCategoryBreakdown(null);
+        setExamSearchTerm('');
+        setSelectedStatuses([]);
+        setSelectedScores([]);
+        setSelectedDates([]);
+        setSelectedTimes([]);
     };
 
     const CustomCalendar = () => {
@@ -644,6 +762,45 @@ const Results = () => {
             return status !== 'USED';
         });
 
+        // Generate dynamic dropdown options from current exam results
+        const availableDates = Array.from(new Set(examResults.map(r => r.date))).sort().map(d => ({ label: `Batch ${d}`, value: d }));
+
+        // Apply filters
+        const filteredExamResults = examResults.filter(r => {
+            // Search
+            if (examSearchTerm && !r.name.toLowerCase().includes(examSearchTerm.toLowerCase()) && !r.email.toLowerCase().includes(examSearchTerm.toLowerCase())) {
+                return false;
+            }
+            // Status
+            if (selectedStatuses.length > 0) {
+                const status = r.score >= 50 ? 'Passed' : 'Failed';
+                if (!selectedStatuses.includes(status)) return false;
+            }
+            // Score
+            if (selectedScores.length > 0) {
+                let match = false;
+                if (selectedScores.includes('90-100') && r.score >= 90) match = true;
+                if (selectedScores.includes('70-89') && r.score >= 70 && r.score < 90) match = true;
+                if (selectedScores.includes('50-69') && r.score >= 50 && r.score < 70) match = true;
+                if (selectedScores.includes('< 50') && r.score < 50) match = true;
+                if (!match) return false;
+            }
+            // Date
+            if (selectedDates.length > 0 && !selectedDates.includes(r.date)) return false;
+
+            // Time
+            if (selectedTimes.length > 0) {
+                let match = false;
+                const m = r.rawTimeSeconds / 60;
+                if (selectedTimes.includes('< 10m') && m < 10) match = true;
+                if (selectedTimes.includes('10m-30m') && m >= 10 && m <= 30) match = true;
+                if (selectedTimes.includes('> 30m') && m > 30) match = true;
+                if (!match) return false;
+            }
+
+            return true;
+        });
+
         return (
             <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
 
@@ -668,69 +825,151 @@ const Results = () => {
                 </div>
 
                 {/* ── Section A: Student Results Table ── */}
-                <div style={{ background: 'var(--bg-surface)', borderRadius: '28px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--bg-app)' }}>
-                        <Users size={20} color="var(--primary)" />
-                        <span style={{ fontWeight: 900, fontSize: '1.1rem' }}>Student Results</span>
-                        <span style={{ marginLeft: 'auto', fontSize: '0.85rem', color: 'var(--text-tertiary)', fontWeight: 700 }}>{examResults.length} participants</span>
+                <div style={{ background: 'var(--bg-surface)', borderRadius: '28px', border: '1px solid var(--border)', position: 'relative', zIndex: 10 }}>
+                    <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-app)', flexWrap: 'wrap', borderTopLeftRadius: '27px', borderTopRightRadius: '27px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginRight: '1rem' }}>
+                            <Users size={20} color="var(--primary)" />
+                            <span style={{ fontWeight: 900, fontSize: '1.1rem', whiteSpace: 'nowrap' }}>Student Results</span>
+                        </div>
+
+                        {/* Search & Filters */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', flex: 1 }}>
+                            <div style={{ position: 'relative', minWidth: '220px', flex: 1, maxWidth: '350px' }}>
+                                <Search size={16} color="var(--text-tertiary)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+                                <input
+                                    type="text"
+                                    value={examSearchTerm}
+                                    onChange={(e) => setExamSearchTerm(e.target.value)}
+                                    placeholder="Search student or email..."
+                                    style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--bg-surface)', outline: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem' }}
+                                />
+                            </div>
+
+                            <PremiumMultiSelect
+                                icon={<CheckCircle2 size={14} color="var(--success)" />}
+                                placeholder="Status Filter"
+                                options={[{ label: 'Passed', value: 'Passed' }, { label: 'Failed', value: 'Failed' }]}
+                                selected={selectedStatuses} onChange={setSelectedStatuses}
+                            />
+
+                            <PremiumMultiSelect
+                                icon={<PieChart size={14} color="var(--primary)" />}
+                                placeholder="Score Filter"
+                                options={[{ label: 'High Distinction (90-100%)', value: '90-100' }, { label: 'Distinction (70-89%)', value: '70-89' }, { label: 'Pass (50-69%)', value: '50-69' }, { label: 'Fail (< 50%)', value: '< 50' }]}
+                                selected={selectedScores} onChange={setSelectedScores}
+                            />
+
+                            {availableDates.length > 0 && (
+                                <PremiumMultiSelect
+                                    icon={<Calendar size={14} color="#f59e0b" />}
+                                    placeholder="Batch Filter"
+                                    options={availableDates}
+                                    selected={selectedDates} onChange={setSelectedDates}
+                                />
+                            )}
+
+                            <PremiumMultiSelect
+                                icon={<Clock size={14} color="#ec4899" />}
+                                placeholder="Time Taken"
+                                options={[{ label: 'Quick (< 10m)', value: '< 10m' }, { label: 'Average (10m - 30m)', value: '10m-30m' }, { label: 'Long (> 30m)', value: '> 30m' }]}
+                                selected={selectedTimes} onChange={setSelectedTimes}
+                            />
+
+                            {(examSearchTerm || selectedStatuses.length > 0 || selectedScores.length > 0 || selectedDates.length > 0 || selectedTimes.length > 0) && (
+                                <button
+                                    onClick={() => {
+                                        setExamSearchTerm('');
+                                        setSelectedStatuses([]);
+                                        setSelectedScores([]);
+                                        setSelectedDates([]);
+                                        setSelectedTimes([]);
+                                    }}
+                                    style={{
+                                        padding: '0.6rem 1rem', background: 'rgba(239,68,68,0.1)', color: 'var(--error)', border: 'none', borderRadius: '14px',
+                                        display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--error)'; e.currentTarget.style.color = 'white'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = 'var(--error)'; }}
+                                >
+                                    <XCircle size={14} strokeWidth={2.5} /> Clear
+                                </button>
+                            )}
+                        </div>
+
+                        <span style={{ marginLeft: 'auto', fontSize: '0.85rem', color: 'var(--text-tertiary)', fontWeight: 700 }}>Showing {filteredExamResults.length} of {examResults.length}</span>
                     </div>
-                    {examResults.length === 0 ? (
-                        <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No submissions yet for this exam.</div>
+                    {filteredExamResults.length === 0 ? (
+                        <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No submissions match the current filters.</div>
                     ) : (
                         <div>
-                            {examResults.map((r) => (
-                                <div key={r.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                    <div
-                                        style={{ padding: '1.25rem 2rem', display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'background 0.2s' }}
-                                        onClick={() => setExpandedStudentRow(expandedStudentRow === r.id ? null : r.id)}
-                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-app)'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                    >
-                                        <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.1rem', flexShrink: 0 }}>{r.name[0]}</div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{r.name}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}><Mail size={12} />{r.email}</div>
-                                        </div>
-                                        <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                                            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: getScoreColor(r.score) }}>{r.score}%</div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Score</div>
-                                        </div>
-                                        <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                                            <div style={{ fontWeight: 800 }}>{r.actualScore}/{r.maxScore}</div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Correct</div>
-                                        </div>
-                                        <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                                            <div style={{ fontWeight: 800, color: '#f59e0b' }}>{r.timeTaken}</div>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Time</div>
-                                        </div>
-                                        <button
-                                            onClick={e => { e.stopPropagation(); setSelectedStudent(r); setExpandedCategories({}); }}
-                                            style={{ padding: '0.5rem 1.2rem', borderRadius: '12px', background: 'var(--bg-app)', border: '1.5px solid var(--border)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
-                                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                                        ><Eye size={16} /> View Report</button>
-                                        <div style={{ transform: expandedStudentRow === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}><ChevronDown size={18} color="var(--text-tertiary)" /></div>
-                                    </div>
-
-                                    {/* Inline category breakdown */}
-                                    {expandedStudentRow === r.id && (
-                                        <div style={{ padding: '1rem 2rem 1.5rem 4rem', background: 'var(--bg-app)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                            {r.categories.map(c => (
-                                                <div key={c.name} style={{ flex: '1', minWidth: '180px', background: 'white', borderRadius: '16px', padding: '1rem 1.25rem', border: '1px solid var(--border)' }}>
-                                                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{c.name}</div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                        <div style={{ flex: 1, height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                                                            <div style={{ width: `${c.score}%`, height: '100%', background: c.color, borderRadius: '4px' }} />
-                                                        </div>
-                                                        <span style={{ fontWeight: 900, color: c.color, minWidth: '38px', textAlign: 'right' }}>{c.score}%</span>
-                                                    </div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.3rem' }}>{c.correct}/{c.total} correct</div>
+                            {filteredExamResults.map((r, index) => {
+                                const isLast = index === filteredExamResults.length - 1;
+                                return (
+                                    <div key={r.id} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                                        <div
+                                            style={{
+                                                padding: '1.25rem 2rem', display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'background 0.2s',
+                                                borderBottomLeftRadius: (isLast && expandedStudentRow !== r.id) ? '27px' : '0',
+                                                borderBottomRightRadius: (isLast && expandedStudentRow !== r.id) ? '27px' : '0'
+                                            }}
+                                            onClick={() => setExpandedStudentRow(expandedStudentRow === r.id ? null : r.id)}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-app)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.1rem', flexShrink: 0 }}>{r.name[0]}</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{r.name}</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
+                                                    <Mail size={12} /> {r.email}
+                                                    <span style={{ color: 'var(--border)' }}>|</span>
+                                                    <Clock size={12} /> Taken: <span style={{ fontWeight: 700 }}>{r.participatedDate}</span>
                                                 </div>
-                                            ))}
+                                            </div>
+                                            <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: getScoreColor(r.score) }}>{r.score}%</div>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Score</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                                <div style={{ fontWeight: 800 }}>{r.actualScore}/{r.maxScore}</div>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Correct</div>
+                                            </div>
+                                            <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                                <div style={{ fontWeight: 800, color: '#f59e0b' }}>{r.timeTaken}</div>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Time</div>
+                                            </div>
+                                            <button
+                                                onClick={e => { e.stopPropagation(); setSelectedStudent(r); setExpandedCategories({}); }}
+                                                style={{ padding: '0.5rem 1.2rem', borderRadius: '12px', background: 'var(--bg-app)', border: '1.5px solid var(--border)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
+                                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                                            ><Eye size={16} /> View Report</button>
+                                            <div style={{ transform: expandedStudentRow === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}><ChevronDown size={18} color="var(--text-tertiary)" /></div>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+
+                                        {/* Inline category breakdown */}
+                                        {expandedStudentRow === r.id && (
+                                            <div style={{
+                                                padding: '1rem 2rem 1.5rem 4rem', background: 'var(--bg-app)', display: 'flex', gap: '1rem', flexWrap: 'wrap',
+                                                borderBottomLeftRadius: isLast ? '27px' : '0',
+                                                borderBottomRightRadius: isLast ? '27px' : '0'
+                                            }}>
+                                                {r.categories.map(c => (
+                                                    <div key={c.name} style={{ flex: '1', minWidth: '180px', background: 'white', borderRadius: '16px', padding: '1rem 1.25rem', border: '1px solid var(--border)' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{c.name}</div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                            <div style={{ flex: 1, height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${c.score}%`, height: '100%', background: c.color, borderRadius: '4px' }} />
+                                                            </div>
+                                                            <span style={{ fontWeight: 900, color: c.color, minWidth: '38px', textAlign: 'right' }}>{c.score}%</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.3rem' }}>{c.correct}/{c.total} correct</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -878,7 +1117,11 @@ const Results = () => {
                                     <div style={{ width: '70px', height: '70px', borderRadius: '24px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 950 }}>{selectedStudent.name[0]}</div>
                                     <div>
                                         <h2 style={{ fontSize: '2.25rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em' }}>{selectedStudent.name}</h2>
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginTop: '0.4rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Mail size={18} /> {selectedStudent.email}</p>
+                                        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                                            <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', margin: 0, fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Mail size={16} /> {selectedStudent.email}</p>
+                                            <span style={{ width: '4px', height: '4px', background: 'var(--border)', borderRadius: '50%' }} />
+                                            <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', margin: 0, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Calendar size={16} /> Exam Taken: {selectedStudent.participatedDate}</p>
+                                        </div>
                                     </div>
                                 </div>
                                 <button onClick={closeModal} style={{ background: 'white', border: '2px solid var(--border)', width: '48px', height: '48px', borderRadius: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, transition: 'all 0.3s', color: 'var(--text-tertiary)' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--error)'; e.currentTarget.style.color = 'var(--error)'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-tertiary)'; }}>✕</button>
@@ -988,6 +1231,36 @@ const Results = () => {
                     <button onClick={handleExportCSV} style={{ padding: '1rem 2rem', background: 'white', border: '2px solid var(--border)', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, cursor: 'pointer' }}><FileSpreadsheet size={20} color="var(--success)" /> CSV</button>
                     <button onClick={handleExportPDF} style={{ padding: '1rem 2rem', background: 'var(--primary)', border: 'none', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, color: 'white', cursor: 'pointer' }}><FilePdf size={20} /> PDF Report</button>
                 </div>
+            </div>
+
+            {/* Top-Level Exam Filters */}
+            <div style={{ background: 'var(--bg-surface)', padding: '1rem', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '300px', display: 'flex', alignItems: 'center', position: 'relative' }}>
+                    <Search size={18} color="var(--text-tertiary)" style={{ position: 'absolute', left: '1rem' }} />
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search specific exams..."
+                        style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'white', outline: 'none', color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem', transition: 'border-color 0.2s' }}
+                        onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                    />
+                </div>
+
+                {searchTerm && (
+                    <button
+                        onClick={() => setSearchTerm('')}
+                        style={{
+                            padding: '0.8rem 1.25rem', background: 'rgba(239,68,68,0.1)', color: 'var(--error)', border: 'none', borderRadius: '14px',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--error)'; e.currentTarget.style.color = 'white'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = 'var(--error)'; }}
+                    >
+                        <XCircle size={16} strokeWidth={2.5} /> Clear
+                    </button>
+                )}
             </div>
 
             {/* Stats Bar */}

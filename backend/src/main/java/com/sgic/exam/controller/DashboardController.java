@@ -253,9 +253,22 @@ public class DashboardController {
             }
         }
 
-        // Sort keys if they are dates or years
+        // Sort keys chronologically
         List<String> sortedKeys = new ArrayList<>(timePoints.keySet());
-        Collections.sort(sortedKeys);
+        List<String> monthNamesList = Arrays.asList("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP",
+                "OCT", "NOV", "DEC");
+
+        Collections.sort(sortedKeys, (a, b) -> {
+            boolean isAMonth = monthNamesList.contains(a.toUpperCase());
+            boolean isBMonth = monthNamesList.contains(b.toUpperCase());
+
+            if (isAMonth && isBMonth) {
+                return Integer.compare(monthNamesList.indexOf(a.toUpperCase()),
+                        monthNamesList.indexOf(b.toUpperCase()));
+            }
+            // Fallback to lexicographical for dates (YYYY-MM-DD) and years (YYYY)
+            return a.compareTo(b);
+        });
 
         List<Map<String, Object>> trend = new ArrayList<>();
         for (String key : sortedKeys) {
