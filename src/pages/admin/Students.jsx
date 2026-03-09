@@ -556,7 +556,7 @@ const Students = () => {
             (statusFilter === 'Critical' ? ['Blacklisted', 'Absent'].includes(student.status) : student.status === statusFilter);
 
         return matchesSearch && matchesStatus;
-    });
+    }).sort((a, b) => b.id - a.id); // Sort descending to put newest at the top
 
     return (
         <>
@@ -729,10 +729,10 @@ const Students = () => {
                                         <tr key={student.id} style={{ borderBottom: '1px solid var(--border)', transition: 'all 0.2s ease' }} className="table-row-hover">
                                             <td style={{ padding: '1.25rem 1.5rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                    <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.125rem' }}>
+                                                    <div style={{ width: '44px', height: '44px', minWidth: '44px', flexShrink: 0, borderRadius: '12px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.125rem' }}>
                                                         {student.name.charAt(0).toUpperCase()}
                                                     </div>
-                                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9375rem' }}>{student.name}</span>
+                                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9375rem', lineHeight: '1.2' }}>{student.name}</span>
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1.25rem 1.5rem' }}>
@@ -749,22 +749,13 @@ const Students = () => {
                                                     {getStatusBadge(student.status)}
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '1.25rem 1.5rem' }}>
+                                            <td style={{ padding: '1.25rem 1.5rem', whiteSpace: 'nowrap' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                                                     <Calendar size={14} style={{ opacity: 0.6 }} /> {student.registeredDate}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                                    <button
-                                                        onClick={() => openHistoryModal(student)}
-                                                        style={{ padding: '0.5rem', borderRadius: '10px', background: 'transparent', color: 'var(--primary)', border: '1px solid transparent', cursor: 'pointer', transition: 'all 0.2s' }}
-                                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-                                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
-                                                        title="View Activity History"
-                                                    >
-                                                        <History size={18} />
-                                                    </button>
                                                     <button
                                                         onClick={() => openStatusModal(student)}
                                                         style={{ padding: '0.5rem', borderRadius: '10px', background: 'transparent', color: 'var(--success)', border: '1px solid transparent', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -773,6 +764,15 @@ const Students = () => {
                                                         title="Change Status"
                                                     >
                                                         <UserCheck size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openHistoryModal(student)}
+                                                        style={{ padding: '0.5rem', borderRadius: '10px', background: 'transparent', color: 'var(--primary)', border: '1px solid transparent', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
+                                                        title="View Activity History"
+                                                    >
+                                                        <History size={18} />
                                                     </button>
                                                     <button
                                                         onClick={() => openEditModal(student)}

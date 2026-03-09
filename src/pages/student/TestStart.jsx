@@ -78,9 +78,9 @@ const TestStart = () => {
             }
 
             setIsCodeVerified(true);
-            localStorage.setItem('currentExamCode', code);
-            localStorage.setItem('studentId', data.studentId);
-            localStorage.setItem('testId', data.testId);
+            sessionStorage.setItem('currentExamCode', code);
+            sessionStorage.setItem('studentId', data.studentId);
+            sessionStorage.setItem('testId', data.testId);
         } catch (error) {
             console.error(error);
             setError('Could not connect to the examination server.');
@@ -101,33 +101,33 @@ const TestStart = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    code: localStorage.getItem('currentExamCode'),
-                    studentId: localStorage.getItem('studentId'),
-                    sessionToken: localStorage.getItem('examSessionToken') // Send existing token if any
+                    code: sessionStorage.getItem('currentExamCode'),
+                    studentId: sessionStorage.getItem('studentId'),
+                    sessionToken: sessionStorage.getItem('examSessionToken') // Send existing token if any
                 })
             });
 
             const data = await res.json();
             if (!data.success) {
-                window.alert(data.message || 'Failed to start exam.');
+                setError(data.message || 'Failed to start exam.');
                 setIsStarting(false);
                 setIsCodeVerified(false);
                 setExamCode('');
-                localStorage.removeItem('currentExamCode');
+                sessionStorage.removeItem('currentExamCode');
                 return;
             }
 
             // Store the Session Token (Device Lock)
             if (data.sessionToken) {
-                localStorage.setItem('examSessionToken', data.sessionToken);
+                sessionStorage.setItem('examSessionToken', data.sessionToken);
             }
 
             // Save startedAt for timer persistence in ExamInterface
             if (data.startedAt) {
-                localStorage.setItem('examStartedAt', data.startedAt);
+                sessionStorage.setItem('examStartedAt', data.startedAt);
             }
 
-            localStorage.setItem('studentName', studentName);
+            sessionStorage.setItem('studentName', studentName);
             window.dispatchEvent(new Event('studentNameUpdated'));
             // Countdown effect will handle navigation
         } catch (error) {

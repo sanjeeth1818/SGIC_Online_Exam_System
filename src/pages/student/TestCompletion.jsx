@@ -5,7 +5,7 @@ import { CheckCircle } from 'lucide-react';
 const TestCompletion = () => {
     const navigate = useNavigate();
 
-    const data = JSON.parse(localStorage.getItem('lastSubmission') || '{}');
+    const data = JSON.parse(sessionStorage.getItem('lastSubmission') || '{}');
     const showResult = data.showResult !== undefined ? data.showResult : true;
 
     useEffect(() => {
@@ -15,9 +15,9 @@ const TestCompletion = () => {
                 navigate('/result');
             } else {
                 // If results are hidden, clear EVERYTHING
-                localStorage.removeItem('lastSubmission');
-                localStorage.removeItem('studentName');
-                localStorage.removeItem('currentExamCode');
+                sessionStorage.removeItem('lastSubmission');
+                sessionStorage.removeItem('studentName');
+                sessionStorage.removeItem('currentExamCode');
                 window.dispatchEvent(new Event('studentNameUpdated'));
                 navigate('/');
             }
@@ -25,8 +25,8 @@ const TestCompletion = () => {
 
         // Even if showing results, clear the "session" (name/code) so they can't resume or show as logged in
         if (showResult) {
-            localStorage.removeItem('studentName');
-            localStorage.removeItem('currentExamCode');
+            sessionStorage.removeItem('studentName');
+            sessionStorage.removeItem('currentExamCode');
             window.dispatchEvent(new Event('studentNameUpdated'));
         }
 

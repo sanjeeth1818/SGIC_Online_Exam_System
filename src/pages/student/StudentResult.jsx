@@ -4,7 +4,7 @@ import { Award, Clock, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 
 const StudentResult = () => {
     const navigate = useNavigate();
-    const data = JSON.parse(localStorage.getItem('lastSubmission') || '{}');
+    const data = JSON.parse(sessionStorage.getItem('lastSubmission') || '{}');
     const submission = data.submission || {};
     const breakdown = data.breakdown || [];
     const studentName = submission.studentName || 'Student';
@@ -115,7 +115,7 @@ const StudentResult = () => {
             <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '4rem' }}>
                 <button
                     onClick={() => {
-                        localStorage.removeItem('lastSubmission');
+                        sessionStorage.removeItem('lastSubmission');
                         navigate('/');
                     }}
                     style={{ padding: '1rem 3rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-xl)', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem', boxShadow: '0 10px 20px rgba(var(--primary-rgb), 0.2)', transition: 'all 0.3s' }}

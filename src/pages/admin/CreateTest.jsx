@@ -17,6 +17,7 @@ const CreateTest = () => {
     const [addTimeModal, setAddTimeModal] = useState(null); // { testId, studentIds: [], extraTime: 15, comment: '' }
     const [editCategories, setEditCategories] = useState([]);
     const [expandedCategory, setExpandedCategory] = useState(null); // To track which folder is open
+    const [deleteConfirm, setDeleteConfirm] = useState(null); // null or test object to delete
 
     // Test Configuration State
     const [testData, setTestData] = useState({
@@ -260,6 +261,11 @@ const CreateTest = () => {
             t.date.toLowerCase().includes(manageSearchTerm.toLowerCase())
         )
         .sort((a, b) => {
+            // First Priority: Published Status
+            if (a.status === 'Published' && b.status !== 'Published') return -1;
+            if (a.status !== 'Published' && b.status === 'Published') return 1;
+
+            // Second Priority: User Selected Sort
             let comparison = 0;
             if (sortBy === 'name') {
                 comparison = a.name.localeCompare(b.name);
@@ -346,13 +352,13 @@ const CreateTest = () => {
     };
 
     const handleDeleteTest = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this test?')) return;
         try {
             const res = await fetch(`/api/tests/${id}`, {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error('Failed to delete');
-            setNotification({ type: 'success', message: 'Test deleted successfully!' });
+            setNotification({ type: 'success', message: 'Examination deleted successfully!' });
+            setDeleteConfirm(null);
             fetchData();
         } catch (error) {
             console.error(error);
@@ -1249,7 +1255,9 @@ const CreateTest = () => {
                             </div>
                         ) : (
                             filteredAndSortedTests.map(t => (
-                                <div key={t.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '24px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' }}
+                                <div key={t.id}
+                                    onClick={() => setShowDetailsModal(t)}
+                                    style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '24px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', transition: 'all 0.2s', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}
                                     onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.borderColor = 'var(--primary-border)'; }}
                                     onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}
                                 >
@@ -1332,7 +1340,7 @@ const CreateTest = () => {
                                                 </button>
                                             )}
                                             <button
-                                                onClick={() => handleEditTest(t)}
+                                                onClick={(e) => { e.stopPropagation(); handleEditTest(t); }}
                                                 title="Edit Test"
                                                 style={{ width: '36px', height: '36px', borderRadius: '10px', border: 'none', background: 'var(--bg-app)', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
                                                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
@@ -1341,7 +1349,7 @@ const CreateTest = () => {
                                                 <Edit2 size={16} />
                                             </button>
                                             <button
-                                                onClick={() => setShowDetailsModal(t)}
+                                                onClick={(e) => { e.stopPropagation(); setShowDetailsModal(t); }}
                                                 title="View Details"
                                                 style={{ width: '36px', height: '36px', borderRadius: '10px', border: 'none', background: 'var(--bg-app)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
                                                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--border)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
@@ -1350,7 +1358,7 @@ const CreateTest = () => {
                                                 <Eye size={16} />
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteTest(t.id)}
+                                                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(t); }}
                                                 title="Delete Test"
                                                 style={{ width: '36px', height: '36px', borderRadius: '10px', border: 'none', background: 'var(--bg-app)', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
                                                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--error)'; e.currentTarget.style.color = 'white'; }}
@@ -1873,16 +1881,47 @@ const CreateTest = () => {
                                     </div>
                                     <div style={{ background: 'var(--primary-light)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--primary-border)', gridColumn: 'span 2' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                                            <Users size={14} /> Assigned Students
+                                            <Users size={14} /> Total Assigned Students
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)' }}>
-                                                {showDetailsModal.studentCount} <span style={{ fontSize: '0.875rem', fontWeight: 700, opacity: 0.8 }}>Candidates</span>
+                                                {showDetailsModal.studentCount} <span style={{ fontSize: '0.875rem', fontWeight: 700, opacity: 0.8 }}>Candidates Total</span>
                                             </div>
                                             <div style={{ background: 'white', padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
-                                                Active Assignment
+                                                Active Overview
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Batch Overview Section */}
+                                <div style={{ background: 'var(--bg-app)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+                                    <h4 style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Users size={18} color="var(--primary)" /> SCHEDULED BATCHES
+                                    </h4>
+                                    <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.5rem' }} className="hide-scrollbar">
+                                        {showDetailsModal.studentGroups?.map((group, idx) => (
+                                            <div key={idx} style={{ background: 'var(--bg-surface)', padding: '1.25rem', borderRadius: '18px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, color: 'var(--text-primary)', fontSize: '1rem' }}>
+                                                        <Calendar size={16} color="var(--primary)" /> {group.examDate || 'No Date Set'}
+                                                    </div>
+                                                    <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '0.25rem 0.625rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                                        {(group.students?.length || group.studentIds?.length) || 0} Students
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                                                    {group.students?.map((s, sIdx) => (
+                                                        <span key={sIdx} style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--bg-app)', padding: '0.25rem 0.625rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                                            {s.name}
+                                                        </span>
+                                                    )) || <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600, fontStyle: 'italic' }}>No detailed student names available in this batch view.</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {(!showDetailsModal.studentGroups || showDetailsModal.studentGroups.length === 0) && (
+                                            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>No batches scheduled yet.</div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -2078,6 +2117,38 @@ const CreateTest = () => {
                                 onMouseLeave={e => e.currentTarget.style.transform = 'none'}
                             >
                                 <Edit2 size={18} /> Modify Examination
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Delete Confirmation Modal */}
+            {deleteConfirm && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000, animation: 'fadeIn 0.2s' }}>
+                    <div style={{ background: 'var(--bg-surface)', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '2rem', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid var(--border)', textAlign: 'center', animation: 'scaleUp 0.3s ease-out' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <Trash2 size={32} />
+                        </div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Delete Examination?</h3>
+                        <p style={{ fontSize: '0.94rem', color: 'var(--text-tertiary)', marginBottom: '2rem', lineHeight: 1.5 }}>
+                            Are you sure you want to delete <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>"{deleteConfirm.name}"</span>? This action cannot be undone.
+                        </p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button
+                                onClick={() => setDeleteConfirm(null)}
+                                style={{ flex: 1, padding: '0.875rem', borderRadius: '14px', border: 'none', background: 'var(--bg-app)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-app)'}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDeleteTest(deleteConfirm.id)}
+                                style={{ flex: 1, padding: '0.875rem', borderRadius: '14px', border: 'none', background: 'var(--error)', color: 'white', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)', transition: 'all 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                            >
+                                Delete Test
                             </button>
                         </div>
                     </div>

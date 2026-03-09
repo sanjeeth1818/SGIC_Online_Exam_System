@@ -131,6 +131,86 @@ public class EmailService {
     }
 
     @Async
+    public void sendReschedulingEmail(Student student, Test test, String examCode, String examDate) {
+        System.out.println(
+                "Attempting to send rescheduling email to " + student.getEmail() + " for test: " + test.getName());
+
+        EmailConfig config = emailConfigRepository.findByConfigName(PRIMARY_CONFIG).orElse(null);
+        if (config == null) {
+            System.err.println("CRITICAL: Email configuration not found! Rescheduling email skipped.");
+            return;
+        }
+
+        String host = config.getSmtpServer();
+        int port = 587;
+        try {
+            port = Integer.parseInt(config.getSmtpPort());
+        } catch (Exception e) {
+        }
+
+        Properties props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.ssl.trust", host);
+
+        Session session = Session.getInstance(props);
+
+        try {
+            Transport transport = session.getTransport("smtp");
+            transport.connect(host, port, config.getUsername(), config.getPassword());
+
+            Message message = new MimeMessage(session);
+            if (config.getSenderName() != null && !config.getSenderName().isEmpty()) {
+                message.setFrom(new InternetAddress(config.getSenderEmail(), config.getSenderName()));
+            } else {
+                message.setFrom(new InternetAddress(config.getSenderEmail()));
+            }
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(student.getEmail()));
+            message.setSubject("Exam Rescheduled: " + test.getName());
+
+            String htmlContent = "<html><body style='font-family: Arial, sans-serif; color: #333; line-height: 1.6;'>" +
+                    "<div style='max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;'>"
+                    +
+                    "<div style='background-color: #ffc107; color: #1f2937; padding: 20px; text-align: center; border-bottom: 4px solid #eab308;'>"
+                    +
+                    "<h2 style='margin: 0;'>Exam Rescheduled</h2>" +
+                    "</div>" +
+                    "<div style='padding: 30px;'>" +
+                    "<p>Dear <strong>" + student.getName() + "</strong>,</p>" +
+                    "<p>Your examination session for <strong>" + test.getName()
+                    + "</strong> has been rescheduled. Please find your new schedule and access details below:</p>" +
+                    "<div style='background-color: #fff9db; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #ffc107;'>"
+                    +
+                    "<p style='margin: 5px 0;'><strong>Examination:</strong> " + test.getName() + "</p>" +
+                    "<p style='margin: 5px 0;'><strong>New Scheduled Date:</strong> " + examDate + "</p>" +
+                    "<p style='margin: 5px 0;'><strong>New Individual Exam Code:</strong> <span style='font-size: 1.25em; color: #d9534f; font-weight: bold;'>"
+                    + examCode + "</span></p>" +
+                    "</div>" +
+                    "<p>Please ensure you are available on this new date. Use the code above to access the assessment portal.</p>"
+                    +
+                    "<hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;' />" +
+                    "<p>Best regards,<br/><strong>SGIC Examination Team</strong></p>" +
+                    "</div>" +
+                    "<div style='background-color: #f1f1f1; color: #777; padding: 15px; text-align: center; font-size: 0.8em;'>"
+                    +
+                    "<p>&copy; 2026 SGIC All Rights Reserved</p>" +
+                    "</div>" +
+                    "</div></body></html>";
+
+            message.setContent(htmlContent, "text/html; charset=utf-8");
+            transport.sendMessage(message, message.getAllRecipients());
+            transport.close();
+
+            System.out.println("SUCCESS: Rescheduling email sent to " + student.getEmail());
+
+        } catch (Exception e) {
+            System.err.println(
+                    "ERROR: Failed to send rescheduling email to " + student.getEmail() + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @Async
     public void sendResultEmail(Student student, Test test, Submission submission, List<QuestionResult> breakdown) {
         System.out.println("Attempting to send result email to " + student.getEmail() + " for test: " + test.getName());
 
@@ -519,6 +599,143 @@ public class EmailService {
     }
 
     @Async
+    public void sendAdminTestUpdateNotification(Test test) {
+        System.out.println("Attempting to send Admin notification for Updated Test: " + test.getName());
+        EmailConfig config = emailConfigRepository.findByConfigName(PRIMARY_CONFIG).orElse(null);
+        if (config == null)
+            return;
+
+        List<Admin> admins = adminRepository.findAll();
+        List<String> adminEmails = admins.stream()
+                .map(Admin::getEmail)
+                .filter(email -> email != null && !email.isEmpty())
+                .collect(Collectors.toList());
+
+        if (adminEmails.isEmpty()) {
+            System.out.println("No admin emails found. Skipping notification.");
+            return;
+        }
+
+        String host = config.getSmtpServer();
+        int port = 587;
+        try {
+            port = Integer.parseInt(config.getSmtpPort());
+        } catch (Exception e) {
+        }
+
+        Properties props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.ssl.trust", host);
+
+        Session session = Session.getInstance(props);
+
+        try {
+            Transport transport = session.getTransport("smtp");
+            transport.connect(host, port, config.getUsername(), config.getPassword());
+
+            Message message = new MimeMessage(session);
+            if (config.getSenderName() != null && !config.getSenderName().isEmpty()) {
+                message.setFrom(new InternetAddress(config.getSenderEmail(), config.getSenderName()));
+            } else {
+                message.setFrom(new InternetAddress(config.getSenderEmail()));
+            }
+            String recipients = String.join(",", adminEmails);
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipients));
+            message.setSubject("Exam Updated: " + test.getName());
+
+            StringBuilder categoriesHtml = new StringBuilder();
+            if (test.getCategoryConfigs() != null && !test.getCategoryConfigs().isEmpty()) {
+                categoriesHtml.append("<ul>");
+                for (TestCategoryConfig cat : test.getCategoryConfigs()) {
+                    categoriesHtml.append("<li>").append(cat.getCategoryName()).append(" (")
+                            .append(cat.getQuestionCount()).append(" questions)</li>");
+                }
+                categoriesHtml.append("</ul>");
+            } else {
+                categoriesHtml.append("<p>Manual Question Selection Mode</p>");
+            }
+
+            StringBuilder groupsHtml = new StringBuilder();
+            if (test.getStudentGroups() != null && !test.getStudentGroups().isEmpty()) {
+                for (TestStudentGroup group : test.getStudentGroups()) {
+                    groupsHtml.append("<div style='margin-top: 20px;'>")
+                            .append("<h4 style='color: #4f46e5; border-bottom: 1px solid #e0e7ff; padding-bottom: 5px;'>Batch: ")
+                            .append(group.getExamDate() != null ? group.getExamDate() : "TBD").append("</h4>")
+                            .append("<table style='width: 100%; border-collapse: collapse; font-size: 13px;'>")
+                            .append("<tr style='background-color: #f8fafc; text-align: left;'>")
+                            .append("<th style='padding: 8px; border: 1px solid #e2e8f0;'>Name</th>")
+                            .append("<th style='padding: 8px; border: 1px solid #e2e8f0;'>NIC</th>")
+                            .append("<th style='padding: 8px; border: 1px solid #e2e8f0;'>Email</th>")
+                            .append("<th style='padding: 8px; border: 1px solid #e2e8f0;'>Code</th>")
+                            .append("</tr>");
+
+                    if (group.getStudents() != null) {
+                        for (Student s : group.getStudents()) {
+                            Optional<StudentExamCode> codeOpt = studentExamCodeRepository
+                                    .findByTestIdAndStudentId(test.getId(), s.getId());
+                            String code = codeOpt.isPresent() ? codeOpt.get().getExamCode() : "N/A";
+
+                            groupsHtml.append("<tr>")
+                                    .append("<td style='padding: 8px; border: 1px solid #e2e8f0;'>").append(s.getName())
+                                    .append("</td>")
+                                    .append("<td style='padding: 8px; border: 1px solid #e2e8f0;'>")
+                                    .append(s.getNic() != null ? s.getNic() : "—").append("</td>")
+                                    .append("<td style='padding: 8px; border: 1px solid #e2e8f0;'>")
+                                    .append(s.getEmail()).append("</td>")
+                                    .append("<td style='padding: 8px; border: 1px solid #e2e8f0; font-weight: bold; color: #dc2626;'>")
+                                    .append(code).append("</td>")
+                                    .append("</tr>");
+                        }
+                    }
+                    groupsHtml.append("</table></div>");
+                }
+            } else {
+                groupsHtml.append("<p>No students allocated yet.</p>");
+            }
+
+            String htmlContent = "<html><body style='font-family: sans-serif; color: #334155; line-height: 1.6;'>" +
+                    "<div style='max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;'>"
+                    +
+                    "  <div style='background: #4f46e5; color: white; padding: 30px; text-align: center;'>" +
+                    "    <h2 style='margin: 0;'>Exam Update Report</h2>" +
+                    "    <p style='margin: 5px 0 0; opacity: 0.8;'>The examination details have been successfully updated</p>"
+                    +
+                    "  </div>" +
+                    "  <div style='padding: 30px;'>" +
+                    "    <h3 style='color: #1e293b; margin-top: 0;'>Exam Overview</h3>" +
+                    "    <table style='width: 100%; border-collapse: collapse;'>" +
+                    "      <tr><td style='padding: 8px 0; font-weight: bold; width: 140px;'>Exam Name:</td><td>"
+                    + test.getName() + "</td></tr>" +
+                    "      <tr><td style='padding: 8px 0; font-weight: bold;'>Duration:</td><td>" + test.getTimeValue()
+                    + " " + test.getTimeUnit() + "</td></tr>" +
+                    "      <tr><td style='padding: 8px 0; font-weight: bold;'>Mode:</td><td>" + test.getExamMode()
+                    + "</td></tr>" +
+                    "      <tr><td style='padding: 8px 0; font-weight: bold;'>Description:</td><td style='font-style: italic; color: #64748b;'>"
+                    + (test.getDescription() != null ? test.getDescription() : "No description") + "</td></tr>" +
+                    "    </table>" +
+                    "    <h3 style='color: #1e293b; margin-top: 30px;'>Category Configuration</h3>" +
+                    categoriesHtml.toString() +
+                    "    <h3 style='color: #1e293b; margin-top: 30px;'>Allocated Students & Codes</h3>" +
+                    groupsHtml.toString() +
+                    "    <div style='margin-top: 40px; border-top: 1px solid #f1f5f9; padding-top: 20px; text-align: center; font-size: 13px; color: #94a3b8;'>"
+                    +
+                    "      <p>This is an automated security notification from the SGIC Examination System.</p>" +
+                    "    </div>" +
+                    "  </div>" +
+                    "</div></body></html>";
+
+            message.setContent(htmlContent, "text/html; charset=utf-8");
+            transport.sendMessage(message, message.getAllRecipients());
+            transport.close();
+            System.out.println("SUCCESS: Admin update notification email sent for " + test.getName());
+        } catch (Exception e) {
+            System.err.println("ERROR: Failed to send admin update notification: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @Async
     public void sendAdminStudentFinishedNotification(Student student, Test test, Submission submission,
             List<SubmissionController.QuestionResult> breakdown, LocalDateTime startedAt) {
         System.out.println("Attempting to send Admin notification for student completion: " + student.getName());
@@ -674,7 +891,184 @@ public class EmailService {
             System.out.println("SUCCESS: Admin student completion notification sent for " + student.getName());
 
         } catch (Exception e) {
-            System.err.println("ERROR: Failed to send admin completion notification: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @Async
+    public void sendBatchDateChangeStudentNotification(Student student, Test test, String oldDate, String newDate,
+            String code) {
+        EmailConfig config = emailConfigRepository.findByConfigName(PRIMARY_CONFIG).orElse(null);
+        if (config == null)
+            return;
+        try {
+            Properties props = new Properties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.ssl.trust", config.getSmtpServer());
+            Session session = Session.getInstance(props);
+            Transport transport = session.getTransport("smtp");
+            transport.connect(config.getSmtpServer(), Integer.parseInt(config.getSmtpPort()), config.getUsername(),
+                    config.getPassword());
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(config.getSenderEmail(), config.getSenderName()));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(student.getEmail()));
+            message.setSubject("URGENT: Exam Schedule Updated - " + test.getName());
+            String html = "<html><body style='font-family:sans-serif; background:#fff9db; padding:20px;'>" +
+                    "<div style='max-width:600px; margin:0 auto; background:white; border-radius:12px; border:1px solid #ffec99; overflow:hidden;'>"
+                    +
+                    "  <div style='background:#fcc419; color:#444; padding:25px; text-align:center;'><h2>Schedule Update</h2></div>"
+                    +
+                    "  <div style='padding:30px;'>" +
+                    "    <p>Dear <strong>" + student.getName() + "</strong>,</p>" +
+                    "    <p>Please note that your examination schedule for <strong>" + test.getName()
+                    + "</strong> has been adjusted.</p>" +
+                    "    <div style='margin:20px 0; padding:15px; background:#f8f9fa; border-radius:8px; border-left:4px solid #fcc419;'>"
+                    +
+                    "      <p style='margin:5px 0; text-decoration:line-through; color:#888;'>Previous Date: " + oldDate
+                    + "</p>" +
+                    "      <p style='margin:5px 0; font-size:1.1em; color:#e67e22; font-weight:bold;'>New Date: "
+                    + newDate + "</p>" +
+                    "      <p style='margin:5px 0;'>Exam Code: <strong>" + code + "</strong></p>" +
+                    "    </div>" +
+                    "    <p>Please update your calendar accordingly. We apologize for any inconvenience.</p>" +
+                    "    <p>Regards,<br/>SGIC Examination Team</p>" +
+                    "  </div>" +
+                    "</div></body></html>";
+            message.setContent(html, "text/html; charset=utf-8");
+            transport.sendMessage(message, message.getAllRecipients());
+            transport.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Async
+    public void sendBatchDateChangeAdminNotification(Test test, String oldDate, String newDate,
+            List<Student> students) {
+        EmailConfig config = emailConfigRepository.findByConfigName(PRIMARY_CONFIG).orElse(null);
+        if (config == null)
+            return;
+        List<Admin> admins = adminRepository.findAll();
+        String adminEmails = admins.stream().map(Admin::getEmail).filter(e -> e != null && !e.isEmpty())
+                .collect(Collectors.joining(","));
+        if (adminEmails.isEmpty())
+            return;
+        try {
+            Properties props = new Properties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.ssl.trust", config.getSmtpServer());
+            Session session = Session.getInstance(props);
+            Transport transport = session.getTransport("smtp");
+            transport.connect(config.getSmtpServer(), Integer.parseInt(config.getSmtpPort()), config.getUsername(),
+                    config.getPassword());
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(config.getSenderEmail(), config.getSenderName()));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(adminEmails));
+            message.setSubject("Admin Alert: Batch Date Shifted - " + test.getName());
+            StringBuilder sb = new StringBuilder("<html><body>")
+                    .append("<h3>Batch Date Change Report</h3>")
+                    .append("<p>Exam: <strong>").append(test.getName()).append("</strong></p>")
+                    .append("<p>Shifted from <span style='color:red;'>").append(oldDate)
+                    .append("</span> to <span style='color:green;'>").append(newDate).append("</span></p>")
+                    .append("<h4>Affected Students:</h4><ul>");
+            for (Student s : students)
+                sb.append("<li>").append(s.getName()).append(" (").append(s.getEmail()).append(")</li>");
+            sb.append("</ul></body></html>");
+            message.setContent(sb.toString(), "text/html; charset=utf-8");
+            transport.sendMessage(message, message.getAllRecipients());
+            transport.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Async
+    public void sendCancellationStudentNotification(Student student, Test test) {
+        EmailConfig config = emailConfigRepository.findByConfigName(PRIMARY_CONFIG).orElse(null);
+        if (config == null)
+            return;
+        try {
+            Properties props = new Properties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.ssl.trust", config.getSmtpServer());
+            Session session = Session.getInstance(props);
+            Transport transport = session.getTransport("smtp");
+            transport.connect(config.getSmtpServer(), Integer.parseInt(config.getSmtpPort()), config.getUsername(),
+                    config.getPassword());
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(config.getSenderEmail(), config.getSenderName()));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(student.getEmail()));
+            message.setSubject("IMPORTANT: Examination Session Postponed - " + test.getName());
+            String html = "<html><body style='font-family:sans-serif; background:#fff5f5; padding:20px;'>" +
+                    "<div style='max-width:600px; margin:0 auto; background:white; border-radius:12px; border:1px solid #ffa8a8; overflow:hidden;'>"
+                    +
+                    "  <div style='background:#ff6b6b; color:white; padding:25px; text-align:center;'><h2>Session Cancelled</h2></div>"
+                    +
+                    "  <div style='padding:30px;'>" +
+                    "    <p>Dear <strong>" + student.getName() + "</strong>,</p>" +
+                    "    <p>We regret to inform you that your scheduled session for <strong>" + test.getName()
+                    + "</strong> has been postponed/cancelled.</p>" +
+                    "    <div style='margin:20px 0; padding:20px; background:#fff5f5; border-radius:8px; border:1px solid #ffc9c9; text-align:center;'>"
+                    +
+                    "      <p style='margin:0; font-weight:bold; color:#e03131;'>We will notify you of the new schedule as soon as possible (ASAP).</p>"
+                    +
+                    "    </div>" +
+                    "    <p>Your current exam code has been deactivated. Please wait for the next official communication from our team.</p>"
+                    +
+                    "    <p>Regards,<br/>SGIC Examination Team</p>" +
+                    "  </div>" +
+                    "</div></body></html>";
+            message.setContent(html, "text/html; charset=utf-8");
+            transport.sendMessage(message, message.getAllRecipients());
+            transport.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Async
+    public void sendCancellationAdminNotification(Test test, List<Student> affectedStudents, String reason) {
+        EmailConfig config = emailConfigRepository.findByConfigName(PRIMARY_CONFIG).orElse(null);
+        if (config == null)
+            return;
+        List<Admin> admins = adminRepository.findAll();
+        String adminEmails = admins.stream().map(Admin::getEmail).filter(e -> e != null && !e.isEmpty())
+                .collect(Collectors.joining(","));
+        if (adminEmails.isEmpty())
+            return;
+        try {
+            Properties props = new Properties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.ssl.trust", config.getSmtpServer());
+            Session session = Session.getInstance(props);
+            Transport transport = session.getTransport("smtp");
+            transport.connect(config.getSmtpServer(), Integer.parseInt(config.getSmtpPort()), config.getUsername(),
+                    config.getPassword());
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(config.getSenderEmail(), config.getSenderName()));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(adminEmails));
+            message.setSubject("Admin Alert: Exam Deletion/Cancellation Report - " + test.getName());
+            StringBuilder sb = new StringBuilder("<html><body style='font-family:sans-serif;'>")
+                    .append("<h2 style='color:#e03131;'>Cancellation Report</h2>")
+                    .append("<p>Exam: <strong>").append(test.getName()).append("</strong></p>")
+                    .append("<p>Reason: <span style='color:#555;'>").append(reason).append("</span></p>")
+                    .append("<p>Students Affected: <strong>").append(affectedStudents.size()).append("</strong></p>")
+                    .append("<table border='1' style='width:100%; border-collapse:collapse;'>")
+                    .append("<tr style='background:#f8f9fa;'><th>Student Name</th><th>Email</th><th>Previous Status</th></tr>");
+            for (Student s : affectedStudents) {
+                sb.append("<tr><td style='padding:5px;'>").append(s.getName()).append("</td>")
+                        .append("<td style='padding:5px;'>").append(s.getEmail()).append("</td>")
+                        .append("<td style='padding:5px;'>").append(s.getStatus()).append("</td></tr>");
+            }
+            sb.append("</table></body></html>");
+            message.setContent(sb.toString(), "text/html; charset=utf-8");
+            transport.sendMessage(message, message.getAllRecipients());
+            transport.close();
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

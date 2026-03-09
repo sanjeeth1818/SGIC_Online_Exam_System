@@ -6,12 +6,14 @@ import com.sgic.exam.model.Test;
 import com.sgic.exam.model.TestCategoryConfig;
 import com.sgic.exam.repository.QuestionRepository;
 import com.sgic.exam.repository.StudentExamCodeRepository;
+import com.sgic.exam.repository.StudentRepository;
 import com.sgic.exam.repository.SubmissionRepository;
 import com.sgic.exam.repository.TestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,6 +36,9 @@ public class ExamPortalController {
     @Autowired
     private StudentExamCodeRepository studentExamCodeRepository;
 
+    @Autowired
+    private StudentRepository studentRepository;
+
     @GetMapping("/verify/{code}")
     public ResponseEntity<?> verifyCode(@PathVariable String code) {
         Optional<Test> testOpt = Optional.empty();
@@ -41,12 +46,33 @@ public class ExamPortalController {
         // 1. Try 4-digit code first
         Optional<StudentExamCode> entry = studentExamCodeRepository.findByExamCode(code);
         if (entry.isPresent()) {
-            String status = entry.get().getStatus();
-            if (!"ACTIVE".equalsIgnoreCase(status) && !"STARTED".equalsIgnoreCase(status)) {
+            StudentExamCode codeEntry = entry.get();
+            String codeStatus = codeEntry.getStatus();
+            if (!"ACTIVE".equalsIgnoreCase(codeStatus) && !"STARTED".equalsIgnoreCase(codeStatus)) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("message", "This code has already been used or has expired. Status: " + status));
+                        .body(Map.of("message",
+                                "This code has already been used or has expired. Status: " + codeStatus));
             }
-            testOpt = testRepository.findById(entry.get().getTestId());
+
+            // Verify Student Status - only enforce for ACTIVE codes (pre-start)
+            // Skip this check for STARTED codes since the student is already mid-exam
+            if ("ACTIVE".equalsIgnoreCase(codeStatus)) {
+                Optional<com.sgic.exam.model.Student> studentOpt = studentRepository.findById(codeEntry.getStudentId());
+                if (studentOpt.isPresent()) {
+                    String studentStatus = studentOpt.get().getStatus();
+                    if (!"Allocated".equalsIgnoreCase(studentStatus)
+                            && !"Rescheduled".equalsIgnoreCase(studentStatus)) {
+                        return ResponseEntity.badRequest()
+                                .body(Map.of("message",
+                                        "Your current status (" + studentStatus
+                                                + ") does not allow examination access."));
+                    }
+                } else {
+                    return ResponseEntity.badRequest().body(Map.of("message", "Student record not found."));
+                }
+            }
+
+            testOpt = testRepository.findById(codeEntry.getTestId());
         }
         // 2. Fallback removed (was testCode lookup)
 
@@ -128,26 +154,69 @@ public class ExamPortalController {
                     .filter(java.util.Objects::nonNull)
                     .collect(Collectors.toList());
         } else {
-            // Generate for the first time
+            // Generate for the first time using advanced randomization
+            SecureRandom secureRandom = new SecureRandom();
+
             if ("manual".equalsIgnoreCase(test.getSelectionMode())) {
                 // For manual mode, only include Active questions
-                allSelectedQuestions.addAll(
-                        test.getManualQuestions().stream()
-                                .filter(q -> !"Inactive".equalsIgnoreCase(q.getStatus()))
-                                .collect(Collectors.toList()));
+                List<Question> manualPool = test.getManualQuestions().stream()
+                        .filter(q -> !"Inactive".equalsIgnoreCase(q.getStatus()))
+                        .collect(Collectors.toList());
+                Collections.shuffle(manualPool, secureRandom);
+                allSelectedQuestions.addAll(manualPool);
             } else {
+                // STRATIFIED STRIDE-BASED SAMPLING for category-random mode
                 for (TestCategoryConfig config : test.getCategoryConfigs()) {
-                    List<Question> categoryQuestions = questionRepository.findByCategoryId(config.getCategoryId())
+                    List<Question> pool = questionRepository.findByCategoryId(config.getCategoryId())
                             .stream()
                             .filter(q -> !"Inactive".equalsIgnoreCase(q.getStatus()))
                             .collect(Collectors.toList());
-                    Collections.shuffle(categoryQuestions);
 
-                    int limit = Math.min(config.getQuestionCount(), categoryQuestions.size());
-                    allSelectedQuestions.addAll(categoryQuestions.subList(0, limit));
+                    int needed = Math.min(config.getQuestionCount(), pool.size());
+                    if (needed <= 0)
+                        continue;
+
+                    // Step 1: Full shuffle with SecureRandom for base randomness
+                    Collections.shuffle(pool, secureRandom);
+
+                    if (needed >= pool.size()) {
+                        // Need all questions, just add the shuffled pool
+                        allSelectedQuestions.addAll(pool);
+                    } else {
+                        // Step 2: Stratified stride-based pick from across the entire pool
+                        // Divide pool into zones and pick from alternating positions
+                        List<Question> picked = new ArrayList<>();
+                        boolean[] used = new boolean[pool.size()];
+                        int poolSize = pool.size();
+
+                        // Use a varying stride to pick from different zones
+                        // Golden ratio stride ensures maximum spread across the pool
+                        double goldenRatio = (1.0 + Math.sqrt(5.0)) / 2.0;
+                        int startOffset = secureRandom.nextInt(poolSize);
+
+                        for (int i = 0; i < needed; i++) {
+                            int index = (int) ((startOffset + Math.round(i * goldenRatio * poolSize / needed))
+                                    % poolSize);
+                            // Find nearest unused slot
+                            int attempts = 0;
+                            while (used[index] && attempts < poolSize) {
+                                index = (index + 1) % poolSize;
+                                attempts++;
+                            }
+                            if (!used[index]) {
+                                used[index] = true;
+                                picked.add(pool.get(index));
+                            }
+                        }
+
+                        // Final shuffle of the picked subset for extra randomness
+                        Collections.shuffle(picked, secureRandom);
+                        allSelectedQuestions.addAll(picked);
+                    }
                 }
             }
-            Collections.shuffle(allSelectedQuestions);
+            // Final deep shuffle of all selected questions
+            Collections.shuffle(allSelectedQuestions, secureRandom);
 
             // SAVE the generated IDs to the student code entry for persistence
             if (entry.isPresent()) {
@@ -160,14 +229,24 @@ public class ExamPortalController {
             }
         }
 
-        // Hide correct answers before sending to student!
+        // Hide correct answers and SHUFFLE MCQ options before sending to student!
+        SecureRandom optionRandom = new SecureRandom();
         List<Question> questionsWithoutAnswers = allSelectedQuestions.stream().map(q -> {
             Question dto = new Question();
             dto.setId(q.getId());
             dto.setText(q.getText());
             dto.setType(q.getType());
-            dto.setOptions(q.getOptions());
             dto.setCategory(q.getCategory());
+
+            // Shuffle MCQ options so A/B/C/D positions are randomized per student
+            if ("MCQ".equalsIgnoreCase(q.getType()) && q.getOptions() != null && !q.getOptions().isEmpty()) {
+                List<String> shuffledOptions = new ArrayList<>(q.getOptions());
+                Collections.shuffle(shuffledOptions, optionRandom);
+                dto.setOptions(shuffledOptions);
+            } else {
+                dto.setOptions(q.getOptions());
+            }
+
             return dto;
         }).collect(Collectors.toList());
 

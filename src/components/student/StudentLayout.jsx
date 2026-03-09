@@ -3,11 +3,11 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { User, LogOut } from 'lucide-react';
 
 const StudentLayout = () => {
-    const [studentName, setStudentName] = useState(localStorage.getItem('studentName') || 'Guest');
+    const [studentName, setStudentName] = useState(sessionStorage.getItem('studentName') || 'Guest');
 
     useEffect(() => {
         const handleNameUpdate = () => {
-            setStudentName(localStorage.getItem('studentName') || 'Guest');
+            setStudentName(sessionStorage.getItem('studentName') || 'Guest');
         };
         window.addEventListener('studentNameUpdated', handleNameUpdate);
         return () => window.removeEventListener('studentNameUpdated', handleNameUpdate);
@@ -41,7 +41,7 @@ const StudentLayout = () => {
                     </div>
 
                     <NavLink to="/" onClick={() => {
-                        localStorage.removeItem('studentName');
+                        sessionStorage.removeItem('studentName');
                         window.dispatchEvent(new Event('studentNameUpdated'));
                         // Force a clean reload to clear TestStart state (like verified code)
                         window.location.href = '/';

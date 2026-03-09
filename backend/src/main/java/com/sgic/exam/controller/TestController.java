@@ -240,20 +240,70 @@ public class TestController {
             Test test = testRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Test not found"));
 
-            mapRequestToTest(testRequest, test);
-
-            int totalStudents = 0;
+            // Identify removed students to update their status
+            Set<Long> oldStudentIds = new HashSet<>();
             if (test.getStudentGroups() != null) {
-                Set<Long> uniqueIds = new HashSet<>();
                 for (TestStudentGroup group : test.getStudentGroups()) {
                     if (group.getStudents() != null) {
                         for (Student s : group.getStudents()) {
-                            uniqueIds.add(s.getId());
+                            oldStudentIds.add(s.getId());
                         }
                     }
                 }
-                totalStudents = uniqueIds.size();
             }
+
+            mapRequestToTest(testRequest, test);
+
+            Set<Long> newStudentIds = new HashSet<>();
+            if (test.getStudentGroups() != null) {
+                for (TestStudentGroup group : test.getStudentGroups()) {
+                    if (group.getStudents() != null) {
+                        for (Student s : group.getStudents()) {
+                            newStudentIds.add(s.getId());
+                        }
+                    }
+                }
+            }
+
+            // Students in old but not in new: Remove allocation
+            List<com.sgic.exam.model.Student> removedStudents = new java.util.ArrayList<>();
+            for (Long oldId : oldStudentIds) {
+                if (!newStudentIds.contains(oldId)) {
+                    studentRepository.findById(oldId).ifPresent(student -> {
+                        // Send Cancellation Email
+                        if ("Allocated".equals(student.getStatus()) || "Rescheduled".equals(student.getStatus())) {
+                            emailService.sendCancellationStudentNotification(student, test);
+                            removedStudents.add(student);
+                        }
+
+                        student.setStatus("Have to Reschedule");
+                        student.setStatusComment("Removed from Examination: " + test.getName());
+                        student.setExamName(null);
+                        student.setExamDate(null);
+                        student.setExamCode(null);
+
+                        String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                .format(new java.util.Date());
+                        String logEntry = String.format("[%s] Status: Have to Reschedule (Removed from %s)",
+                                timestamp, test.getName());
+                        String history = student.getStatusHistory();
+                        student.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
+
+                        studentRepository.save(student);
+
+                        // Also remove the exam code entry
+                        studentExamCodeRepository.findByTestIdAndStudentId(test.getId(), oldId)
+                                .ifPresent(studentExamCodeRepository::delete);
+                    });
+                }
+            }
+
+            if (!removedStudents.isEmpty()) {
+                emailService.sendCancellationAdminNotification(test, removedStudents,
+                        "Students were removed from the examination during an update.");
+            }
+
+            int totalStudents = newStudentIds.size();
             test.setStudentCount(totalStudents);
 
             Test savedTest = testRepository.save(test);
@@ -261,7 +311,7 @@ public class TestController {
             try {
                 if ("Published".equalsIgnoreCase(savedTest.getStatus())) {
                     notifyScheduledStudents(savedTest);
-                    emailService.sendAdminTestCreationNotification(savedTest);
+                    emailService.sendAdminTestUpdateNotification(savedTest);
                 }
             } catch (Exception e) {
                 System.err.println("Non-critical error during notification: " + e.getMessage());
@@ -280,6 +330,42 @@ public class TestController {
         try {
             Test test = testRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Test not found"));
+
+            // Notify students and update status before deletion
+            if (test.getStudentGroups() != null) {
+                List<com.sgic.exam.model.Student> affectedStudents = new java.util.ArrayList<>();
+                for (TestStudentGroup group : test.getStudentGroups()) {
+                    if (group.getStudents() != null) {
+                        for (com.sgic.exam.model.Student s : group.getStudents()) {
+                            if ("Allocated".equals(s.getStatus()) || "Rescheduled".equals(s.getStatus())) {
+                                emailService.sendCancellationStudentNotification(s, test);
+
+                                // Update Student Status
+                                String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                        .format(new java.util.Date());
+                                String log = String.format(
+                                        "[%s] Status: Have to Reschedule (Exam '%s' was deleted by admin)", timestamp,
+                                        test.getName());
+                                String history = s.getStatusHistory();
+                                s.setStatusHistory(history == null ? log : log + "\n" + history);
+                                s.setStatus("Have to Reschedule");
+                                s.setExamName(null);
+                                s.setExamDate(null);
+                                s.setExamCode(null);
+                                studentRepository.save(s);
+                                affectedStudents.add(s);
+                            }
+                        }
+                    }
+                }
+                if (!affectedStudents.isEmpty()) {
+                    emailService.sendCancellationAdminNotification(test, affectedStudents,
+                            "Examination was deleted from the system.");
+                }
+            }
+
+            // Cleanup codes
+            studentExamCodeRepository.deleteByTestId(test.getId());
 
             testRepository.delete(test);
             return ResponseEntity.noContent().build();
@@ -396,10 +482,31 @@ public class TestController {
                 System.out.println(
                         "Processing group with " + group.getStudents().size() + " students for exam date: " + examDate);
 
+                List<com.sgic.exam.model.Student> shiftedStudents = new java.util.ArrayList<>();
+                String previousDateForShift = null;
+
                 for (Student student : group.getStudents()) {
                     System.out.println("Processing student: " + student.getName() + " (" + student.getEmail() + ")");
 
                     final boolean[] isNew = { false };
+                    final boolean[] dateChanged = { false };
+                    final String[] oldDate = { null };
+
+                    // Check if an existing code exists for this student/test
+                    Optional<StudentExamCode> existingCode = studentExamCodeRepository
+                            .findByTestIdAndStudentId(test.getId(), student.getId());
+
+                    if (existingCode.isPresent()) {
+                        oldDate[0] = existingCode.get().getExpiryDate();
+                        // If date changed, we'll replace the code
+                        if (!examDate.equals(oldDate[0])) {
+                            System.out.println(
+                                    "Exam date changed for student " + student.getName() + ". Replacing old code.");
+                            studentExamCodeRepository.delete(existingCode.get());
+                            dateChanged[0] = true;
+                        }
+                    }
+
                     StudentExamCode codeEntry = studentExamCodeRepository
                             .findByTestIdAndStudentId(test.getId(), student.getId())
                             .orElseGet(() -> {
@@ -413,42 +520,60 @@ public class TestController {
                                 return studentExamCodeRepository.save(newEntry);
                             });
 
-                    if (isNew[0]) {
-                        emailService.sendSchedulingEmail(student, test, codeEntry.getExamCode(), examDate);
-                    } else {
-                        System.out.println(
-                                "Student " + student.getEmail() + " already has a code. Skipping notification.");
-                    }
-
-                    // Always update student status to Allocated with exam details
+                    // Handle email notifications and status updates
                     try {
                         com.sgic.exam.model.Student studentEntity = studentRepository
                                 .findById(Objects.requireNonNull(student.getId()))
                                 .orElse(null);
-                        // Only update status and history if it's a new allocation or not already
-                        // finished/allocated
-                        if (isNew[0] || (!"Took Exam".equals(studentEntity.getStatus())
-                                && !"Allocated".equals(studentEntity.getStatus()))) {
-                            String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                                    .format(new java.util.Date());
-                            String logEntry = String.format("[%s] Status: Allocated (Exam: %s on %s, Code: %s)",
-                                    timestamp, test.getName(), examDate, codeEntry.getExamCode());
-                            String history = studentEntity.getStatusHistory();
-                            studentEntity.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
 
-                            studentEntity.setStatus("Allocated");
-                            studentEntity.setExamName(test.getName());
-                            studentEntity.setExamDate(examDate);
-                            studentEntity.setExamCode(codeEntry.getExamCode());
-                            studentRepository.save(studentEntity);
-                            System.out.println("Updated student " + student.getName() + " status to Allocated.");
-                        } else {
-                            System.out.println("Student " + student.getName() + " already has status: "
-                                    + studentEntity.getStatus() + ". Skipping status reset.");
+                        if (studentEntity != null) {
+                            String oldStatus = studentEntity.getStatus();
+                            boolean needsUpdate = isNew[0] || dateChanged[0] || (!"Took Exam".equals(oldStatus)
+                                    && !"Allocated".equals(oldStatus)
+                                    && !"Rescheduled".equals(oldStatus));
+
+                            if (needsUpdate) {
+                                String newStatus = "Allocated";
+                                if (dateChanged[0] && oldDate[0] != null) {
+                                    newStatus = "Rescheduled";
+                                    // Professional Date Shift Notification
+                                    emailService.sendBatchDateChangeStudentNotification(studentEntity, test, oldDate[0],
+                                            examDate, codeEntry.getExamCode());
+                                    shiftedStudents.add(studentEntity);
+                                    previousDateForShift = oldDate[0];
+                                } else if ("Have to Reschedule".equalsIgnoreCase(oldStatus)
+                                        || "Rescheduled".equalsIgnoreCase(oldStatus)) {
+                                    newStatus = "Rescheduled";
+                                    emailService.sendReschedulingEmail(studentEntity, test, codeEntry.getExamCode(),
+                                            examDate);
+                                } else if (isNew[0]) {
+                                    emailService.sendSchedulingEmail(studentEntity, test, codeEntry.getExamCode(),
+                                            examDate);
+                                }
+
+                                String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                        .format(new java.util.Date());
+                                String logEntry = String.format("[%s] Status: %s (Exam: %s on %s, Code: %s)",
+                                        timestamp, newStatus, test.getName(), examDate, codeEntry.getExamCode());
+                                String history = studentEntity.getStatusHistory();
+                                studentEntity.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
+
+                                studentEntity.setStatus(newStatus);
+                                studentEntity.setExamName(test.getName());
+                                studentEntity.setExamDate(examDate);
+                                studentEntity.setExamCode(codeEntry.getExamCode());
+                                studentRepository.save(studentEntity);
+                            }
                         }
                     } catch (Exception statusEx) {
                         System.err.println("Warning: Could not update student status: " + statusEx.getMessage());
                     }
+                }
+
+                // Send Admin Summary for this batch shift
+                if (!shiftedStudents.isEmpty() && previousDateForShift != null) {
+                    emailService.sendBatchDateChangeAdminNotification(test, previousDateForShift, examDate,
+                            shiftedStudents);
                 }
             }
         } catch (Exception e) {

@@ -5,7 +5,7 @@ import { Clock, CheckCircle } from 'lucide-react';
 const ExamInterface = () => {
     const navigate = useNavigate();
     // Settings mode: 'scroll' | 'step'
-    const [mode, setMode] = useState(localStorage.getItem('examMode') || 'scroll');
+    const [mode, setMode] = useState(sessionStorage.getItem('examMode') || 'scroll');
     const [timeMode, setTimeMode] = useState('full'); // 'full' | 'question'
     const [baseDuration, setBaseDuration] = useState(3600);
     const [timeLeft, setTimeLeft] = useState(3599);
@@ -25,7 +25,7 @@ const ExamInterface = () => {
     const [timeSpent, setTimeSpent] = useState({}); // Tracking actual seconds spent per question
 
     const fetchQuestions = async () => {
-        const code = localStorage.getItem('currentExamCode');
+        const code = sessionStorage.getItem('currentExamCode');
         if (!code) {
             navigate('/');
             return;
@@ -34,7 +34,10 @@ const ExamInterface = () => {
         try {
             // Fetch test details first for duration and mode
             const testRes = await fetch(`/api/exam-portal/verify/${code}`);
-            if (!testRes.ok) throw new Error('Test not found');
+            if (!testRes.ok) {
+                const errData = await testRes.json().catch(() => ({}));
+                throw new Error(errData.message || 'Test not found or access denied');
+            }
             const testData = await testRes.json();
 
             // Store time settings
@@ -62,7 +65,7 @@ const ExamInterface = () => {
             let effectiveStartTime = Date.now();
             let initialTimeLeft = durationSeconds;
 
-            const serverStartedAt = testData.startedAt || localStorage.getItem('examStartedAt');
+            const serverStartedAt = testData.startedAt || sessionStorage.getItem('examStartedAt');
             if (serverStartedAt) {
                 const startTimeMs = new Date(serverStartedAt).getTime();
                 const nowMs = Date.now();
@@ -127,7 +130,7 @@ const ExamInterface = () => {
             }
 
             // INSTANT PERSISTENCE: Restore locally cached answers (important for immediate refresh)
-            const cachedAnswers = localStorage.getItem(`examAnswers_${code}`);
+            const cachedAnswers = sessionStorage.getItem(`examAnswers_${code}`);
             if (cachedAnswers) {
                 try {
                     const parsed = JSON.parse(cachedAnswers);
@@ -138,7 +141,7 @@ const ExamInterface = () => {
             }
 
             // NAVIGATION PERSISTENCE: Restore question position
-            const savedStep = localStorage.getItem('examCurrentStep');
+            const savedStep = sessionStorage.getItem('examCurrentStep');
             if (savedStep && parseInt(savedStep) < questionsList.length) {
                 setCurrentStep(parseInt(savedStep));
             }
@@ -161,8 +164,8 @@ const ExamInterface = () => {
         setAnswers(prev => {
             const next = { ...prev, [qId]: value };
             // Save to local cache immediately
-            const code = localStorage.getItem('currentExamCode');
-            localStorage.setItem(`examAnswers_${code}`, JSON.stringify(next));
+            const code = sessionStorage.getItem('currentExamCode');
+            sessionStorage.setItem(`examAnswers_${code}`, JSON.stringify(next));
             return next;
         });
     };
@@ -170,9 +173,9 @@ const ExamInterface = () => {
     const saveProgress = async (updatedTimeSpent) => {
         const currentQId = questions[currentStep].id;
         const payload = {
-            studentName: localStorage.getItem('studentName') || 'Guest',
-            examCode: localStorage.getItem('currentExamCode'),
-            testId: localStorage.getItem('testId'),
+            studentName: sessionStorage.getItem('studentName') || 'Guest',
+            examCode: sessionStorage.getItem('currentExamCode'),
+            testId: sessionStorage.getItem('testId'),
             answers: answers,
             timeSpent: updatedTimeSpent || timeSpent
         };
@@ -197,9 +200,9 @@ const ExamInterface = () => {
         const totalSpentOnThis = (timeSpent[currentQId] || 0) + elapsed;
 
         const payload = {
-            studentName: localStorage.getItem('studentName') || 'Guest',
-            examCode: localStorage.getItem('currentExamCode'),
-            testId: localStorage.getItem('testId'),
+            studentName: sessionStorage.getItem('studentName') || 'Guest',
+            examCode: sessionStorage.getItem('currentExamCode'),
+            testId: sessionStorage.getItem('testId'),
             answers: answers,
             timeSpent: { ...timeSpent, [currentQId]: totalSpentOnThis }
         };
@@ -223,18 +226,18 @@ const ExamInterface = () => {
                 await fetch('/api/exam-entry/complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: localStorage.getItem('currentExamCode') })
+                    body: JSON.stringify({ code: sessionStorage.getItem('currentExamCode') })
                 });
             } catch (error) {
                 console.error('Failed to mark code as used:', error);
                 // We don't block the user if this fails, as the submission was successful
             }
 
-            localStorage.setItem('lastSubmission', JSON.stringify(resultData));
+            sessionStorage.setItem('lastSubmission', JSON.stringify(resultData));
             // Clear persistence on completion
-            localStorage.removeItem('examCurrentStep');
-            localStorage.removeItem('examStartedAt');
-            localStorage.removeItem('examSessionToken');
+            sessionStorage.removeItem('examCurrentStep');
+            sessionStorage.removeItem('examStartedAt');
+            sessionStorage.removeItem('examSessionToken');
 
             navigate('/complete');
         } catch (error) {
@@ -270,7 +273,7 @@ const ExamInterface = () => {
         setTimeSpent(updatedSpent);
 
         // 4. Persistence & Auto-save
-        localStorage.setItem('examCurrentStep', newStep.toString());
+        sessionStorage.setItem('examCurrentStep', newStep.toString());
         saveProgress(updatedSpent);
 
         // 5. Reset anchors
@@ -320,9 +323,10 @@ const ExamInterface = () => {
 
         const pollInterval = setInterval(async () => {
             try {
-                const code = localStorage.getItem('currentExamCode');
+                const code = sessionStorage.getItem('currentExamCode');
+                if (!code) return; // Session cleared, stop polling
                 const testRes = await fetch(`/api/exam-portal/verify/${code}`);
-                if (!testRes.ok) return;
+                if (!testRes.ok) return; // Silently skip failures during exam
 
                 const testData = await testRes.json();
                 const newAdditionalMinutes = parseInt(testData.additionalTime || 0);
