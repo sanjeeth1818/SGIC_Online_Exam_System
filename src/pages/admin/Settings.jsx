@@ -17,6 +17,10 @@ const Settings = () => {
         password: ''
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [isEmailEditable, setIsEmailEditable] = useState(false);
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
+    const [verificationPassword, setVerificationPassword] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
 
     // Fetch profile and security on mount
     useEffect(() => {
@@ -203,6 +207,8 @@ const Settings = () => {
         } catch (error) {
             console.error('Error saving email settings:', error);
             showNotification('Server Error. Please check backend connection.', 'error');
+        } finally {
+            setIsEmailEditable(false);
         }
     };
 
@@ -245,6 +251,44 @@ const Settings = () => {
             showNotification('Server error while testing connection.', 'error');
         } finally {
             setIsTesting(false);
+        }
+    };
+
+    const handleVerifyPassword = async (e) => {
+        e.preventDefault();
+        if (isVerifying) return;
+        setIsVerifying(true);
+
+        try {
+            // Get current username
+            let savedAdmin = localStorage.getItem('adminUser');
+            let currentUsername = 'admin_user';
+            if (savedAdmin) {
+                const parsed = JSON.parse(savedAdmin);
+                currentUsername = parsed.username || currentUsername;
+            }
+
+            const res = await fetch(`http://localhost:8080/api/admin/verify-password/${currentUsername}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: verificationPassword })
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                setIsEmailEditable(true);
+                setShowVerifyModal(false);
+                setVerificationPassword('');
+                showNotification('Identity verified. You can now edit configurations.');
+            } else {
+                showNotification(data.message || 'Incorrect password.', 'error');
+            }
+        } catch (error) {
+            console.error('Verification error:', error);
+            showNotification('Server error during verification.', 'error');
+        } finally {
+            setIsVerifying(false);
         }
     };
 
@@ -464,10 +508,6 @@ const Settings = () => {
                             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-primary)' }}>
                                 <Mail size={24} color="var(--primary)" /> Email Configuration
                             </h2>
-                            <div style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '1rem 1.5rem', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 600, marginBottom: '2rem', display: 'flex', gap: '0.75rem' }}>
-                                <AlertCircle size={20} style={{ flexShrink: 0 }} />
-                                <span>These settings are used by the system to send outgoing emails such as exam results, login links, and automated notifications.</span>
-                            </div>
 
                             <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
@@ -477,8 +517,9 @@ const Settings = () => {
                                             type="text"
                                             value={emailData.smtpServer}
                                             onChange={e => setEmailData({ ...emailData, smtpServer: e.target.value })}
-                                            style={inputStyle}
+                                            style={{ ...inputStyle, opacity: isEmailEditable ? 1 : 0.7, cursor: isEmailEditable ? 'text' : 'not-allowed' }}
                                             required
+                                            disabled={!isEmailEditable}
                                             onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                         />
@@ -489,8 +530,9 @@ const Settings = () => {
                                             type="text"
                                             value={emailData.smtpPort}
                                             onChange={e => setEmailData({ ...emailData, smtpPort: e.target.value })}
-                                            style={inputStyle}
+                                            style={{ ...inputStyle, opacity: isEmailEditable ? 1 : 0.7, cursor: isEmailEditable ? 'text' : 'not-allowed' }}
                                             required
+                                            disabled={!isEmailEditable}
                                             onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                         />
@@ -503,8 +545,9 @@ const Settings = () => {
                                             type="email"
                                             value={emailData.senderEmail}
                                             onChange={e => setEmailData({ ...emailData, senderEmail: e.target.value })}
-                                            style={inputStyle}
+                                            style={{ ...inputStyle, opacity: isEmailEditable ? 1 : 0.7, cursor: isEmailEditable ? 'text' : 'not-allowed' }}
                                             required
+                                            disabled={!isEmailEditable}
                                             onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                             placeholder="sanjeeth@example.com"
@@ -516,8 +559,9 @@ const Settings = () => {
                                             type="text"
                                             value={emailData.senderName}
                                             onChange={e => setEmailData({ ...emailData, senderName: e.target.value })}
-                                            style={inputStyle}
+                                            style={{ ...inputStyle, opacity: isEmailEditable ? 1 : 0.7, cursor: isEmailEditable ? 'text' : 'not-allowed' }}
                                             placeholder="e.g. SGIC Academy"
+                                            disabled={!isEmailEditable}
                                             onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                         />
@@ -527,21 +571,24 @@ const Settings = () => {
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                                             <label style={labelStyle}>Username</label>
-                                            <button
-                                                type="button"
-                                                onClick={() => setEmailData({ ...emailData, username: emailData.senderEmail })}
-                                                style={{ border: 'none', background: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                                            >
-                                                Same as Sender Email
-                                            </button>
+                                            {isEmailEditable && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEmailData({ ...emailData, username: emailData.senderEmail })}
+                                                    style={{ border: 'none', background: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                                >
+                                                    Same as Sender Email
+                                                </button>
+                                            )}
                                         </div>
                                         <input
                                             type="text"
                                             value={emailData.username}
                                             onChange={e => setEmailData({ ...emailData, username: e.target.value })}
-                                            style={inputStyle}
+                                            style={{ ...inputStyle, opacity: isEmailEditable ? 1 : 0.7, cursor: isEmailEditable ? 'text' : 'not-allowed' }}
                                             placeholder="SMTP Username"
                                             required
+                                            disabled={!isEmailEditable}
                                             onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                         />
@@ -553,9 +600,10 @@ const Settings = () => {
                                             type="password"
                                             value={emailData.password}
                                             onChange={e => setEmailData({ ...emailData, password: e.target.value })}
-                                            style={inputStyle}
+                                            style={{ ...inputStyle, opacity: isEmailEditable ? 1 : 0.7, cursor: isEmailEditable ? 'text' : 'not-allowed' }}
                                             placeholder="Enter password"
                                             required
+                                            disabled={!isEmailEditable}
                                             onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                         />
@@ -594,27 +642,79 @@ const Settings = () => {
                                     >
                                         {isTesting ? 'Testing...' : 'Test Connection'}
                                     </button>
-                                    <button
-                                        type="submit"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.75rem',
-                                            padding: '1rem 2.5rem',
-                                            borderRadius: '14px',
-                                            background: 'var(--primary)',
-                                            color: 'white',
-                                            fontWeight: 700,
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                    >
-                                        <Save size={18} /> Save Configurations
-                                    </button>
+
+                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                        {!isEmailEditable ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowVerifyModal(true)}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.75rem',
+                                                    padding: '1rem 2.5rem',
+                                                    borderRadius: '14px',
+                                                    background: 'var(--bg-app)',
+                                                    color: 'var(--primary)',
+                                                    fontWeight: 700,
+                                                    border: '2px solid var(--primary)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s',
+                                                    boxShadow: 'var(--shadow-sm)'
+                                                }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.background = 'var(--primary)';
+                                                    e.currentTarget.style.color = 'white';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.background = 'var(--bg-app)';
+                                                    e.currentTarget.style.color = 'var(--primary)';
+                                                }}
+                                            >
+                                                <Lock size={18} /> Edit Configurations
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsEmailEditable(false)}
+                                                    style={{
+                                                        padding: '1rem 2rem',
+                                                        borderRadius: '14px',
+                                                        background: 'transparent',
+                                                        color: 'var(--text-secondary)',
+                                                        fontWeight: 700,
+                                                        border: '2px solid var(--border)',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.75rem',
+                                                        padding: '1rem 2.5rem',
+                                                        borderRadius: '14px',
+                                                        background: 'var(--primary)',
+                                                        color: 'white',
+                                                        fontWeight: 700,
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                >
+                                                    <Save size={18} /> Update Configurations
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -622,10 +722,88 @@ const Settings = () => {
                 </div>
             </div >
 
+            {/* Password Verification Modal */}
+            {showVerifyModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 3000, animation: 'fadeIn 0.2s ease-out'
+                }}>
+                    <div style={{
+                        background: 'var(--bg-surface)', padding: '2.5rem', borderRadius: '24px',
+                        width: '100%', maxWidth: '450px', boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
+                        border: '1px solid var(--border)', animation: 'slideUp 0.3s ease-out'
+                    }}>
+                        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                            <div style={{
+                                width: '64px', height: '64px', background: 'var(--primary-light)',
+                                borderRadius: '20px', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', margin: '0 auto 1.5rem', color: 'var(--primary)'
+                            }}>
+                                <Lock size={32} />
+                            </div>
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Security Check</h3>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.5 }}>
+                                Please enter your administrator password to unlock email configurations.
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleVerifyPassword}>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={labelStyle}>Admin Password</label>
+                                <input
+                                    type="password"
+                                    autoFocus
+                                    value={verificationPassword}
+                                    onChange={e => setVerificationPassword(e.target.value)}
+                                    style={inputStyle}
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowVerifyModal(false);
+                                        setVerificationPassword('');
+                                    }}
+                                    style={{
+                                        padding: '0.875rem', borderRadius: '12px', border: '2px solid var(--border)',
+                                        background: 'transparent', color: 'var(--text-secondary)',
+                                        fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isVerifying}
+                                    style={{
+                                        padding: '0.875rem', borderRadius: '12px', border: 'none',
+                                        background: 'var(--primary)', color: 'white',
+                                        fontWeight: 700, cursor: isVerifying ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.2s', opacity: isVerifying ? 0.7 : 1
+                                    }}
+                                >
+                                    {isVerifying ? 'Verifying...' : 'Verify & Unlock'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             <style>{`
                 @keyframes slideIn {
                     from { transform: translateX(100%); opacity: 0; }
                     to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { transform: translateY(20px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
                 }
             `}</style>
         </div >

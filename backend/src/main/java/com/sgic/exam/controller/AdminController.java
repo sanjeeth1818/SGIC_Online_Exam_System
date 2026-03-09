@@ -123,6 +123,38 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
     }
 
+    @PostMapping("/verify-password/{username}")
+    public ResponseEntity<?> verifyPassword(@PathVariable String username,
+            @RequestBody Map<String, String> request) {
+        String password = request.get("password");
+        Optional<Admin> adminOpt = adminRepository.findByUsername(username);
+
+        if (adminOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Admin not found"));
+        }
+
+        Admin admin = adminOpt.get();
+        boolean matches = false;
+
+        try {
+            if (passwordEncoder.matches(password, admin.getPassword())) {
+                matches = true;
+            }
+        } catch (Exception e) {
+        }
+
+        if (!matches && admin.getPassword().equals(password)) {
+            matches = true;
+        }
+
+        if (matches) {
+            return ResponseEntity.ok(Map.of("success", true, "message", "Password verified"));
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "message", "Incorrect password"));
+        }
+    }
+
     public static class ProfileUpdateRequest {
         private String username;
         private String name;
