@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, FileText, Database, Layers, Calendar as CalendarIcon, Clock, Activity, ChevronRight, ChevronLeft, TrendingUp, Search, ChevronDown, X } from 'lucide-react';
+import { Users, FileText, Database, Layers, Calendar as CalendarIcon, Activity, ChevronRight, ChevronLeft, TrendingUp, Search, ChevronDown, X } from 'lucide-react';
 
 // --- Premium UI Components ---
 
@@ -262,40 +262,62 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
     const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     const year = activeMonth.getFullYear();
     const month = activeMonth.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-
     const today = new Date();
     const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
 
-    // Build grid: leading empty cells + actual days
+    const [pickerMode, setPickerMode] = useState(null); // null | 'month' | 'year'
+    const pickerRef = React.useRef(null);
+
+    // Close picker on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+                setPickerMode(null);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
     const calendarDays = [];
     for (let i = 0; i < firstDay; i++) calendarDays.push(null);
     for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
-    // Pad to complete the last row
     while (calendarDays.length % 7 !== 0) calendarDays.push(null);
 
-    const nextMonth = () => {
+    const navigate = (dir) => {
         const d = new Date(activeMonth);
-        d.setMonth(d.getMonth() + 1);
+        d.setMonth(d.getMonth() + dir);
         setActiveMonth(d);
     };
 
-    const prevMonth = () => {
+    const selectMonth = (m) => {
         const d = new Date(activeMonth);
-        d.setMonth(d.getMonth() - 1);
+        d.setMonth(m);
         setActiveMonth(d);
+        setPickerMode(null);
     };
 
-    // Cell dimensions
+    const selectYear = (y) => {
+        const d = new Date(activeMonth);
+        d.setFullYear(y);
+        setActiveMonth(d);
+        setPickerMode(null);
+    };
+
     const CELL_SIZE = 36;
     const CELL_GAP = 4;
+    const currentYear = today.getFullYear();
+    const yearRange = Array.from({ length: 21 }, (_, i) => currentYear - 5 + i);
 
     return (
-        <div style={{
+        <div ref={pickerRef} style={{
             background: 'var(--bg-surface)',
             borderRadius: '24px',
             padding: '1.5rem',
@@ -304,116 +326,172 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
             width: '100%',
             boxSizing: 'border-box'
         }}>
+            <style>{`
+                @keyframes calPickerIn {
+                    from { opacity: 0; transform: translateY(-6px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
+                .cal-year-scroll::-webkit-scrollbar { width: 5px; }
+                .cal-year-scroll::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+                .cal-year-scroll::-webkit-scrollbar-track { background: transparent; }
+            `}</style>
+
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <CalendarIcon size={18} color="var(--primary)" />
-                    <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {monthNames[month]} {year}
-                    </span>
-                </div>
-                <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    <button onClick={prevMonth} style={{
-                        width: '30px', height: '30px', borderRadius: '8px',
-                        border: '1px solid var(--border)', background: 'var(--bg-app)',
-                        cursor: 'pointer', color: 'var(--text-secondary)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.2s'
-                    }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                    ><ChevronLeft size={15} /></button>
-                    <button onClick={nextMonth} style={{
-                        width: '30px', height: '30px', borderRadius: '8px',
-                        border: '1px solid var(--border)', background: 'var(--bg-app)',
-                        cursor: 'pointer', color: 'var(--text-secondary)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.2s'
-                    }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                    ><ChevronRight size={15} /></button>
-                </div>
-            </div>
 
-            {/* Calendar Grid */}
-            <div style={{ width: '100%' }}>
-                {/* Day Headers */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
-                    {days.map(d => (
-                        <div key={d} style={{
-                            textAlign: 'center',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            color: 'var(--text-tertiary)',
-                            padding: '6px 0',
-                            letterSpacing: '0.03em'
-                        }}>{d}</div>
+                    {/* Month button */}
+                    <button
+                        onClick={() => setPickerMode(pickerMode === 'month' ? null : 'month')}
+                        style={{
+                            fontSize: '1rem', fontWeight: 800,
+                            color: pickerMode === 'month' ? 'var(--primary)' : 'var(--text-primary)',
+                            background: pickerMode === 'month' ? 'var(--primary-light)' : 'transparent',
+                            border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: '10px',
+                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '4px'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                        onMouseLeave={e => { if (pickerMode !== 'month') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
+                    >
+                        {monthNames[month]} <ChevronDown size={14} style={{ transition: 'transform 0.3s', transform: pickerMode === 'month' ? 'rotate(180deg)' : 'none' }} />
+                    </button>
+
+                    {/* Year button */}
+                    <button
+                        onClick={() => setPickerMode(pickerMode === 'year' ? null : 'year')}
+                        style={{
+                            fontSize: '1rem', fontWeight: 800,
+                            color: pickerMode === 'year' ? 'var(--primary)' : 'var(--text-primary)',
+                            background: pickerMode === 'year' ? 'var(--primary-light)' : 'transparent',
+                            border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: '10px',
+                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '4px'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                        onMouseLeave={e => { if (pickerMode !== 'year') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
+                    >
+                        {year} <ChevronDown size={14} style={{ transition: 'transform 0.3s', transform: pickerMode === 'year' ? 'rotate(180deg)' : 'none' }} />
+                    </button>
+                </div>
+
+                {/* Prev / Next */}
+                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                    {[{ dir: -1, Icon: ChevronLeft }, { dir: 1, Icon: ChevronRight }].map(({ dir, Icon }) => (
+                        <button key={dir} onClick={() => navigate(dir)} style={{
+                            width: '30px', height: '30px', borderRadius: '8px',
+                            border: '1px solid var(--border)', background: 'var(--bg-app)',
+                            cursor: 'pointer', color: 'var(--text-secondary)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                        }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                        ><Icon size={15} /></button>
                     ))}
                 </div>
-
-                {/* Day Cells */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: `${CELL_GAP}px` }}>
-                    {calendarDays.map((day, i) => {
-                        const isToday = isCurrentMonth && day === today.getDate();
-                        const isPast = day && calendarData.past?.includes(day);
-                        const isUpcoming = day && calendarData.upcoming?.includes(day);
-
-                        let bg = 'transparent';
-                        let color = 'var(--text-primary)';
-                        let fontWeight = 500;
-
-                        if (isToday) { bg = 'var(--primary)'; color = 'white'; fontWeight = 800; }
-                        else if (isPast) { bg = 'rgba(239, 68, 68, 0.1)'; color = 'var(--error)'; fontWeight = 600; }
-                        else if (isUpcoming) { bg = 'rgba(16, 185, 129, 0.1)'; color = 'var(--success)'; fontWeight = 600; }
-
-                        return (
-                            <div key={i} style={{
-                                height: `${CELL_SIZE}px`,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                borderRadius: '10px',
-                                fontSize: '0.8rem',
-                                fontWeight,
-                                color: day ? color : 'transparent',
-                                background: day ? bg : 'transparent',
-                                cursor: day ? 'pointer' : 'default',
-                                transition: 'all 0.15s',
-                                userSelect: 'none',
-                                boxShadow: isToday ? '0 4px 10px rgba(99, 102, 241, 0.3)' : 'none'
-                            }}
-                                onMouseEnter={e => {
-                                    if (day && !isToday) {
-                                        e.currentTarget.style.background = 'var(--primary-light)';
-                                        e.currentTarget.style.color = 'var(--primary)';
-                                    }
-                                }}
-                                onMouseLeave={e => {
-                                    if (day && !isToday) {
-                                        e.currentTarget.style.background = bg;
-                                        e.currentTarget.style.color = color;
-                                    }
-                                }}
-                            >
-                                {day}
-                            </div>
-                        );
-                    })}
-                </div>
             </div>
 
-            {/* Legend */}
+            {/* Body: calendar grid always rendered; picker overlays on top */}
+            <div style={{ width: '100%', position: 'relative' }}>
+
+                {/* ── CALENDAR GRID (always in DOM, sets fixed card height) ── */}
+                <div style={{ width: '100%' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
+                        {days.map(d => (
+                            <div key={d} style={{
+                                textAlign: 'center', fontSize: '0.7rem', fontWeight: 700,
+                                color: 'var(--text-tertiary)', padding: '6px 0', letterSpacing: '0.03em'
+                            }}>{d}</div>
+                        ))}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: `${CELL_GAP}px` }}>
+                        {calendarDays.map((day, i) => {
+                            const isToday = isCurrentMonth && day === today.getDate();
+                            const isPast = day && calendarData.past?.includes(day);
+                            const isUpcoming = day && calendarData.upcoming?.includes(day);
+
+                            let bg = 'transparent', color = 'var(--text-primary)', fontWeight = 500;
+                            if (isToday) { bg = 'var(--primary)'; color = 'white'; fontWeight = 800; }
+                            else if (isPast) { bg = 'rgba(239,68,68,0.1)'; color = 'var(--error)'; fontWeight = 600; }
+                            else if (isUpcoming) { bg = 'rgba(16,185,129,0.1)'; color = 'var(--success)'; fontWeight = 600; }
+
+                            return (
+                                <div key={i} style={{
+                                    height: `${CELL_SIZE}px`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    borderRadius: '10px', fontSize: '0.8rem', fontWeight,
+                                    color: day ? color : 'transparent', background: day ? bg : 'transparent',
+                                    cursor: day ? 'pointer' : 'default', transition: 'all 0.15s', userSelect: 'none',
+                                    boxShadow: isToday ? '0 4px 10px rgba(99,102,241,0.3)' : 'none'
+                                }}
+                                    onMouseEnter={e => { if (day && !isToday) { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; } }}
+                                    onMouseLeave={e => { if (day && !isToday) { e.currentTarget.style.background = bg; e.currentTarget.style.color = color; } }}
+                                >{day}</div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* ── PICKER OVERLAY (absolute, floats over the grid, card stays same size) ── */}
+                {pickerMode && (
+                    <div style={{
+                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'var(--bg-surface)',
+                        borderRadius: '16px',
+                        animation: 'calPickerIn 0.2s ease',
+                        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                        padding: '0.5rem 0'
+                    }}>
+                        {/* Month picker grid */}
+                        {pickerMode === 'month' && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                                {monthShort.map((m, i) => (
+                                    <button key={i} onClick={() => selectMonth(i)} style={{
+                                        padding: '0.8rem 0.25rem', borderRadius: '14px', border: 'none', cursor: 'pointer',
+                                        fontSize: '0.875rem', fontWeight: 700,
+                                        background: i === month ? 'var(--primary)' : 'var(--bg-app)',
+                                        color: i === month ? 'white' : 'var(--text-primary)',
+                                        transition: 'all 0.15s',
+                                        boxShadow: i === month ? '0 4px 12px rgba(99,102,241,0.3)' : 'none'
+                                    }}
+                                        onMouseEnter={e => { if (i !== month) { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; } }}
+                                        onMouseLeave={e => { if (i !== month) { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
+                                    >{m}</button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Year picker grid */}
+                        {pickerMode === 'year' && (
+                            <div className="cal-year-scroll" style={{
+                                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px',
+                                overflowY: 'auto', maxHeight: '100%',
+                                scrollbarWidth: 'thin', scrollbarColor: 'var(--primary) transparent'
+                            }}>
+                                {yearRange.map(y => (
+                                    <button key={y} onClick={() => selectYear(y)} style={{
+                                        padding: '0.7rem 0.25rem', borderRadius: '14px', border: 'none', cursor: 'pointer',
+                                        fontSize: '0.875rem', fontWeight: 700, textAlign: 'center',
+                                        background: y === year ? 'var(--primary)' : y === currentYear ? 'var(--primary-light)' : 'var(--bg-app)',
+                                        color: y === year ? 'white' : y === currentYear ? 'var(--primary)' : 'var(--text-primary)',
+                                        transition: 'all 0.15s',
+                                        boxShadow: y === year ? '0 4px 12px rgba(99,102,241,0.3)' : 'none'
+                                    }}
+                                        onMouseEnter={e => { if (y !== year) { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; } }}
+                                        onMouseLeave={e => { if (y !== year) { e.currentTarget.style.background = y === currentYear ? 'var(--primary-light)' : 'var(--bg-app)'; e.currentTarget.style.color = y === currentYear ? 'var(--primary)' : 'var(--text-primary)'; } }}
+                                    >{y}</button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Legend — always visible */}
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '3px', background: 'var(--success)', flexShrink: 0 }} /> Upcoming
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '3px', background: 'var(--error)', flexShrink: 0 }} /> Past
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '3px', background: 'var(--primary)', flexShrink: 0 }} /> Today
-                </div>
+                {[{ color: 'var(--success)', label: 'Upcoming' }, { color: 'var(--error)', label: 'Past' }, { color: 'var(--primary)', label: 'Today' }].map(({ color, label }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '3px', background: color, flexShrink: 0 }} /> {label}
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -427,7 +505,6 @@ const Dashboard = () => {
     const [activeMonth, setActiveMonth] = useState(new Date());
     const [stats, setStats] = useState({ totalTests: 0, totalQuestions: 0, totalCategories: 0, studentsCount: 0 });
     const [performance, setPerformance] = useState([]);
-    const [activeTests, setActiveTests] = useState([]);
     const [calendarData, setCalendarData] = useState({ past: [], upcoming: [] });
     const [isLoading, setIsLoading] = useState(true);
 
@@ -436,16 +513,14 @@ const Dashboard = () => {
         setIsLoading(true);
         try {
             const baseUrl = 'http://localhost:8080/api/dashboard';
-            const [statsRes, perfRes, activeRes, calRes] = await Promise.all([
+            const [statsRes, perfRes, calRes] = await Promise.all([
                 fetch(`${baseUrl}/stats?period=${period}`),
                 fetch(`${baseUrl}/category-performance?period=${period}`),
-                fetch(`${baseUrl}/active-tests`),
                 fetch(`${baseUrl}/calendar?month=${activeMonth.getMonth() + 1}&year=${activeMonth.getFullYear()}`)
             ]);
 
             if (statsRes.ok) setStats(await statsRes.json());
             if (perfRes.ok) setPerformance(await perfRes.json());
-            if (activeRes.ok) setActiveTests(await activeRes.json());
             if (calRes.ok) setCalendarData(await calRes.json());
 
         } catch (error) {
@@ -519,45 +594,6 @@ const Dashboard = () => {
                         </div>
 
                     </section>
-
-                    {/* Active/Recent Exams */}
-                    <section style={{ background: 'var(--bg-surface)', borderRadius: '28px', padding: '2rem', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                <Clock size={20} color="var(--primary)" /> Recent Exam Deployments
-                            </h2>
-                            <button style={{ background: 'var(--primary-light)', padding: '0.5rem 1rem', borderRadius: '10px', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>Generate Full Report</button>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {activeTests.map((test, i) => (
-                                <div key={i} style={{
-                                    padding: '1rem 1.25rem', borderRadius: '18px', background: 'var(--bg-app)', border: '1px solid var(--border)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    transition: 'all 0.2s ease', cursor: 'pointer'
-                                }} onMouseEnter={e => e.currentTarget.style.transform = 'translateX(4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'white', border: '2px solid var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.1rem' }}>
-                                            {test.name[0]}
-                                        </div>
-                                        <div>
-                                            <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.1rem' }}>{test.name}</h4>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>Allocation: {test.students} Students</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 800, textTransform: 'uppercase' }}>Time Limit</div>
-                                            <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.9rem' }}>{test.timeRemaining}</div>
-                                        </div>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)' }}>
-                                            <ChevronRight size={18} />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
                 </div>
 
                 {/* Sidebar Section */}
@@ -566,7 +602,7 @@ const Dashboard = () => {
                 </div>
 
             </div>
-        </div>
+        </div >
     );
 };
 
