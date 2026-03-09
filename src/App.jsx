@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 // Admin Components
 import AdminLayout from './components/admin/AdminLayout';
+import ProtectedRoute from './components/admin/ProtectedRoute';
 import Dashboard from './pages/admin/Dashboard';
 import Categories from './pages/admin/Categories';
 import QuestionBank from './pages/admin/QuestionBank';
@@ -31,19 +32,21 @@ function App() {
           <Route path="result" element={<StudentResult />} />
         </Route>
 
-        {/* Admin Login */}
+        {/* Admin Login — public */}
         <Route path="/admin/login" element={<Login />} />
 
-        {/* Admin Dashboard Routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="categories" element={<Categories />} />
-          <Route path="questions" element={<QuestionBank />} />
-          <Route path="create-test" element={<CreateTest />} />
-          <Route path="results" element={<Results />} />
-          <Route path="students" element={<Students />} />
-          <Route path="settings" element={<Settings />} />
+        {/* Admin Protected Routes — requires authentication */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="categories" element={<Categories />} />
+            <Route path="questions" element={<QuestionBank />} />
+            <Route path="create-test" element={<CreateTest />} />
+            <Route path="results" element={<Results />} />
+            <Route path="students" element={<Students />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
         </Route>
       </Routes>
     </Router>

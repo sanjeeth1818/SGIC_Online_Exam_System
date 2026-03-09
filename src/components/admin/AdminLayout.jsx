@@ -1,9 +1,16 @@
 import React from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FolderTree, FileQuestion, FilePlus, ClipboardList, Settings, LogOut, Users } from 'lucide-react';
 
 const AdminLayout = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        navigate('/admin/login', { replace: true });
+    };
 
     const navItems = [
         { name: 'Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard size={20} /> },
@@ -70,7 +77,7 @@ const AdminLayout = () => {
                 </nav>
 
                 <div style={{ padding: '1.5rem 1rem', borderTop: '1px solid var(--border)' }}>
-                    <NavLink to="/admin/login" style={{
+                    <button onClick={handleLogout} style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -80,7 +87,10 @@ const AdminLayout = () => {
                         background: 'var(--error)',
                         color: 'white',
                         fontWeight: 600,
-                        textDecoration: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        width: '100%',
+                        fontSize: '1rem',
                         transition: 'all 0.2s',
                         boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
                     }}
@@ -89,7 +99,7 @@ const AdminLayout = () => {
                     >
                         <LogOut size={20} />
                         Logout
-                    </NavLink>
+                    </button>
                 </div>
             </aside>
 

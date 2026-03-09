@@ -69,6 +69,20 @@ Once both servers are running:
 
 ---
 
+## 🔑 5. Default Admin Credentials
+
+Use the following credentials to log in to the Admin Panel for the first time:
+
+| Field    | Value         |
+|----------|---------------|
+| **Username** | `admin_user`  |
+| **Password** | `admin123`    |
+
+> [!CAUTION]
+> Change the default password immediately after your first login via **Settings → Security**. Using the default credentials in production is a security risk.
+
+---
+
 ## 🛠️ Troubleshooting
 
 *   **Database connection fails?** Ensure MySQL service is running and credentials match in `application.properties`.

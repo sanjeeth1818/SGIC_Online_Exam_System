@@ -260,8 +260,9 @@ const CategoryAnalyticsCard = ({ category, onSelect, isSelected }) => (
 
 const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
     const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
 
-    // Calendar math
     const year = activeMonth.getFullYear();
     const month = activeMonth.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
@@ -270,9 +271,12 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
     const today = new Date();
     const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
 
+    // Build grid: leading empty cells + actual days
     const calendarDays = [];
     for (let i = 0; i < firstDay; i++) calendarDays.push(null);
     for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
+    // Pad to complete the last row
+    while (calendarDays.length % 7 !== 0) calendarDays.push(null);
 
     const nextMonth = () => {
         const d = new Date(activeMonth);
@@ -286,6 +290,10 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
         setActiveMonth(d);
     };
 
+    // Cell dimensions
+    const CELL_SIZE = 36;
+    const CELL_GAP = 4;
+
     return (
         <div style={{
             background: 'var(--bg-surface)',
@@ -293,82 +301,124 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
             padding: '1.5rem',
             border: '1px solid var(--border)',
             boxShadow: 'var(--shadow-sm)',
-            height: '100%',
-            minHeight: '430px',
-            display: 'flex',
-            flexDirection: 'column'
+            width: '100%',
+            boxSizing: 'border-box'
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <CalendarIcon size={18} color="var(--primary)" />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <PremiumDropdown
-                            value={month}
-                            onChange={(val) => {
-                                const newDate = new Date(activeMonth);
-                                newDate.setMonth(val);
-                                setActiveMonth(newDate);
-                            }}
-                            options={Array.from({ length: 12 }, (_, i) => ({
-                                value: i,
-                                label: new Date(2000, i).toLocaleString('default', { month: 'long' })
-                            }))}
-                            width="140px"
-                        />
-                        <PremiumDropdown
-                            value={year}
-                            onChange={(val) => {
-                                const newDate = new Date(activeMonth);
-                                newDate.setFullYear(val);
-                                setActiveMonth(newDate);
-                            }}
-                            options={Array.from({ length: 11 }, (_, i) => ({
-                                value: 2020 + i,
-                                label: (2020 + i).toString()
-                            }))}
-                            width="100px"
-                        />
-                    </div>
+                    <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                        {monthNames[month]} {year}
+                    </span>
                 </div>
                 <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    <button onClick={prevMonth} style={{ padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><ChevronLeft size={16} /></button>
-                    <button onClick={nextMonth} style={{ padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><ChevronRight size={16} /></button>
+                    <button onClick={prevMonth} style={{
+                        width: '30px', height: '30px', borderRadius: '8px',
+                        border: '1px solid var(--border)', background: 'var(--bg-app)',
+                        cursor: 'pointer', color: 'var(--text-secondary)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.2s'
+                    }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                    ><ChevronLeft size={15} /></button>
+                    <button onClick={nextMonth} style={{
+                        width: '30px', height: '30px', borderRadius: '8px',
+                        border: '1px solid var(--border)', background: 'var(--bg-app)',
+                        cursor: 'pointer', color: 'var(--text-secondary)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.2s'
+                    }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                    ><ChevronRight size={15} /></button>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center' }}>
-                {days.map(d => <div key={d} style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-tertiary)', padding: '0.5rem 0' }}>{d}</div>)}
-                {calendarDays.map((day, i) => {
-                    const isToday = isCurrentMonth && day === today.getDate();
-                    const isPast = calendarData.past?.includes(day);
-                    const isUpcoming = calendarData.upcoming?.includes(day);
+            {/* Calendar Grid */}
+            <div style={{ width: '100%' }}>
+                {/* Day Headers */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
+                    {days.map(d => (
+                        <div key={d} style={{
+                            textAlign: 'center',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            color: 'var(--text-tertiary)',
+                            padding: '6px 0',
+                            letterSpacing: '0.03em'
+                        }}>{d}</div>
+                    ))}
+                </div>
 
-                    return (
-                        <div key={i} style={{
-                            padding: '0.6rem 0',
-                            borderRadius: '10px',
-                            fontSize: '0.8rem',
-                            fontWeight: isToday ? 800 : 600,
-                            color: isToday ? 'var(--primary)' : isPast ? 'var(--error)' : isUpcoming ? 'var(--success)' : 'var(--text-primary)',
-                            background: isToday ? 'var(--primary-light)' : isPast ? 'rgba(239, 68, 68, 0.08)' : isUpcoming ? 'rgba(16, 185, 129, 0.08)' : 'transparent',
-                            cursor: day ? 'pointer' : 'default',
-                            transition: 'all 0.2s',
-                            opacity: day ? 1 : 0
-                        }}>
-                            {day}
-                        </div>
-                    );
-                })}
+                {/* Day Cells */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: `${CELL_GAP}px` }}>
+                    {calendarDays.map((day, i) => {
+                        const isToday = isCurrentMonth && day === today.getDate();
+                        const isPast = day && calendarData.past?.includes(day);
+                        const isUpcoming = day && calendarData.upcoming?.includes(day);
+
+                        let bg = 'transparent';
+                        let color = 'var(--text-primary)';
+                        let fontWeight = 500;
+
+                        if (isToday) { bg = 'var(--primary)'; color = 'white'; fontWeight = 800; }
+                        else if (isPast) { bg = 'rgba(239, 68, 68, 0.1)'; color = 'var(--error)'; fontWeight = 600; }
+                        else if (isUpcoming) { bg = 'rgba(16, 185, 129, 0.1)'; color = 'var(--success)'; fontWeight = 600; }
+
+                        return (
+                            <div key={i} style={{
+                                height: `${CELL_SIZE}px`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '10px',
+                                fontSize: '0.8rem',
+                                fontWeight,
+                                color: day ? color : 'transparent',
+                                background: day ? bg : 'transparent',
+                                cursor: day ? 'pointer' : 'default',
+                                transition: 'all 0.15s',
+                                userSelect: 'none',
+                                boxShadow: isToday ? '0 4px 10px rgba(99, 102, 241, 0.3)' : 'none'
+                            }}
+                                onMouseEnter={e => {
+                                    if (day && !isToday) {
+                                        e.currentTarget.style.background = 'var(--primary-light)';
+                                        e.currentTarget.style.color = 'var(--primary)';
+                                    }
+                                }}
+                                onMouseLeave={e => {
+                                    if (day && !isToday) {
+                                        e.currentTarget.style.background = bg;
+                                        e.currentTarget.style.color = color;
+                                    }
+                                }}
+                            >
+                                {day}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1.5rem', fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-tertiary)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--success)' }}></div> Upcoming</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--error)' }}></div> Past</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'var(--primary)' }}></div> Today</div>
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '3px', background: 'var(--success)', flexShrink: 0 }} /> Upcoming
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '3px', background: 'var(--error)', flexShrink: 0 }} /> Past
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '3px', background: 'var(--primary)', flexShrink: 0 }} /> Today
+                </div>
             </div>
         </div>
     );
 };
+
 
 // --- Main Dashboard Component ---
 

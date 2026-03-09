@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { Lock, Mail, ArrowRight } from 'lucide-react';
 
 const AdminLogin = () => {
     const navigate = useNavigate();
+
+    // If already authenticated, redirect to dashboard
+    const token = localStorage.getItem('adminToken');
+    const user = localStorage.getItem('adminUser');
+    if (token && user) {
+        return <Navigate to="/admin/dashboard" replace />;
+    }
 
     // Login States
     const [username, setUsername] = useState('');
