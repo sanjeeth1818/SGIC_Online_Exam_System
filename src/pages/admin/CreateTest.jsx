@@ -556,7 +556,7 @@ const CreateTest = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
                 <div>
                     <h1 style={{ fontSize: '2.25rem', marginBottom: '0.5rem', fontWeight: 800 }}>Examinations</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.06rem' }}>Create results-driven tests or manage existing ones.</p>
+
                 </div>
                 <div style={{ display: 'flex', background: 'var(--bg-surface)', padding: '0.5rem', borderRadius: '20px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
                     <button
@@ -790,7 +790,7 @@ const CreateTest = () => {
                                                                         {selectedQuestionIds.includes(q.id) && <Check size={14} color="white" />}
                                                                     </div>
                                                                     <div style={{ flex: 1 }}>
-                                                                        <div style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.4 }}>{q.text}</div>
+                                                                        <div style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>{q.text}</div>
                                                                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
                                                                             <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-tertiary)', background: 'var(--bg-surface)', padding: '0.125rem 0.5rem', borderRadius: '5px' }}>{q.type}</span>
                                                                         </div>
@@ -1313,7 +1313,7 @@ const CreateTest = () => {
                                         <div
                                             style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '8px', background: 'var(--bg-app)', color: 'var(--text-tertiary)', fontSize: '0.75rem', fontWeight: 700, border: '1px solid var(--border)' }}
                                         >
-                                            Unique Student Codes Only
+
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '0.375rem' }}>
@@ -1583,7 +1583,7 @@ const CreateTest = () => {
                                                                             <div style={{ width: '18px', height: '18px', borderRadius: '5px', border: `2.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`, background: isSelected ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                                                 {isSelected && <Check size={12} color="white" />}
                                                                             </div>
-                                                                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>{q.text}</div>
+                                                                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{q.text}</div>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -1936,7 +1936,7 @@ const CreateTest = () => {
                                                 {showDetailsModal.config.manualQuestions?.map((q, idx) => (
                                                     <div key={idx} style={{ background: 'var(--bg-surface)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border)', fontSize: '0.875rem' }}>
                                                         <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{q.categoryName || 'Uncategorized'}</div>
-                                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5 }}>{q.text}</div>
+                                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{q.text}</div>
                                                     </div>
                                                 ))}
                                             </div>

@@ -182,40 +182,45 @@ public class SubmissionController {
                 return ResponseEntity.status(500).body("Database Error: " + dbEx.getMessage());
             }
 
-            // Update student status to 'Took Exam'
-            try {
-                Student student = studentRepository
-                        .findById(Objects.requireNonNull(codeEntry.getStudentId())).orElse(null);
-                if (student != null) {
-                    String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                            .format(new java.util.Date());
-                    String logEntry = String.format("[%s] Status: Took Exam (Exam: %s)", timestamp, test.getName());
-                    String history = student.getStatusHistory();
-                    student.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
-                    student.setStatus("Took Exam");
-                    studentRepository.save(student);
-                    System.out.println("Updated student " + student.getName() + " status to Took Exam.");
+            // Update student status to 'Took Exam' - ONLY on final submission
+            if (request.isFinal()) {
+                try {
+                    Student student = studentRepository
+                            .findById(Objects.requireNonNull(codeEntry.getStudentId())).orElse(null);
+                    if (student != null) {
+                        String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+                                .format(new java.util.Date());
+                        String logEntry = String.format("[%s] Status: Took Exam (Exam: %s)", timestamp, test.getName());
+                        String history = student.getStatusHistory();
+                        student.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
+                        student.setStatus("Took Exam");
+                        studentRepository.save(student);
+                        System.out.println("Updated student " + student.getName() + " status to Took Exam.");
+                    }
+                } catch (Exception statusEx) {
+                    System.err
+                            .println("Warning: Could not update student status to Took Exam: " + statusEx.getMessage());
                 }
-            } catch (Exception statusEx) {
-                System.err.println("Warning: Could not update student status to Took Exam: " + statusEx.getMessage());
             }
 
-            // Trigger Result Email
-            try {
-                Student student = studentRepository
-                        .findById(Objects.requireNonNull(codeEntry.getStudentId()))
-                        .orElse(null);
-                if (student != null) {
-                    if (Boolean.TRUE.equals(test.getShowResult())) {
-                        emailService.sendResultEmail(student, test, savedSubmission, breakdown);
+            // Trigger Result Email - ONLY on final submission
+            if (request.isFinal()) {
+                try {
+                    Student student = studentRepository
+                            .findById(Objects.requireNonNull(codeEntry.getStudentId()))
+                            .orElse(null);
+                    if (student != null) {
+                        if (Boolean.TRUE.equals(test.getShowResult())) {
+                            emailService.sendResultEmail(student, test, savedSubmission, breakdown);
+                        }
+                        // Always notify admin on completion
+                        emailService.sendAdminStudentFinishedNotification(student, test, savedSubmission, breakdown,
+                                codeEntry.getStartedAt());
                     }
-                    // Always notify admin on completion
-                    emailService.sendAdminStudentFinishedNotification(student, test, savedSubmission, breakdown,
-                            codeEntry.getStartedAt());
+                } catch (Exception emailEx) {
+                    System.err.println("Warning: Failed to trigger result email: " + emailEx.getMessage());
+                    emailEx.printStackTrace();
                 }
-            } catch (Exception emailEx) {
-                System.err.println("Warning: Failed to trigger result email: " + emailEx.getMessage());
-                emailEx.printStackTrace();
             }
 
             // Return DTO instead of full entity to avoid serialization issues
@@ -346,5 +351,6 @@ public class SubmissionController {
         private String examCode;
         private Map<Long, String> answers;
         private Map<Long, Integer> timeSpent;
+        private boolean isFinal; // Distinguish between auto-save and final completion
     }
 }

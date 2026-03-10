@@ -6,6 +6,7 @@ import com.sgic.exam.controller.SubmissionController.QuestionResult;
 import com.sgic.exam.model.TestStudentGroup;
 import com.sgic.exam.repository.CategoryRepository;
 import com.sgic.exam.repository.QuestionRepository;
+import com.sgic.exam.repository.StudentRepository;
 import com.sgic.exam.repository.SubmissionRepository;
 import com.sgic.exam.repository.TestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,9 @@ public class DashboardController {
     @Autowired
     private SubmissionRepository submissionRepository;
 
+    @Autowired
+    private StudentRepository studentRepository;
+
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getDashboardStats(@RequestParam(defaultValue = "month") String period) {
         LocalDateTime start = getStartTime(period);
@@ -51,11 +55,14 @@ public class DashboardController {
                 .distinct()
                 .count();
 
+        long totalStudents = studentRepository.count();
+
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalTests", totalTests);
         stats.put("totalQuestions", totalQuestions);
         stats.put("totalCategories", totalCategories);
         stats.put("studentsCount", studentsCount);
+        stats.put("totalStudents", totalStudents);
 
         return ResponseEntity.ok(stats);
     }

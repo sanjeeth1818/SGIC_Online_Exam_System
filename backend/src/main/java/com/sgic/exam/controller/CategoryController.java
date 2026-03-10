@@ -2,6 +2,7 @@ package com.sgic.exam.controller;
 
 import com.sgic.exam.model.Category;
 import com.sgic.exam.repository.CategoryRepository;
+import com.sgic.exam.repository.QuestionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,9 @@ public class CategoryController {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private QuestionRepository questionRepository;
 
     @GetMapping
     public List<Category> getAllCategories() {
@@ -72,9 +76,13 @@ public class CategoryController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> deleteCategory(@PathVariable Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
+
+        // Cascading delete: delete all questions associated with this category
+        questionRepository.deleteByCategoryId(id);
 
         categoryRepository.delete(Objects.requireNonNull(category));
         return ResponseEntity.noContent().build();

@@ -177,7 +177,8 @@ const ExamInterface = () => {
             examCode: sessionStorage.getItem('currentExamCode'),
             testId: sessionStorage.getItem('testId'),
             answers: answers,
-            timeSpent: updatedTimeSpent || timeSpent
+            timeSpent: updatedTimeSpent || timeSpent,
+            isFinal: false // Intermediate progress save should not trigger emails
         };
 
         try {
@@ -204,7 +205,8 @@ const ExamInterface = () => {
             examCode: sessionStorage.getItem('currentExamCode'),
             testId: sessionStorage.getItem('testId'),
             answers: answers,
-            timeSpent: { ...timeSpent, [currentQId]: totalSpentOnThis }
+            timeSpent: { ...timeSpent, [currentQId]: totalSpentOnThis },
+            isFinal: true // Signal that this is the final submission to trigger emails
         };
 
         try {
@@ -441,7 +443,7 @@ const ExamInterface = () => {
                                     {index + 1}
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <h3 style={{ fontSize: '1.125rem', fontWeight: 500, lineHeight: 1.6, marginBottom: '1.5rem', color: 'var(--text-primary)' }}>
+                                    <h3 style={{ fontSize: '1.125rem', fontWeight: 500, lineHeight: 1.6, marginBottom: '1.5rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
                                         {q.text}
                                     </h3>
 
@@ -499,7 +501,7 @@ const ExamInterface = () => {
                             Question {currentStep + 1} of {questions.length}
                         </div>
 
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 500, lineHeight: 1.5, marginBottom: '3rem', color: 'var(--text-primary)' }}>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 500, lineHeight: 1.5, marginBottom: '3rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
                             {questions[currentStep].text}
                         </h3>
 

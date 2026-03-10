@@ -738,7 +738,7 @@ const Dashboard = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
                 <div>
                     <h1 style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-0.04em', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Dashboard</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontWeight: 500 }}>Real-time assessment intelligence and system analytics.</p>
+
                 </div>
 
             </div>
@@ -746,7 +746,7 @@ const Dashboard = () => {
             {/* Top Metrics Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2.5rem' }}>
                 <StatCard title="Total Exams" value={stats.totalTests} icon={<FileText size={24} />} color="#6366f1" bgColor="rgba(99, 102, 241, 0.1)" />
-                <StatCard title="Active In Period" value={stats.studentsCount} icon={<Users size={24} />} color="#10b981" bgColor="rgba(16, 185, 129, 0.1)" trend="+12%" />
+                <StatCard title="Total Students" value={stats.totalStudents} icon={<Users size={24} />} color="#10b981" bgColor="rgba(16, 185, 129, 0.1)" />
                 <StatCard title="Question Bank" value={stats.totalQuestions} icon={<Database size={24} />} color="#f59e0b" bgColor="rgba(245, 158, 11, 0.1)" />
                 <StatCard title="Specialized Categories" value={stats.totalCategories} icon={<Layers size={24} />} color="#ec4899" bgColor="rgba(236, 72, 153, 0.1)" />
             </div>

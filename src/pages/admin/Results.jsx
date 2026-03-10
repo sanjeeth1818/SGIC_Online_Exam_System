@@ -1180,7 +1180,7 @@ const Results = () => {
                                                         {catAnswers.map((q, idx) => (
                                                             <div key={idx} style={{ padding: '2rem', background: 'white', borderRadius: '24px', border: '1px solid var(--border)' }}>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.75rem' }}>
-                                                                    <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', lineHeight: 1.5, flex: 1, paddingRight: '2rem' }}><span style={{ color: 'var(--primary)', fontStyle: 'italic', marginRight: '0.5rem' }}>Q{q.originalIndex}:</span>{q.question}</div>
+                                                                    <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', lineHeight: 1.5, flex: 1, paddingRight: '2rem', whiteSpace: 'pre-wrap' }}><span style={{ color: 'var(--primary)', fontStyle: 'italic', marginRight: '0.5rem' }}>Q{q.originalIndex}:</span>{q.question}</div>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 1rem', background: 'var(--bg-app)', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}><Clock size={16} />{q.timeSpent}</div>
                                                                 </div>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: q.isCorrect ? '1fr' : '1fr 1fr', gap: '1.25rem' }}>
@@ -1225,7 +1225,7 @@ const Results = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '0.5rem', letterSpacing: '-0.02em' }}>Result Analytics</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', margin: 0 }}>Click an exam to view detailed results and category breakdowns.</p>
+
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button onClick={handleExportCSV} style={{ padding: '1rem 2rem', background: 'white', border: '2px solid var(--border)', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, cursor: 'pointer' }}><FileSpreadsheet size={20} color="var(--success)" /> CSV</button>

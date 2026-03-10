@@ -10,4 +10,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findByCategoryId(Long categoryId);
 
     long countByCategoryId(Long categoryId);
+
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    void deleteByCategoryId(Long categoryId);
 }

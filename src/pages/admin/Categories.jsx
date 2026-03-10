@@ -90,13 +90,16 @@ const Categories = () => {
             const res = await fetch(`/api/categories/${categoryToDelete.id}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to delete');
+            if (!res.ok) {
+                const errorMessage = await res.text();
+                throw new Error(errorMessage || 'Failed to delete');
+            }
             setNotification({ type: 'success', message: 'Category deleted successfully!' });
             fetchCategories();
             setIsDeleteModalOpen(false);
         } catch (error) {
             console.error(error);
-            setNotification({ type: 'error', message: 'Failed to delete category.' });
+            setNotification({ type: 'error', message: error.message || 'Failed to delete category.' });
         }
     };
 
@@ -142,7 +145,7 @@ const Categories = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <div>
                     <h1 style={{ fontSize: '1.875rem', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>Categories</h1>
-                    <p style={{ color: 'var(--text-secondary)' }}>Manage and organize your question folders</p>
+
                 </div>
                 <button
                     onClick={() => handleOpenModal()}

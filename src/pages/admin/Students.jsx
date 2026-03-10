@@ -566,7 +566,7 @@ const Students = () => {
                 <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h1 style={{ fontSize: '2.25rem', marginBottom: '0.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>Student Directory</h1>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '1.06rem' }}>Manage student enrollments and track laboratory examination progress.</p>
+
                     </div>
                     <button
                         onClick={openAddModal}
@@ -878,7 +878,7 @@ const Students = () => {
                                     </div>
                                     <div>
                                         <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>{editingId ? 'Modify Credentials' : 'Enrollment Portal'}</h2>
-                                        <p style={{ fontSize: '0.8125rem', margin: 0, color: 'var(--text-tertiary)' }}>Administrative Student Entry System</p>
+
                                     </div>
                                 </div>
                                 <button onClick={closeModal} style={{ color: 'var(--text-tertiary)', padding: '0.5rem', borderRadius: '50%' }} className="table-row-hover"><X size={24} /></button>
@@ -955,7 +955,7 @@ const Students = () => {
                                         </div>
 
                                         <div>
-                                            <label style={{ display: 'block', marginBottom: '0.625rem', fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Enrollment Date *</label>
+                                            <label style={{ display: 'block', marginBottom: '0.625rem', fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Registered Date *</label>
                                             <div style={{ position: 'relative' }}>
                                                 <Calendar size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                                 <input

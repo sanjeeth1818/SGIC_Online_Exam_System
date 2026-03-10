@@ -34,6 +34,13 @@ public class AuthController {
 
         if (adminOpt.isPresent()) {
             Admin admin = adminOpt.get();
+
+            // Explicit case-sensitive check for username
+            if (!admin.getUsername().equals(username)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("message", "Invalid username or password."));
+            }
+
             boolean passwordMatches = false;
 
             // 1. Try matching with hash

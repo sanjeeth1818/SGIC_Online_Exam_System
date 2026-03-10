@@ -77,7 +77,7 @@ const StudentResult = () => {
                                     <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', lineHeight: 1.5, flex: 1, paddingRight: '2rem' }}>
                                         <span style={{ color: 'var(--primary)', fontStyle: 'italic', marginRight: '0.5rem' }}>Q{i + 1}:</span>
                                         {q.categoryName && <span style={{ color: 'var(--text-tertiary)', marginRight: '0.5rem', fontSize: '1rem' }}>[{q.categoryName}]</span>}
-                                        {q.questionText}
+                                        <div style={{ display: 'inline', whiteSpace: 'pre-wrap' }}>{q.questionText}</div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 1rem', background: 'var(--bg-app)', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                                         <Clock size={16} /> {q.timeSpent !== undefined ? (q.timeSpent < 60 ? `${q.timeSpent}s` : `${Math.floor(q.timeSpent / 60)}m ${q.timeSpent % 60}s`) : '0s'}
