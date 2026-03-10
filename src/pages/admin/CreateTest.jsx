@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Search, Plus, Filter, Calendar, Clock, Copy, Edit2, Trash2,
+    Search, Plus, Filter, Calendar, Clock, Copy, Edit2, Trash2, Lock,
     Play, XCircle, Eye, FileText, Check, Users, List, Settings,
     ArrowLeft, ArrowRight, Layers, Globe, Key, FilePlus, LayoutDashboard, Hash
 } from 'lucide-react';
@@ -397,6 +397,9 @@ const CreateTest = () => {
                 count: matchedConfig ? matchedConfig.questionCount || matchedConfig.count : Math.min(cat.available, 10)
             };
         }));
+
+        // Fetch student codes/statuses to identify locked students
+        fetchStudentCodes(t.id, true);
     };
 
     const handleUpdateTest = async () => {
@@ -435,13 +438,22 @@ const CreateTest = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) throw new Error('Failed to update test');
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.message || 'Failed to update test');
+            }
             setNotification({ type: 'success', message: 'Test Updated Successfully!' });
             fetchData();
             setEditModalData(null);
         } catch (error) {
             console.error(error);
-            setNotification({ type: 'error', message: 'Failed to update test.' });
+            const errorMessage = error.message || 'Failed to update test.';
+            setNotification({
+                type: 'error',
+                message: errorMessage.includes('Started or finished')
+                    ? errorMessage
+                    : 'Failed to update test.'
+            });
         }
     };
 
@@ -1647,16 +1659,32 @@ const CreateTest = () => {
                                             </div>
 
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-                                                {group.students?.map((s, sIdx) => (
-                                                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.6rem', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 600 }}>
-                                                        {s.name}
-                                                        <XCircle size={14} color="var(--text-tertiary)" style={{ cursor: 'pointer' }} onClick={() => {
-                                                            const newGroups = [...editModalData.studentGroups];
-                                                            newGroups[gIdx].students = newGroups[gIdx].students.filter((_, i) => i !== sIdx);
-                                                            setEditModalData({ ...editModalData, studentGroups: newGroups });
-                                                        }} />
-                                                    </div>
-                                                ))}
+                                                {group.students?.map((s, sIdx) => {
+                                                    const codeEntry = studentCodes.find(c => c.studentId === s.id);
+                                                    const isLocked = codeEntry && (codeEntry.status === 'STARTED' || codeEntry.status === 'USED');
+                                                    return (
+                                                        <div key={s.id} style={{
+                                                            display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.6rem',
+                                                            background: isLocked ? 'rgba(239, 68, 68, 0.04)' : 'var(--bg-app)',
+                                                            borderRadius: '8px', border: isLocked ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border)',
+                                                            fontSize: '0.75rem', fontWeight: 600, color: isLocked ? 'var(--error)' : 'inherit'
+                                                        }}>
+                                                            {isLocked && <Lock size={12} color="var(--error)" style={{ opacity: 0.8 }} />}
+                                                            {s.name}
+                                                            {!isLocked ? (
+                                                                <XCircle size={14} color="var(--text-tertiary)" style={{ cursor: 'pointer' }} onClick={() => {
+                                                                    const newGroups = [...editModalData.studentGroups];
+                                                                    newGroups[gIdx].students = newGroups[gIdx].students.filter((_, i) => i !== sIdx);
+                                                                    setEditModalData({ ...editModalData, studentGroups: newGroups });
+                                                                }} />
+                                                            ) : (
+                                                                <div title="Cannot remove: Exam session in progress or completed" style={{ cursor: 'not-allowed', display: 'flex', alignItems: 'center' }}>
+                                                                    <XCircle size={14} color="var(--border)" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
 
                                             <select

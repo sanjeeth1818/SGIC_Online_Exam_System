@@ -265,6 +265,27 @@ public class TestController {
                 }
             }
 
+            // --- PARTICIPATION SAFEGUARD: Check for locked students before removal ---
+            java.util.List<String> lockedStudentNames = new java.util.ArrayList<>();
+            for (Long oldId : oldStudentIds) {
+                if (!newStudentIds.contains(oldId)) {
+                    studentExamCodeRepository.findByTestIdAndStudentId(test.getId(), oldId).ifPresent(code -> {
+                        String status = code.getStatus();
+                        if ("STARTED".equalsIgnoreCase(status) || "USED".equalsIgnoreCase(status)) {
+                            studentRepository.findById(oldId).ifPresent(s -> lockedStudentNames.add(s.getName()));
+                        }
+                    });
+                }
+            }
+
+            if (!lockedStudentNames.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message", "Cannot remove students who have already started or finished the exam: "
+                                + String.join(", ", lockedStudentNames)
+                                + ". Please complete or cancel their sessions first if necessary."));
+            }
+            // ------------------------------------------------------------------------
+
             // Students in old but not in new: Remove allocation
             List<com.sgic.exam.model.Student> removedStudents = new java.util.ArrayList<>();
             for (Long oldId : oldStudentIds) {
@@ -326,10 +347,24 @@ public class TestController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTest(@PathVariable Long id) {
+    public ResponseEntity<?> deleteTest(@PathVariable Long id) {
         try {
             Test test = testRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Test not found"));
+
+            // --- PARTICIPATION SAFEGUARD: Check if any student has started or finished ---
+            java.util.List<StudentExamCode> codes = studentExamCodeRepository.findByTestId(test.getId());
+            boolean hasStartedOrUsed = codes.stream()
+                    .anyMatch(c -> "STARTED".equalsIgnoreCase(c.getStatus()) || "USED".equalsIgnoreCase(c.getStatus()));
+
+            if (hasStartedOrUsed) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "message",
+                        "Cannot delete an examination that is currently in progress or already completed by students. "
+                                +
+                                "(One or more students have already used their access codes)"));
+            }
+            // ------------------------------------------------------------------------------
 
             // Notify students and update status before deletion
             if (test.getStudentGroups() != null) {
@@ -376,7 +411,7 @@ public class TestController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<TestResponse> updateStatus(@PathVariable Long id, @RequestBody String status) {
+    public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody String status) {
         try {
             Test test = testRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Test not found"));

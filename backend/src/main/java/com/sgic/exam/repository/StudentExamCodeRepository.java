@@ -9,6 +9,8 @@ public interface StudentExamCodeRepository extends JpaRepository<StudentExamCode
 
     Optional<StudentExamCode> findByExamCode(String examCode);
 
+    java.util.List<StudentExamCode> findByTestId(Long testId);
+
     @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     void deleteByTestId(Long testId);
