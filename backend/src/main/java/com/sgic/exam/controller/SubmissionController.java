@@ -14,6 +14,7 @@ import com.sgic.exam.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -89,7 +90,8 @@ public class SubmissionController {
 
     @PostMapping
     public ResponseEntity<?> submitTest(@RequestBody SubmissionRequest request) {
-        System.out.println("Processing submission for exam code: " + request.getExamCode());
+        System.out.println("Processing submission for exam code: " + request.getExamCode() + " (isFinal: "
+                + request.getIsFinal() + ")");
         try {
             if (request.getExamCode() == null || request.getExamCode().trim().isEmpty()) {
                 return ResponseEntity.badRequest().body("Examination code is required");
@@ -183,7 +185,7 @@ public class SubmissionController {
             }
 
             // Update student status to 'Took Exam' - ONLY on final submission
-            if (request.isFinal()) {
+            if (Boolean.TRUE.equals(request.getIsFinal())) {
                 try {
                     Student student = studentRepository
                             .findById(Objects.requireNonNull(codeEntry.getStudentId())).orElse(null);
@@ -204,13 +206,14 @@ public class SubmissionController {
             }
 
             // Trigger Result Email - ONLY on final submission
-            if (request.isFinal()) {
+            if (Boolean.TRUE.equals(request.getIsFinal())) {
                 try {
                     Student student = studentRepository
                             .findById(Objects.requireNonNull(codeEntry.getStudentId()))
                             .orElse(null);
                     if (student != null) {
-                        if (Boolean.TRUE.equals(test.getShowResult())) {
+                        // Send email if results OR answers are enabled
+                        if (Boolean.TRUE.equals(test.getShowResult()) || Boolean.TRUE.equals(test.getShowAnswers())) {
                             emailService.sendResultEmail(student, test, savedSubmission, breakdown);
                         }
                         // Always notify admin on completion
@@ -351,6 +354,8 @@ public class SubmissionController {
         private String examCode;
         private Map<Long, String> answers;
         private Map<Long, Integer> timeSpent;
-        private boolean isFinal; // Distinguish between auto-save and final completion
+
+        @JsonProperty("isFinal")
+        private Boolean isFinal; // Distinguish between auto-save and final completion
     }
 }
