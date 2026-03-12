@@ -13,4 +13,6 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     boolean existsByNicAndIdNot(String nic, Long id);
 
     boolean existsByMobileNumberAndIdNot(String mobileNumber, Long id);
+
+    java.util.List<Student> findAllByIsDeletedFalse();
 }

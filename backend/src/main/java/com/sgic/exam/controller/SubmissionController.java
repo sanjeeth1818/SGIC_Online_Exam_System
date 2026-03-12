@@ -220,8 +220,52 @@ public class SubmissionController {
                         emailService.sendAdminStudentFinishedNotification(student, test, savedSubmission, breakdown,
                                 codeEntry.getStartedAt());
                     }
+
+                    // AUTO-EXPIRATION LOGIC: Check if all assigned students have submitted
+                    try {
+                        // 1. Get all assigned students for this test across all groups
+                        java.util.Set<Long> assignedStudentIds = new java.util.HashSet<>();
+                        if (test.getStudentGroups() != null) {
+                            for (com.sgic.exam.model.TestStudentGroup group : test.getStudentGroups()) {
+                                if (group.getStudents() != null) {
+                                    for (Student s : group.getStudents()) {
+                                        assignedStudentIds.add(s.getId());
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Get all unique students who have already submitted for this test
+                        List<Submission> testSubmissions = submissionRepository.findByTestId(test.getId());
+                        java.util.Set<Long> submittedStudentIds = testSubmissions.stream()
+                                .map(Submission::getStudentId)
+                                .filter(Objects::nonNull)
+                                .collect(java.util.stream.Collectors.toSet());
+
+                        // 3. Find if there are any assigned students who have NOT submitted yet
+                        long pendingCount = assignedStudentIds.stream()
+                                .filter(id -> !submittedStudentIds.contains(id))
+                                .count();
+
+                        System.out.println("Auto-Expiration Check - Test: " + test.getName() +
+                                ", Assigned: " + assignedStudentIds.size() +
+                                ", Submitted: " + submittedStudentIds.size() +
+                                ", Pending: " + pendingCount);
+
+                        // 4. Expire ONLY if EVERY assigned student has finished (pendingCount == 0)
+                        if (pendingCount == 0 && !assignedStudentIds.isEmpty()) {
+                            test.setStatus("Expired");
+                            testRepository.save(test);
+                            System.out.println("SUCCESS: Test '" + test.getName() + "' automatically expired as all "
+                                    + assignedStudentIds.size() + " assigned students have finished.");
+                        }
+                    } catch (Exception autoExpEx) {
+                        System.err
+                                .println("Non-critical error during auto-expiration check: " + autoExpEx.getMessage());
+                    }
+
                 } catch (Exception emailEx) {
-                    System.err.println("Warning: Failed to trigger result email: " + emailEx.getMessage());
+                    System.err.println("Warning: Failed to process post-submission tasks: " + emailEx.getMessage());
                     emailEx.printStackTrace();
                 }
             }

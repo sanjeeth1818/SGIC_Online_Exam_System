@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle, Loader2, AlertCircle, LogOut } from 'lucide-react';
 
 // Static helper moved outside to prevent re-creation
 const formatTime = (seconds) => {
@@ -27,6 +27,7 @@ const ExamInterface = () => {
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showExitModal, setShowExitModal] = useState(false);
 
     const [questions, setQuestions] = useState([]);
     const [answers, setAnswers] = useState({});
@@ -65,8 +66,15 @@ const ExamInterface = () => {
                 // Re-opened exams only use the additional time block
                 durationSeconds = (parseInt(testData.additionalTime) || 0) * 60;
             } else {
-                durationSeconds = parseInt(testData.timeValue) * (testData.timeUnit === 'secs' ? 1 : 60);
-                if (testData.timeUnit === 'hours') durationSeconds *= 3600;
+                const timeVal = parseInt(testData.timeValue) || 0;
+                if (testData.timeUnit === 'secs') {
+                    durationSeconds = timeVal;
+                } else if (testData.timeUnit === 'hours') {
+                    durationSeconds = timeVal * 3600;
+                } else {
+                    // Default to mins
+                    durationSeconds = timeVal * 60;
+                }
 
                 // Add additional time if granted
                 if (testData.additionalTime) {
@@ -204,6 +212,7 @@ const ExamInterface = () => {
 
         setIsSubmitting(true);
         setShowConfirmModal(false);
+        setShowExitModal(false);
         const code = sessionStorage.getItem('currentExamCode');
 
         // Save last question's time spent
@@ -315,6 +324,13 @@ const ExamInterface = () => {
     useEffect(() => {
         fetchQuestions();
     }, [fetchQuestions]);
+
+    // Listen for Exit request from header
+    useEffect(() => {
+        const handleExitRequest = () => setShowExitModal(true);
+        window.addEventListener('requestExamExit', handleExitRequest);
+        return () => window.removeEventListener('requestExamExit', handleExitRequest);
+    }, []);
 
     // Unified Timer Effect (Updates UI and Checks for Timeout)
     useEffect(() => {
@@ -452,6 +468,7 @@ const ExamInterface = () => {
                         <Clock size={22} className={timeLeft < 10 ? 'animate-pulse' : ''} />
                         <span style={{ fontFamily: 'monospace' }}>{formatTime(timeLeft)}</span>
                     </div>
+
                     <button
                         onClick={handleSubmit}
                         disabled={isSubmitting}
@@ -740,6 +757,97 @@ const ExamInterface = () => {
                                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                             >
                                 Yes, Submit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Exit Confirmation Modal */}
+            {showExitModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.6)',
+                    backdropFilter: 'blur(8px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    animation: 'fadeIn 0.2s ease'
+                }}>
+                    <div style={{
+                        background: 'var(--bg-surface)',
+                        padding: '2.5rem',
+                        borderRadius: 'var(--radius-2xl)',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        border: '1px solid var(--error)',
+                        width: '100%',
+                        maxWidth: '480px',
+                        textAlign: 'center',
+                        animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}>
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            background: 'var(--error-bg)',
+                            color: 'var(--error)',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 1.5rem auto'
+                        }}>
+                            <LogOut size={32} />
+                        </div>
+
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--text-primary)' }}>
+                            Exit Early?
+                        </h2>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.5 }}>
+                            Are you sure you want to stop and exit? Your progress will be saved, but you won't be able to re-enter this exam later.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button
+                                onClick={() => setShowExitModal(false)}
+                                style={{
+                                    flex: 1,
+                                    padding: '0.875rem',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid var(--border)',
+                                    background: 'transparent',
+                                    color: 'var(--text-secondary)',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-app)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                                Stay Here
+                            </button>
+                            <button
+                                onClick={processFinalSubmission}
+                                style={{
+                                    flex: 1,
+                                    padding: '0.875rem',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: 'none',
+                                    background: 'var(--error)',
+                                    color: 'white',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    boxShadow: 'var(--shadow-sm)',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                            >
+                                Exit & Move On
                             </button>
                         </div>
                     </div>

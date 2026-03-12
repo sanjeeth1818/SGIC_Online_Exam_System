@@ -40,26 +40,33 @@ const StudentLayout = () => {
                         <span style={{ fontWeight: 500 }}>{studentName}</span>
                     </div>
 
-                    <NavLink to="/" onClick={() => {
-                        sessionStorage.removeItem('studentName');
-                        window.dispatchEvent(new Event('studentNameUpdated'));
-                        // Force a clean reload to clear TestStart state (like verified code)
-                        window.location.href = '/';
-                    }} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        color: 'var(--text-tertiary)',
-                        fontWeight: 500,
-                        textDecoration: 'none',
-                        transition: 'color var(--transition-fast)'
-                    }}
+                    <div
+                        onClick={(e) => {
+                            if (window.location.pathname === '/exam') {
+                                e.preventDefault();
+                                window.dispatchEvent(new Event('requestExamExit'));
+                            } else {
+                                sessionStorage.removeItem('studentName');
+                                window.dispatchEvent(new Event('studentNameUpdated'));
+                                window.location.href = '/';
+                            }
+                        }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            color: 'var(--text-tertiary)',
+                            fontWeight: 500,
+                            textDecoration: 'none',
+                            transition: 'color var(--transition-fast)',
+                            cursor: 'pointer'
+                        }}
                         onMouseEnter={(e) => e.currentTarget.style.color = 'var(--error)'}
                         onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
                     >
                         <LogOut size={18} />
                         Exit
-                    </NavLink>
+                    </div>
                 </div>
             </header>
 

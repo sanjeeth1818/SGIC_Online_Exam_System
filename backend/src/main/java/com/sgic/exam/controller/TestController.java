@@ -13,19 +13,16 @@ import com.sgic.exam.model.StudentExamCode;
 import com.sgic.exam.service.EmailService;
 import com.sgic.exam.repository.StudentExamCodeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.HashMap;
-import java.util.Random;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/tests")
@@ -186,13 +183,21 @@ public class TestController {
     @PostMapping
     public ResponseEntity<?> createTest(@Valid @RequestBody TestRequest testRequest) {
         System.out.println("Received request to create test: " + testRequest.getName());
+
+        // Safety Guard: Check for duplicate test names to prevent multi-click accidents
+        if (testRepository.existsByName(testRequest.getName())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of(
+                            "message", "An examination with this name already exists. Please use a unique title.",
+                            "type", "DuplicateNameError"));
+        }
+
         try {
             Test test = new Test();
             mapRequestToTest(testRequest, test);
 
-            if (test.getStatus() == null) {
-                test.setStatus("Published");
-            }
+            // Automatically determine status based on batch dates
+            test.setStatus(calculateStatusForTest(test));
 
             // Calculate student count (Total unique assigned students)
             int totalStudents = 0;
@@ -212,12 +217,10 @@ public class TestController {
             // Save test first
             Test savedTest = testRepository.save(test);
 
-            // Handle notifications in a separate try block
+            // Handle notifications immediately regardless of status as per user request
             try {
-                if ("Published".equalsIgnoreCase(savedTest.getStatus())) {
-                    notifyScheduledStudents(savedTest);
-                    emailService.sendAdminTestCreationNotification(savedTest);
-                }
+                notifyScheduledStudents(savedTest);
+                emailService.sendAdminTestCreationNotification(savedTest);
             } catch (Exception e) {
                 System.err.println("Non-critical error during notifications: " + e.getMessage());
                 e.printStackTrace();
@@ -239,6 +242,8 @@ public class TestController {
         try {
             Test test = testRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Test not found"));
+
+            String previousStatus = test.getStatus();
 
             // Identify removed students to update their status
             Set<Long> oldStudentIds = new HashSet<>();
@@ -291,8 +296,13 @@ public class TestController {
             for (Long oldId : oldStudentIds) {
                 if (!newStudentIds.contains(oldId)) {
                     studentRepository.findById(oldId).ifPresent(student -> {
-                        // Send Cancellation Email
-                        if ("Allocated".equals(student.getStatus()) || "Rescheduled".equals(student.getStatus())) {
+                        // Send Cancellation Email ONLY if code is ACTIVE (not used/started)
+                        Optional<StudentExamCode> codeOpt = studentExamCodeRepository
+                                .findByTestIdAndStudentId(test.getId(), student.getId());
+                        boolean isCodeActive = codeOpt.map(c -> "ACTIVE".equalsIgnoreCase(c.getStatus())).orElse(true);
+
+                        if (isCodeActive && ("Allocated".equals(student.getStatus())
+                                || "Rescheduled".equals(student.getStatus()))) {
                             emailService.sendCancellationStudentNotification(student, test);
                             removedStudents.add(student);
                         }
@@ -327,13 +337,14 @@ public class TestController {
             int totalStudents = newStudentIds.size();
             test.setStudentCount(totalStudents);
 
+            // Re-calculate status based on potentially new dates
+            test.setStatus(calculateStatusForTest(test));
+
             Test savedTest = testRepository.save(test);
 
             try {
-                if ("Published".equalsIgnoreCase(savedTest.getStatus())) {
-                    notifyScheduledStudents(savedTest);
-                    emailService.sendAdminTestUpdateNotification(savedTest);
-                }
+                notifyScheduledStudents(savedTest);
+                emailService.sendAdminTestUpdateNotification(savedTest, previousStatus);
             } catch (Exception e) {
                 System.err.println("Non-critical error during notification: " + e.getMessage());
                 e.printStackTrace();
@@ -421,6 +432,8 @@ public class TestController {
             Test savedTest = testRepository.save(test);
 
             if ("Published".equalsIgnoreCase(newStatus)) {
+                // Admin might manually publish, but automatic scheduler will also handle this.
+                // Keep for manual safety, but scheduler is the primary driver.
                 notifyScheduledStudents(savedTest);
                 emailService.sendAdminTestCreationNotification(savedTest);
             }
@@ -569,7 +582,14 @@ public class TestController {
 
                             if (needsUpdate) {
                                 String newStatus = "Allocated";
-                                if (dateChanged[0] && oldDate[0] != null) {
+                                boolean isCodeUsedOrStarted = existingCode.isPresent() &&
+                                        ("STARTED".equalsIgnoreCase(existingCode.get().getStatus())
+                                                || "USED".equalsIgnoreCase(existingCode.get().getStatus()));
+
+                                if (isCodeUsedOrStarted) {
+                                    System.out.println("Skipping student notification for " + studentEntity.getName()
+                                            + " as code is already " + existingCode.get().getStatus());
+                                } else if (dateChanged[0] && oldDate[0] != null) {
                                     newStatus = "Rescheduled";
                                     // Professional Date Shift Notification
                                     emailService.sendBatchDateChangeStudentNotification(studentEntity, test, oldDate[0],
@@ -719,5 +739,41 @@ public class TestController {
     public static class StudentGroupRequest {
         private String examDate;
         private List<Long> studentIds;
+    }
+
+    private String calculateStatusForTest(Test test) {
+        LocalDate today = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        boolean hasTodayBatch = false;
+        boolean hasFutureBatch = false;
+        boolean allBatchesPast = true;
+
+        if (test.getStudentGroups() != null && !test.getStudentGroups().isEmpty()) {
+            for (TestStudentGroup group : test.getStudentGroups()) {
+                String examDate = group.getExamDate();
+                if (examDate == null || examDate.isEmpty() || "TBD".equalsIgnoreCase(examDate))
+                    continue;
+                try {
+                    LocalDate batchDate = LocalDate.parse(examDate, formatter);
+                    if (batchDate.equals(today)) {
+                        hasTodayBatch = true;
+                        allBatchesPast = false;
+                    } else if (batchDate.isAfter(today)) {
+                        hasFutureBatch = true;
+                        allBatchesPast = false;
+                    }
+                } catch (Exception e) {
+                }
+            }
+
+            if (hasTodayBatch) {
+                return "Published";
+            } else if (allBatchesPast) {
+                return "Expired";
+            } else if (hasFutureBatch) {
+                return "Draft";
+            }
+        }
+        return "Draft";
     }
 }

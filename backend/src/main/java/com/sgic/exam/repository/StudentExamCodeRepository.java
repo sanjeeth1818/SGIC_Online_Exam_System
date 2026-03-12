@@ -14,4 +14,8 @@ public interface StudentExamCodeRepository extends JpaRepository<StudentExamCode
     @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     void deleteByTestId(Long testId);
+
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    void deleteByStudentId(Long studentId);
 }

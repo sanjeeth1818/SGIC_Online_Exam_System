@@ -70,25 +70,17 @@ public class AuthController {
                         "name", admin.getName() != null ? admin.getName() : "Admin"));
                 response.put("token", "admin-auth-token-mock-" + admin.getId());
                 return ResponseEntity.ok(response);
+            } else {
+                // If admin exists but password doesn't match, fail immediately
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("message", "Invalid username or password."));
             }
         }
 
-        // Hardcoded fallback for initial setup if table is empty
-        if ("admin_user".equals(username) && "admin123".equals(password)) {
-            if (adminOpt.isEmpty()) {
-                try {
-                    Admin defaultAdmin = new Admin();
-                    defaultAdmin.setUsername("admin_user");
-                    defaultAdmin.setEmail("admin@sgic.com");
-                    defaultAdmin.setPassword(passwordEncoder.encode("admin123"));
-                    defaultAdmin.setName("System Admin");
-                    adminRepository.save(defaultAdmin);
-                } catch (Exception e) {
-                }
-            }
-
+        // Hardcoded fallback ONLY if no admins exist in the database (First-time setup)
+        if (adminRepository.count() == 0 && "admin_user".equals(username) && "admin123".equals(password)) {
             return ResponseEntity.ok(Map.of(
-                    "message", "Login successful",
+                    "message", "Login successful (Initial setup)",
                     "token", "admin-auth-token-mock-default",
                     "admin", Map.of("username", username, "email", "admin@sgic.com", "name", "System Admin")));
         }

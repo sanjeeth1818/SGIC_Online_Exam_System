@@ -599,7 +599,7 @@ public class EmailService {
     }
 
     @Async
-    public void sendAdminTestUpdateNotification(Test test) {
+    public void sendAdminTestUpdateNotification(Test test, String previousStatus) {
         System.out.println("Attempting to send Admin notification for Updated Test: " + test.getName());
         EmailConfig config = emailConfigRepository.findByConfigName(PRIMARY_CONFIG).orElse(null);
         if (config == null)
@@ -642,85 +642,113 @@ public class EmailService {
             }
             String recipients = String.join(",", adminEmails);
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipients));
-            message.setSubject("Exam Updated: " + test.getName());
+            message.setSubject("Exam Update Report: " + test.getName());
 
-            StringBuilder categoriesHtml = new StringBuilder();
-            if (test.getCategoryConfigs() != null && !test.getCategoryConfigs().isEmpty()) {
-                categoriesHtml.append("<ul>");
-                for (TestCategoryConfig cat : test.getCategoryConfigs()) {
-                    categoriesHtml.append("<li>").append(cat.getCategoryName()).append(" (")
-                            .append(cat.getQuestionCount()).append(" questions)</li>");
-                }
-                categoriesHtml.append("</ul>");
-            } else {
-                categoriesHtml.append("<p>Manual Question Selection Mode</p>");
+            // Status Change Summary
+            String currentStatus = test.getStatus();
+            String statusBadgeHtml = "";
+            if (previousStatus != null && !previousStatus.equalsIgnoreCase(currentStatus)) {
+                statusBadgeHtml = String.format(
+                        "<div style='margin-bottom: 20px; padding: 15px; background: #fff7ed; border-left: 4px solid #f97316; border-radius: 4px;'>"
+                                +
+                                "<p style='margin: 0; font-weight: bold; color: #9a3412;'>Status Updated</p>" +
+                                "<p style='margin: 5px 0 0; font-size: 14px; color: #c2410c;'>Previous: <span style='opacity: 0.7;'>%s</span> &rarr; Current: <span style='font-weight: bold;'>%s</span></p>"
+                                +
+                                "</div>",
+                        previousStatus, currentStatus);
             }
 
             StringBuilder groupsHtml = new StringBuilder();
             if (test.getStudentGroups() != null && !test.getStudentGroups().isEmpty()) {
                 for (TestStudentGroup group : test.getStudentGroups()) {
-                    groupsHtml.append("<div style='margin-top: 20px;'>")
-                            .append("<h4 style='color: #4f46e5; border-bottom: 1px solid #e0e7ff; padding-bottom: 5px;'>Batch: ")
+                    groupsHtml.append("<div style='margin-top: 25px;'>")
+                            .append("<h4 style='color: #4f46e5; border-bottom: 2px solid #eef2ff; padding-bottom: 8px; margin-bottom: 12px; font-size: 15px;'>Batch: ")
                             .append(group.getExamDate() != null ? group.getExamDate() : "TBD").append("</h4>")
-                            .append("<table style='width: 100%; border-collapse: collapse; font-size: 13px;'>")
+                            .append("<table style='width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #f1f5f9;'>")
                             .append("<tr style='background-color: #f8fafc; text-align: left;'>")
-                            .append("<th style='padding: 8px; border: 1px solid #e2e8f0;'>Name</th>")
-                            .append("<th style='padding: 8px; border: 1px solid #e2e8f0;'>NIC</th>")
-                            .append("<th style='padding: 8px; border: 1px solid #e2e8f0;'>Email</th>")
-                            .append("<th style='padding: 8px; border: 1px solid #e2e8f0;'>Code</th>")
+                            .append("<th style='padding: 10px; border-bottom: 1px solid #e2e8f0;'>Name</th>")
+                            .append("<th style='padding: 10px; border-bottom: 1px solid #e2e8f0;'>Email</th>")
+                            .append("<th style='padding: 10px; border-bottom: 1px solid #e2e8f0;'>Code</th>")
+                            .append("<th style='padding: 10px; border-bottom: 1px solid #e2e8f0;'>Participation Status</th>")
                             .append("</tr>");
 
                     if (group.getStudents() != null) {
                         for (Student s : group.getStudents()) {
                             Optional<StudentExamCode> codeOpt = studentExamCodeRepository
                                     .findByTestIdAndStudentId(test.getId(), s.getId());
-                            String code = codeOpt.isPresent() ? codeOpt.get().getExamCode() : "N/A";
+
+                            String code = "N/A";
+                            String participationStatus = "Pending";
+                            String statusColor = "#64748b"; // slate-500
+
+                            if (codeOpt.isPresent()) {
+                                code = codeOpt.get().getExamCode();
+                                String internalStatus = codeOpt.get().getStatus();
+                                if ("USED".equalsIgnoreCase(internalStatus)) {
+                                    participationStatus = "Finished (Used Code)";
+                                    statusColor = "#16a34a"; // green-600
+                                } else if ("STARTED".equalsIgnoreCase(internalStatus)) {
+                                    participationStatus = "In Progress (Started)";
+                                    statusColor = "#2563eb"; // blue-600
+                                } else {
+                                    participationStatus = "Active (Code Sent)";
+                                    statusColor = "#f97316"; // orange-500
+                                }
+                            }
 
                             groupsHtml.append("<tr>")
-                                    .append("<td style='padding: 8px; border: 1px solid #e2e8f0;'>").append(s.getName())
-                                    .append("</td>")
-                                    .append("<td style='padding: 8px; border: 1px solid #e2e8f0;'>")
-                                    .append(s.getNic() != null ? s.getNic() : "—").append("</td>")
-                                    .append("<td style='padding: 8px; border: 1px solid #e2e8f0;'>")
+                                    .append("<td style='padding: 10px; border-bottom: 1px solid #f1f5f9;'>")
+                                    .append(s.getName()).append("</td>")
+                                    .append("<td style='padding: 10px; border-bottom: 1px solid #f1f5f9; color: #64748b;'>")
                                     .append(s.getEmail()).append("</td>")
-                                    .append("<td style='padding: 8px; border: 1px solid #e2e8f0; font-weight: bold; color: #dc2626;'>")
+                                    .append("<td style='padding: 10px; border-bottom: 1px solid #f1f5f9; font-family: monospace; font-weight: bold;'>")
                                     .append(code).append("</td>")
+                                    .append("<td style='padding: 10px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: ")
+                                    .append(statusColor).append(";'>")
+                                    .append(participationStatus).append("</td>")
                                     .append("</tr>");
                         }
                     }
                     groupsHtml.append("</table></div>");
                 }
             } else {
-                groupsHtml.append("<p>No students allocated yet.</p>");
+                groupsHtml.append(
+                        "<p style='color: #94a3b8; font-style: italic;'>No students allocated to this examination yet.</p>");
             }
 
-            String htmlContent = "<html><body style='font-family: sans-serif; color: #334155; line-height: 1.6;'>" +
-                    "<div style='max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;'>"
+            String htmlContent = "<html><body style='font-family: \"Inter\", sans-serif; color: #334155; line-height: 1.6; background-color: #f8fafc; padding: 20px;'>"
                     +
-                    "  <div style='background: #4f46e5; color: white; padding: 30px; text-align: center;'>" +
-                    "    <h2 style='margin: 0;'>Exam Update Report</h2>" +
-                    "    <p style='margin: 5px 0 0; opacity: 0.8;'>The examination details have been successfully updated</p>"
+                    "<div style='max-width: 800px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);'>"
+                    +
+                    "  <div style='background: #4f46e5; color: white; padding: 40px 30px; text-align: center;'>" +
+                    "    <h1 style='margin: 0; font-size: 24px; font-weight: 800;'>Examination Update Report</h1>" +
+                    "    <p style='margin: 8px 0 0; opacity: 0.9;'>Finalized report with participation analytics</p>"
                     +
                     "  </div>" +
-                    "  <div style='padding: 30px;'>" +
-                    "    <h3 style='color: #1e293b; margin-top: 0;'>Exam Overview</h3>" +
-                    "    <table style='width: 100%; border-collapse: collapse;'>" +
-                    "      <tr><td style='padding: 8px 0; font-weight: bold; width: 140px;'>Exam Name:</td><td>"
+                    "  <div style='padding: 35px;'>" +
+                    statusBadgeHtml +
+                    "    <h3 style='color: #1e293b; margin: 0 0 15px 0; font-size: 18px;'>Exam Overview</h3>" +
+                    "    <table style='width: 100%; border-collapse: collapse; margin-bottom: 30px;'>" +
+                    "      <tr><td style='padding: 10px 0; font-weight: 600; width: 160px; color: #64748b;'>Exam Name:</td><td style='color: #1e293b; font-weight: 600;'>"
                     + test.getName() + "</td></tr>" +
-                    "      <tr><td style='padding: 8px 0; font-weight: bold;'>Duration:</td><td>" + test.getTimeValue()
+                    "      <tr><td style='padding: 10px 0; font-weight: 600; color: #64748b;'>Duration:</td><td>"
+                    + test.getTimeValue()
                     + " " + test.getTimeUnit() + "</td></tr>" +
-                    "      <tr><td style='padding: 8px 0; font-weight: bold;'>Mode:</td><td>" + test.getExamMode()
-                    + "</td></tr>" +
-                    "      <tr><td style='padding: 8px 0; font-weight: bold;'>Description:</td><td style='font-style: italic; color: #64748b;'>"
-                    + (test.getDescription() != null ? test.getDescription() : "No description") + "</td></tr>" +
+                    "      <tr><td style='padding: 10px 0; font-weight: 600; color: #64748b;'>Current Status:</td><td><span style='padding: 4px 12px; background: #f1f5f9; border-radius: 100px; font-size: 12px; font-weight: 700; color: #475569;'>"
+                    + currentStatus.toUpperCase() + "</span></td></tr>" +
                     "    </table>" +
-                    "    <h3 style='color: #1e293b; margin-top: 30px;'>Category Configuration</h3>" +
-                    categoriesHtml.toString() +
-                    "    <h3 style='color: #1e293b; margin-top: 30px;'>Allocated Students & Codes</h3>" +
-                    groupsHtml.toString() +
-                    "    <div style='margin-top: 40px; border-top: 1px solid #f1f5f9; padding-top: 20px; text-align: center; font-size: 13px; color: #94a3b8;'>"
+                    "    <h3 style='color: #1e293b; margin: 40px 0 10px 0; font-size: 18px;'>Student Allocation & Participation</h3>"
                     +
-                    "      <p>This is an automated security notification from the SGIC Examination System.</p>" +
+                    "    <p style='margin: 0; font-size: 14px; color: #94a3b8;'>Summary of all batches and their current engagement status</p>"
+                    +
+                    groupsHtml.toString() +
+                    "    <div style='margin-top: 50px; border-top: 1px solid #f1f5f9; padding-top: 25px; text-align: center; font-size: 12px; color: #94a3b8;'>"
+                    +
+                    "      <p>This report includes the most recent student code activity logs.<br/>" +
+                    "      Report generated on "
+                    + java.time.LocalDateTime.now()
+                            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+                    + "</p>" +
                     "    </div>" +
                     "  </div>" +
                     "</div></body></html>";

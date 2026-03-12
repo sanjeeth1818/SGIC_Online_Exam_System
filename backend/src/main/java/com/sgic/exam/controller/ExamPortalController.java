@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.Objects;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/api/exam-portal")
@@ -67,6 +69,27 @@ public class ExamPortalController {
                                         "Your current status (" + studentStatus
                                                 + ") does not allow examination access."));
                     }
+
+                    // --- BATCH DATE VALIDATION ---
+                    String batchDateStr = codeEntry.getExpiryDate();
+                    if (batchDateStr != null && !batchDateStr.isEmpty() && !"TBD".equalsIgnoreCase(batchDateStr)) {
+                        try {
+                            LocalDate batchDate = LocalDate.parse(batchDateStr,
+                                    DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                            LocalDate today = LocalDate.now();
+                            if (today.isBefore(batchDate)) {
+                                return ResponseEntity.badRequest()
+                                        .body(Map.of("message", "Your examination is scheduled for " + batchDateStr
+                                                + ". Please come back then."));
+                            } else if (today.isAfter(batchDate)) {
+                                return ResponseEntity.badRequest().body(Map.of("message",
+                                        "Your examination access for " + batchDateStr + " has expired."));
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Search format error for batch date: " + batchDateStr);
+                        }
+                    }
+                    // -----------------------------
                 } else {
                     return ResponseEntity.badRequest().body(Map.of("message", "Student record not found."));
                 }

@@ -765,8 +765,17 @@ const Results = () => {
         // Generate dynamic dropdown options from current exam results
         const availableDates = Array.from(new Set(examResults.map(r => r.date))).sort().map(d => ({ label: `Batch ${d}`, value: d }));
 
+        // Map batch dates to results for sorting
+        const resultsWithBatchDate = examResults.map(r => {
+            const codeEntry = examStudentCodes.find(c => c.studentEmail?.toLowerCase() === r.email?.toLowerCase());
+            return {
+                ...r,
+                batchDate: codeEntry?.examDate || r.date
+            };
+        });
+
         // Apply filters
-        const filteredExamResults = examResults.filter(r => {
+        const filteredExamResults = resultsWithBatchDate.filter(r => {
             // Search
             if (examSearchTerm && !r.name.toLowerCase().includes(examSearchTerm.toLowerCase()) && !r.email.toLowerCase().includes(examSearchTerm.toLowerCase())) {
                 return false;
@@ -785,8 +794,6 @@ const Results = () => {
                 if (selectedScores.includes('< 50') && r.score < 50) match = true;
                 if (!match) return false;
             }
-            // Date
-            if (selectedDates.length > 0 && !selectedDates.includes(r.date)) return false;
 
             // Time
             if (selectedTimes.length > 0) {
@@ -800,6 +807,27 @@ const Results = () => {
 
             return true;
         });
+
+        // Sort by Batch Date (Primary) then by Submission Date
+        filteredExamResults.sort((a, b) => {
+            if (a.batchDate !== b.batchDate) {
+                return b.batchDate.localeCompare(a.batchDate);
+            }
+            return b.rawSubmittedAt - a.rawSubmittedAt;
+        });
+
+        // Sort Absent list by Batch Date too
+        const sortedAbsentStudents = [...absentStudents].sort((a, b) => (b.examDate || '').localeCompare(a.examDate || ''));
+
+        // Group filtered results by batch date for sub-tables
+        const groupedByBatch = filteredExamResults.reduce((acc, r) => {
+            const bDate = r.batchDate || 'Unknown Batch';
+            if (!acc[bDate]) acc[bDate] = [];
+            acc[bDate].push(r);
+            return acc;
+        }, {});
+
+        const sortedBatchDates = Object.keys(groupedByBatch).sort((a, b) => b.localeCompare(a));
 
         return (
             <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
@@ -859,14 +887,6 @@ const Results = () => {
                                 selected={selectedScores} onChange={setSelectedScores}
                             />
 
-                            {availableDates.length > 0 && (
-                                <PremiumMultiSelect
-                                    icon={<Calendar size={14} color="#f59e0b" />}
-                                    placeholder="Batch Filter"
-                                    options={availableDates}
-                                    selected={selectedDates} onChange={setSelectedDates}
-                                />
-                            )}
 
                             <PremiumMultiSelect
                                 icon={<Clock size={14} color="#ec4899" />}
@@ -881,7 +901,6 @@ const Results = () => {
                                         setExamSearchTerm('');
                                         setSelectedStatuses([]);
                                         setSelectedScores([]);
-                                        setSelectedDates([]);
                                         setSelectedTimes([]);
                                     }}
                                     style={{
@@ -901,75 +920,102 @@ const Results = () => {
                     {filteredExamResults.length === 0 ? (
                         <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No submissions match the current filters.</div>
                     ) : (
-                        <div>
-                            {filteredExamResults.map((r, index) => {
-                                const isLast = index === filteredExamResults.length - 1;
-                                return (
-                                    <div key={r.id} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
-                                        <div
-                                            style={{
-                                                padding: '1.25rem 2rem', display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'background 0.2s',
-                                                borderBottomLeftRadius: (isLast && expandedStudentRow !== r.id) ? '27px' : '0',
-                                                borderBottomRightRadius: (isLast && expandedStudentRow !== r.id) ? '27px' : '0'
-                                            }}
-                                            onClick={() => setExpandedStudentRow(expandedStudentRow === r.id ? null : r.id)}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-app)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.1rem', flexShrink: 0 }}>{r.name[0]}</div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{r.name}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
-                                                    <Mail size={12} /> {r.email}
-                                                    <span style={{ color: 'var(--border)' }}>|</span>
-                                                    <Clock size={12} /> Taken: <span style={{ fontWeight: 700 }}>{r.participatedDate}</span>
-                                                </div>
-                                            </div>
-                                            <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                                                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: getScoreColor(r.score) }}>{r.score}%</div>
-                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Score</div>
-                                            </div>
-                                            <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                                                <div style={{ fontWeight: 800 }}>{r.actualScore}/{r.maxScore}</div>
-                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Correct</div>
-                                            </div>
-                                            <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                                                <div style={{ fontWeight: 800, color: '#f59e0b' }}>{r.timeTaken}</div>
-                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Time</div>
-                                            </div>
-                                            <button
-                                                onClick={e => { e.stopPropagation(); setSelectedStudent(r); setExpandedCategories({}); }}
-                                                style={{ padding: '0.5rem 1.2rem', borderRadius: '12px', background: 'var(--bg-app)', border: '1.5px solid var(--border)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
-                                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
-                                                onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                                            ><Eye size={16} /> View Report</button>
-                                            <div style={{ transform: expandedStudentRow === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}><ChevronDown size={18} color="var(--text-tertiary)" /></div>
+                        <div style={{ display: 'flex', flexDirection: 'column', padding: '1rem' }}>
+                            {sortedBatchDates.map((bDate, idx) => (
+                                <div key={bDate} style={{ marginTop: idx > 0 ? '2.5rem' : '0' }}>
+                                    {/* Clean Batch Divider */}
+                                    <div style={{
+                                        padding: '0 2rem 1rem 2rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '1rem'
+                                    }}>
+                                        <div style={{
+                                            padding: '8px 16px',
+                                            background: 'rgba(99, 102, 241, 0.08)',
+                                            borderRadius: '10px',
+                                            color: 'var(--primary)',
+                                            fontWeight: 900,
+                                            fontSize: '0.85rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.6rem'
+                                        }}>
+                                            <Calendar size={16} /> {bDate}
                                         </div>
-
-                                        {/* Inline category breakdown */}
-                                        {expandedStudentRow === r.id && (
-                                            <div style={{
-                                                padding: '1rem 2rem 1.5rem 4rem', background: 'var(--bg-app)', display: 'flex', gap: '1rem', flexWrap: 'wrap',
-                                                borderBottomLeftRadius: isLast ? '27px' : '0',
-                                                borderBottomRightRadius: isLast ? '27px' : '0'
-                                            }}>
-                                                {r.categories.map(c => (
-                                                    <div key={c.name} style={{ flex: '1', minWidth: '180px', background: 'white', borderRadius: '16px', padding: '1rem 1.25rem', border: '1px solid var(--border)' }}>
-                                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{c.name}</div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                            <div style={{ flex: 1, height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                                                                <div style={{ width: `${c.score}%`, height: '100%', background: c.color, borderRadius: '4px' }} />
-                                                            </div>
-                                                            <span style={{ fontWeight: 900, color: c.color, minWidth: '38px', textAlign: 'right' }}>{c.score}%</span>
-                                                        </div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.3rem' }}>{c.correct}/{c.total} correct</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <div style={{ flex: 1, height: '1px', background: 'var(--border)', opacity: 0.5 }}></div>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', background: 'var(--bg-app)', padding: '4px 10px', borderRadius: '6px' }}>
+                                            {groupedByBatch[bDate].length} Students
+                                        </span>
                                     </div>
-                                );
-                            })}
+
+                                    {groupedByBatch[bDate].map((r, index) => {
+                                        const isLast = index === groupedByBatch[bDate].length - 1;
+                                        return (
+                                            <div key={r.id} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                                                <div
+                                                    style={{
+                                                        padding: '1.25rem 2rem', display: 'flex', alignItems: 'center', gap: '1.5rem', cursor: 'pointer', transition: 'all 0.2s',
+                                                        borderLeft: '4px solid transparent'
+                                                    }}
+                                                    onClick={() => setExpandedStudentRow(expandedStudentRow === r.id ? null : r.id)}
+                                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.borderLeftColor = 'var(--primary)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeftColor = 'transparent'; }}
+                                                >
+                                                    <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1.1rem', flexShrink: 0 }}>{r.name[0]}</div>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{r.name}</div>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
+                                                            <Mail size={12} /> {r.email}
+                                                            <span style={{ color: 'var(--border)' }}>|</span>
+                                                            <Clock size={12} /> Taken: <span style={{ fontWeight: 700 }}>{r.participatedDate}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                                        <div style={{ fontSize: '1.25rem', fontWeight: 900, color: getScoreColor(r.score) }}>{r.score}%</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Score</div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                                        <div style={{ fontWeight: 800 }}>{r.actualScore}/{r.maxScore}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Correct</div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                                                        <div style={{ fontWeight: 800, color: '#f59e0b' }}>{r.timeTaken}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Time</div>
+                                                    </div>
+                                                    <button
+                                                        onClick={e => { e.stopPropagation(); setSelectedStudent(r); setExpandedCategories({}); }}
+                                                        style={{ padding: '0.5rem 1.2rem', borderRadius: '12px', background: 'var(--bg-app)', border: '1.5px solid var(--border)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
+                                                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                                                    ><Eye size={16} /> View Report</button>
+                                                    <div style={{ transform: expandedStudentRow === r.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}><ChevronDown size={18} color="var(--text-tertiary)" /></div>
+                                                </div>
+
+                                                {/* Inline category breakdown */}
+                                                {expandedStudentRow === r.id && (
+                                                    <div style={{
+                                                        padding: '1rem 2rem 1.5rem 4rem', background: 'var(--bg-app)', display: 'flex', gap: '1rem', flexWrap: 'wrap'
+                                                    }}>
+                                                        {r.categories.map(c => (
+                                                            <div key={c.name} style={{ flex: '1', minWidth: '180px', background: 'white', borderRadius: '16px', padding: '1rem 1.25rem', border: '1px solid var(--border)' }}>
+                                                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{c.name}</div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                                    <div style={{ flex: 1, height: '8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                                        <div style={{ width: `${c.score}%`, height: '100%', background: c.color, borderRadius: '4px' }} />
+                                                                    </div>
+                                                                    <span style={{ fontWeight: 900, color: c.color, minWidth: '38px', textAlign: 'right' }}>{c.score}%</span>
+                                                                </div>
+                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.3rem' }}>{c.correct}/{c.total} correct</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
@@ -1083,7 +1129,7 @@ const Results = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {absentStudents.map((c, i) => (
+                                    {sortedAbsentStudents.map((c, i) => (
                                         <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                                             <td style={{ padding: '1rem 1.5rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1263,21 +1309,7 @@ const Results = () => {
                 )}
             </div>
 
-            {/* Stats Bar */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-                <div style={{ background: 'var(--bg-surface)', borderRadius: '24px', border: '1px solid var(--border)', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={24} color="white" /></div>
-                    <div><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Total Exams</div><div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{Object.keys(examGroups).length}</div></div>
-                </div>
-                <div style={{ background: 'var(--bg-surface)', borderRadius: '24px', border: '1px solid var(--border)', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Users size={24} color="white" /></div>
-                    <div><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Total Submissions</div><div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{resultsData.length}</div></div>
-                </div>
-                <div style={{ background: 'var(--bg-surface)', borderRadius: '24px', border: '1px solid var(--border)', padding: '1.75rem 2rem', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={24} color="white" /></div>
-                    <div><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Avg Pass Rate</div><div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)' }}>{stats.passRate}%</div></div>
-                </div>
-            </div>
+
 
             {/* Exam Cards Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
@@ -1299,12 +1331,7 @@ const Results = () => {
                             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(99,102,241,0.12)'; }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-                                <div style={{ width: '48px', height: '48px', borderRadius: '16px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={24} color="white" /></div>
-                                <div style={{ background: `${getScoreColor(avg)}15`, color: getScoreColor(avg), padding: '4px 14px', borderRadius: '10px', fontWeight: 900, fontSize: '1rem' }}>{avg}% avg</div>
-                            </div>
                             <h3 style={{ fontWeight: 900, fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '0.4rem', lineHeight: 1.3 }}>{examName}</h3>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginBottom: '1.5rem', flex: 1 }}>{dates.length === 1 ? dates[0] : `${dates[0]} – ${dates[dates.length - 1]}`}</div>
 
                             <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
                                 <div style={{ flex: 1, background: 'var(--bg-app)', borderRadius: '14px', padding: '0.875rem', textAlign: 'center' }}>

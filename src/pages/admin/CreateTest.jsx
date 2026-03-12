@@ -38,6 +38,7 @@ const CreateTest = () => {
     const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
     const [questionSearchTerm, setQuestionSearchTerm] = useState('');
     const [fetchingQuestions, setFetchingQuestions] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
 
     // Student Scheduling State
     const [studentGroups, setStudentGroups] = useState([
@@ -523,6 +524,8 @@ const CreateTest = () => {
         } catch (error) {
             console.error('Error publishing test:', error);
             setNotification({ type: 'error', message: 'An error occurred while publishing.' });
+        } finally {
+            setIsPublishing(false);
         }
     };
 
@@ -853,6 +856,7 @@ const CreateTest = () => {
                                                     <input
                                                         type="date"
                                                         value={group.examDate}
+                                                        min={new Date().toISOString().split('T')[0]}
                                                         onChange={e => {
                                                             const newGroups = [...studentGroups];
                                                             newGroups[groupIndex].examDate = e.target.value;
@@ -967,135 +971,186 @@ const CreateTest = () => {
                                 <h2 style={{ fontSize: '1.5rem', marginBottom: '2rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}><Settings size={24} color="var(--primary)" /> Settings & Rules</h2>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                                    {/* Time Configuration Card */}
-                                    <div style={{ border: '1px solid var(--border)', padding: '2rem', borderRadius: '20px', background: 'var(--bg-app)', position: 'relative' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>Time Limitation</h3>
-                                            <div style={{ display: 'flex', background: 'var(--bg-surface)', padding: '0.375rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                                                {['mins', 'secs', 'hours'].map(u => (
-                                                    <button
-                                                        key={u}
-                                                        onClick={() => setTestData({ ...testData, timeUnit: u })}
-                                                        style={{
-                                                            padding: '0.375rem 0.75rem', borderRadius: '8px', border: 'none',
-                                                            background: testData.timeUnit === u ? 'var(--primary)' : 'transparent',
-                                                            color: testData.timeUnit === u ? 'white' : 'var(--text-tertiary)',
-                                                            fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
-                                                        }}
-                                                    >
-                                                        {u.toUpperCase()}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
 
-                                        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
-                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontSize: '0.94rem', fontWeight: 600 }}>
-                                                    <input type="radio" name="time" checked={testData.timeMode === 'full'} onChange={() => setTestData({ ...testData, timeMode: 'full' })} style={{ width: '18px', height: '18px' }} />
-                                                    Whole Test Duration
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontSize: '0.94rem', fontWeight: 600 }}>
-                                                    <input
-                                                        type="radio"
-                                                        name="time"
-                                                        checked={testData.timeMode === 'question'}
-                                                        onChange={() => setTestData({
-                                                            ...testData,
-                                                            timeMode: 'question',
-                                                            examMode: 'step' // Force step mode
-                                                        })}
-                                                        style={{ width: '18px', height: '18px' }}
-                                                    />
-                                                    Limit Per Question
-                                                </label>
-                                            </div>
-                                            <div style={{ width: '140px' }}>
-                                                <div style={{ position: 'relative' }}>
-                                                    <input
-                                                        type="number"
-                                                        value={testData.timeValue}
-                                                        onChange={e => setTestData({ ...testData, timeValue: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.875rem 1rem', borderRadius: '14px', border: '2px solid var(--border)', fontSize: '1.25rem', fontWeight: 800, textAlign: 'center', color: 'var(--primary)', outline: 'none' }}
-                                                    />
-                                                    <div style={{ position: 'absolute', bottom: '-20px', left: 0, right: 0, textAlign: 'center', fontSize: '0.625rem', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{testData.timeUnit}</div>
+                                        {/* Column 1: Time Constraints */}
+                                        <div style={{ border: '1px solid var(--border)', padding: '1.75rem', borderRadius: '24px', background: 'var(--bg-app)', display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.5rem' }}>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Clock size={20} color="var(--primary)" />
                                                 </div>
+                                                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>Time Limit</h3>
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    {/* Visibility Card */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                                        <div style={{ border: '1px solid var(--border)', padding: '1.5rem', borderRadius: '20px', background: 'var(--bg-app)' }}>
-                                            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Eye size={18} color="var(--primary)" /> Results & Visibility</h3>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                                                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Reveal Result Immediately</span>
-                                                    <div
-                                                        onClick={() => {
-                                                            const newVal = !testData.showResult;
-                                                            setTestData({
-                                                                ...testData,
-                                                                showResult: newVal,
-                                                                showAnswers: newVal ? testData.showAnswers : false
-                                                            });
-                                                        }}
-                                                        style={{ width: '44px', height: '24px', borderRadius: '12px', background: testData.showResult ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'all 0.2s', padding: '2px' }}
-                                                    >
-                                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'white', position: 'absolute', left: testData.showResult ? '22px' : '2px', transition: 'all 0.2s' }} />
-                                                    </div>
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: testData.showResult ? 'pointer' : 'not-allowed', opacity: testData.showResult ? 1 : 0.5 }}>
-                                                    <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Show Correct Answers</span>
-                                                    <div
-                                                        onClick={() => testData.showResult && setTestData({ ...testData, showAnswers: !testData.showAnswers })}
-                                                        style={{ width: '44px', height: '24px', borderRadius: '12px', background: testData.showAnswers ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'all 0.2s', padding: '2px' }}
-                                                    >
-                                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'white', position: 'absolute', left: testData.showAnswers ? '22px' : '2px', transition: 'all 0.2s' }} />
-                                                    </div>
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ border: '1px solid var(--border)', padding: '1.5rem', borderRadius: '20px', background: 'var(--bg-app)' }}>
-                                            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Globe size={18} color="var(--primary)" /> Activation</h3>
-                                            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                                                <div>
-                                                    <div style={{ fontWeight: 800, color: testData.activateImmediately ? 'var(--success)' : 'var(--text-secondary)' }}>ACTIVATE NOW</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>Students can take test right after publishing</div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1 }}>
+                                                <div style={{ display: 'flex', background: 'var(--bg-surface)', padding: '0.25rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                                    {['mins', 'secs', 'hours'].map(u => (
+                                                        <button
+                                                            key={u}
+                                                            onClick={() => setTestData({ ...testData, timeUnit: u })}
+                                                            style={{
+                                                                flex: 1, padding: '0.5rem', borderRadius: '9px', border: 'none',
+                                                                background: testData.timeUnit === u ? 'var(--primary)' : 'transparent',
+                                                                color: testData.timeUnit === u ? 'white' : 'var(--text-tertiary)',
+                                                                fontSize: '0.7rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
+                                                                textTransform: 'uppercase'
+                                                            }}
+                                                        >
+                                                            {u}
+                                                        </button>
+                                                    ))}
                                                 </div>
+
                                                 <div
-                                                    onClick={() => setTestData({ ...testData, activateImmediately: !testData.activateImmediately })}
-                                                    style={{ width: '44px', height: '24px', borderRadius: '12px', background: testData.activateImmediately ? 'var(--success)' : 'var(--border)', position: 'relative', transition: 'all 0.2s', cursor: 'pointer', padding: '2px' }}
+                                                    style={{
+                                                        position: 'relative',
+                                                        background: '#ffffff',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                                                        borderRadius: '16px',
+                                                        border: '2px solid var(--primary-border)',
+                                                        padding: '1rem',
+                                                        textAlign: 'center',
+                                                        transition: 'all 0.2s',
+                                                        cursor: 'text'
+                                                    }}
+                                                    onClick={() => document.getElementById('wizard-time-input').focus()}
+                                                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--primary-border)'}
                                                 >
-                                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'white', position: 'absolute', left: testData.activateImmediately ? '22px' : '2px', transition: 'all 0.2s' }} />
+                                                    <input
+                                                        id="wizard-time-input"
+                                                        type="number"
+                                                        min="1"
+                                                        value={testData.timeValue}
+                                                        onChange={e => {
+                                                            const val = e.target.value;
+                                                            if (val === '') {
+                                                                setTestData({ ...testData, timeValue: '' });
+                                                                return;
+                                                            }
+                                                            const num = Math.max(1, parseInt(val) || 1);
+                                                            setTestData({ ...testData, timeValue: num.toString() });
+                                                        }}
+                                                        style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '2rem', fontWeight: 900, textAlign: 'center', color: 'var(--primary)', outline: 'none', cursor: 'text' }}
+                                                    />
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', opacity: 0.6, textTransform: 'uppercase', marginTop: '-0.25rem' }}>Set {testData.timeUnit}</div>
                                                 </div>
-                                            </label>
-                                        </div>
-                                    </div>
 
-                                    {/* Layout Card */}
-                                    <div style={{ border: '1px solid var(--border)', padding: '1.5rem', borderRadius: '20px', background: 'var(--bg-app)' }}>
-                                        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Layers size={18} color="var(--primary)" /> Layout Strategy</h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                            <button
-                                                onClick={() => testData.timeMode !== 'question' && setTestData({ ...testData, examMode: 'scroll' })}
-                                                disabled={testData.timeMode === 'question'}
-                                                style={{
-                                                    padding: '1rem', borderRadius: '14px', border: `2px solid ${testData.examMode === 'scroll' ? 'var(--primary)' : 'var(--border)'}`,
-                                                    background: testData.examMode === 'scroll' ? 'var(--primary-light)' : 'transparent',
-                                                    color: testData.examMode === 'scroll' ? 'var(--primary)' : 'var(--text-secondary)',
-                                                    fontWeight: 700, fontSize: '0.875rem', cursor: testData.timeMode === 'question' ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: testData.timeMode === 'question' ? 0.5 : 1
-                                                }}
-                                            >
-                                                Scroll Mode (Full Page)
-                                            </button>
-                                            <button
-                                                onClick={() => setTestData({ ...testData, examMode: 'step' })}
-                                                style={{ padding: '1rem', borderRadius: '14px', border: `2px solid ${testData.examMode === 'step' ? 'var(--primary)' : 'var(--border)'}`, background: testData.examMode === 'step' ? 'var(--primary-light)' : 'transparent', color: testData.examMode === 'step' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', transition: 'all 0.2s' }}
-                                            >
-                                                Step Mode (Pagination)
-                                            </button>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: 'auto' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
+                                                        <input type="radio" name="time" checked={testData.timeMode === 'full'} onChange={() => setTestData({ ...testData, timeMode: 'full' })} style={{ accentColor: 'var(--primary)', width: '18px', height: '18px' }} />
+                                                        Whole Test
+                                                    </label>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
+                                                        <input
+                                                            type="radio"
+                                                            name="time"
+                                                            checked={testData.timeMode === 'question'}
+                                                            onChange={() => setTestData({
+                                                                ...testData,
+                                                                timeMode: 'question',
+                                                                examMode: 'step'
+                                                            })}
+                                                            style={{ accentColor: 'var(--primary)', width: '18px', height: '18px' }}
+                                                        />
+                                                        Per Question
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Column 2: Results & Privacy */}
+                                        <div style={{ border: '1px solid var(--border)', padding: '1.75rem', borderRadius: '24px', background: 'var(--bg-app)', display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.5rem' }}>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(34, 197, 94, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Eye size={20} color="var(--success)" />
+                                                </div>
+                                                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>Candidate View</h3>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1 }}>
+                                                <div style={{ background: 'var(--bg-surface)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                        <span style={{ fontWeight: 800, fontSize: '0.8125rem', color: 'var(--text-primary)' }}>Reveal Results</span>
+                                                        <div
+                                                            onClick={() => {
+                                                                const newVal = !testData.showResult;
+                                                                setTestData({
+                                                                    ...testData,
+                                                                    showResult: newVal,
+                                                                    showAnswers: newVal ? testData.showAnswers : false
+                                                                });
+                                                            }}
+                                                            style={{ width: '40px', height: '22px', borderRadius: '11px', background: testData.showResult ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'all 0.2s', cursor: 'pointer', padding: '2px' }}
+                                                        >
+                                                            <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', position: 'absolute', left: testData.showResult ? '20px' : '2px', transition: 'all 0.2s' }} />
+                                                        </div>
+                                                    </div>
+                                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 600, margin: 0 }}>Allow candidates to see their score immediately after submission.</p>
+                                                </div>
+
+                                                <div style={{ background: 'var(--bg-surface)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)', opacity: testData.showResult ? 1 : 0.5, cursor: testData.showResult ? 'default' : 'not-allowed' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                        <span style={{ fontWeight: 800, fontSize: '0.8125rem', color: 'var(--text-primary)' }}>Show Answers</span>
+                                                        <div
+                                                            onClick={() => testData.showResult && setTestData({ ...testData, showAnswers: !testData.showAnswers })}
+                                                            style={{ width: '40px', height: '22px', borderRadius: '11px', background: testData.showAnswers ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'all 0.2s', cursor: testData.showResult ? 'pointer' : 'not-allowed', padding: '2px' }}
+                                                        >
+                                                            <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', position: 'absolute', left: testData.showAnswers ? '20px' : '2px', transition: 'all 0.2s' }} />
+                                                        </div>
+                                                    </div>
+                                                    <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 600, margin: 0 }}>Displays correct answers alongside candidate responses.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Column 3: Layout Strategy */}
+                                        <div style={{ border: '1px solid var(--border)', padding: '1.75rem', borderRadius: '24px', background: 'var(--bg-app)', display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.5rem' }}>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Layers size={20} color="#3b82f6" />
+                                                </div>
+                                                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>Exam Flow</h3>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
+                                                <button
+                                                    onClick={() => testData.timeMode !== 'question' && setTestData({ ...testData, examMode: 'scroll' })}
+                                                    disabled={testData.timeMode === 'question'}
+                                                    style={{
+                                                        padding: '1.25rem', borderRadius: '20px', textAlign: 'left',
+                                                        border: `2px solid ${testData.examMode === 'scroll' ? 'var(--primary)' : 'var(--border)'}`,
+                                                        background: testData.examMode === 'scroll' ? 'var(--primary-light)' : 'var(--bg-surface)',
+                                                        transition: 'all 0.2s', opacity: testData.timeMode === 'question' ? 0.5 : 1, cursor: testData.timeMode === 'question' ? 'not-allowed' : 'pointer',
+                                                        position: 'relative', overflow: 'hidden'
+                                                    }}
+                                                >
+                                                    <div style={{ fontWeight: 800, fontSize: '0.875rem', color: testData.examMode === 'scroll' ? 'var(--primary)' : 'var(--text-primary)', marginBottom: '0.25rem' }}>Scroll Mode</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>All questions on a single page</div>
+                                                    {testData.examMode === 'scroll' && <div style={{ position: 'absolute', top: '10px', right: '10px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }} />}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setTestData({ ...testData, examMode: 'step' })}
+                                                    style={{
+                                                        padding: '1.25rem', borderRadius: '20px', textAlign: 'left',
+                                                        border: `2px solid ${testData.examMode === 'step' ? 'var(--primary)' : 'var(--border)'}`,
+                                                        background: testData.examMode === 'step' ? 'var(--primary-light)' : 'var(--bg-surface)',
+                                                        transition: 'all 0.2s', cursor: 'pointer',
+                                                        position: 'relative'
+                                                    }}
+                                                >
+                                                    <div style={{ fontWeight: 800, fontSize: '0.875rem', color: testData.examMode === 'step' ? 'var(--primary)' : 'var(--text-primary)', marginBottom: '0.25rem' }}>Step Mode</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>One question per page (Recommended)</div>
+                                                    {testData.examMode === 'step' && <div style={{ position: 'absolute', top: '10px', right: '10px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }} />}
+                                                </button>
+
+                                                <div style={{ marginTop: 'auto', padding: '1rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '14px', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+                                                    <p style={{ fontSize: '0.65rem', color: '#1d4ed8', fontWeight: 700, margin: 0, lineHeight: 1.4 }}>
+                                                        {testData.timeMode === 'question' ? "Step mode is strictly required for 'Per Question' timing." : "Choose how candidates navigate through the examination."}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1114,6 +1169,7 @@ const CreateTest = () => {
 
                             <button
                                 onClick={() => {
+                                    if (isPublishing) return;
                                     const newErrors = {};
 
                                     if (step === 1) {
@@ -1166,13 +1222,23 @@ const CreateTest = () => {
                                 }}
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '1rem 2.5rem', borderRadius: '16px',
-                                    fontWeight: 800, color: 'white', background: step === 4 ? 'var(--success)' : 'var(--primary)',
-                                    border: 'none', cursor: 'pointer', boxShadow: '0 10px 20px rgba(0,0,0,0.1)', transition: 'all 0.2s'
+                                    fontWeight: 800, color: 'white', background: isPublishing ? 'var(--text-tertiary)' : (step === 4 ? 'var(--success)' : 'var(--primary)'),
+                                    border: 'none', cursor: isPublishing ? 'not-allowed' : 'pointer', boxShadow: isPublishing ? 'none' : '0 10px 20px rgba(0,0,0,0.1)', transition: 'all 0.2s',
+                                    opacity: isPublishing ? 0.8 : 1
                                 }}
-                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                onMouseEnter={e => !isPublishing && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                                onMouseLeave={e => !isPublishing && (e.currentTarget.style.transform = 'none')}
                             >
-                                {step === 4 ? 'Publish Examination' : 'Save & Continue'} {step < 4 && <ArrowRight size={20} />}
+                                {isPublishing ? (
+                                    <>
+                                        <div className="spinner-small" style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                                        Publishing...
+                                    </>
+                                ) : (
+                                    <>
+                                        {step === 4 ? 'Publish Examination' : 'Save & Continue'} {step < 4 && <ArrowRight size={20} />}
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
@@ -1639,6 +1705,7 @@ const CreateTest = () => {
                                                     <input
                                                         type="date"
                                                         value={group.examDate}
+                                                        min={new Date().toISOString().split('T')[0]}
                                                         onChange={e => {
                                                             const newGroups = [...editModalData.studentGroups];
                                                             newGroups[gIdx].examDate = e.target.value;
@@ -1716,114 +1783,135 @@ const CreateTest = () => {
                             </div>
 
                             {/* Configuration Section */}
-                            <div style={{ background: 'var(--bg-app)', borderRadius: '20px', padding: '1.75rem', border: '1px solid var(--border)' }}>
-                                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}><Settings size={18} color="var(--primary)" /> Configuration</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-                                    {/* Time */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        <label style={{ fontWeight: 700, fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time Limit</label>
-                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            <input type="number" value={editModalData.timeValue} onChange={e => setEditModalData({ ...editModalData, timeValue: e.target.value })} style={{ width: '70px', padding: '0.625rem', borderRadius: '10px', border: '2px solid var(--border)', fontSize: '1.06rem', fontWeight: 800, textAlign: 'center', color: 'var(--primary)', outline: 'none', background: 'var(--bg-surface)' }} />
-                                            <div style={{ display: 'flex', background: 'var(--bg-surface)', padding: '0.25rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                                                {['mins', 'secs', 'hours'].map(u => (
-                                                    <button key={u} onClick={() => setEditModalData({ ...editModalData, timeUnit: u })} style={{ padding: '0.375rem 0.625rem', borderRadius: '7px', border: 'none', background: editModalData.timeUnit === u ? 'var(--primary)' : 'transparent', color: editModalData.timeUnit === u ? 'white' : 'var(--text-tertiary)', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>
-                                                        {u.toUpperCase()}
-                                                    </button>
-                                                ))}
-                                            </div>
+                            <div style={{ background: 'var(--bg-app)', borderRadius: '24px', padding: '1.75rem', border: '1px solid var(--border)' }}>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--text-primary)' }}>
+                                    <Settings size={20} color="var(--primary)" /> Configuration
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem' }}>
+                                    {/* Column 1: Time */}
+                                    <div style={{ background: 'var(--bg-surface)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-tertiary)', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                                            <Clock size={14} /> Time Settings
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600 }}>
-                                                <input type="radio" name="editTime" checked={editModalData.timeMode === 'full'} onChange={() => setEditModalData({ ...editModalData, timeMode: 'full' })} style={{ width: '16px', height: '16px' }} />
+
+                                        <div style={{ display: 'flex', background: 'var(--bg-app)', padding: '0.25rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                            {['mins', 'secs', 'hours'].map(u => (
+                                                <button key={u} onClick={() => setEditModalData({ ...editModalData, timeUnit: u })} style={{ flex: 1, padding: '0.375rem', borderRadius: '7px', border: 'none', background: editModalData.timeUnit === u ? 'var(--primary)' : 'transparent', color: editModalData.timeUnit === u ? 'white' : 'var(--text-tertiary)', fontSize: '0.65rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s', textTransform: 'uppercase' }}>
+                                                    {u}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div
+                                            style={{
+                                                position: 'relative',
+                                                background: '#ffffff',
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                                                borderRadius: '14px',
+                                                border: '2px solid var(--primary-border)',
+                                                padding: '0.75rem',
+                                                textAlign: 'center',
+                                                transition: 'all 0.2s',
+                                                cursor: 'text'
+                                            }}
+                                            onClick={() => document.getElementById('edit-time-input').focus()}
+                                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--primary-border)'}
+                                        >
+                                            <input
+                                                id="edit-time-input"
+                                                type="number"
+                                                min="1"
+                                                value={editModalData.timeValue}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    if (val === '') {
+                                                        setEditModalData({ ...editModalData, timeValue: '' });
+                                                        return;
+                                                    }
+                                                    const num = Math.max(1, parseInt(val) || 1);
+                                                    setEditModalData({ ...editModalData, timeValue: num.toString() });
+                                                }}
+                                                style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '1.5rem', fontWeight: 900, textAlign: 'center', color: 'var(--primary)', outline: 'none', cursor: 'text' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600 }}>
+                                                <input type="radio" name="editTime" checked={editModalData.timeMode === 'full'} onChange={() => setEditModalData({ ...editModalData, timeMode: 'full' })} style={{ accentColor: 'var(--primary)' }} />
                                                 Whole Test
                                             </label>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600 }}>
-                                                <input
-                                                    type="radio"
-                                                    name="editTime"
-                                                    checked={editModalData.timeMode === 'question'}
-                                                    onChange={() => setEditModalData({
-                                                        ...editModalData,
-                                                        timeMode: 'question',
-                                                        examMode: 'step' // Force step mode in edit modal too
-                                                    })}
-                                                    style={{ width: '16px', height: '16px' }}
-                                                />
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600 }}>
+                                                <input type="radio" name="editTime" checked={editModalData.timeMode === 'question'} onChange={() => setEditModalData({ ...editModalData, timeMode: 'question', examMode: 'step' })} style={{ accentColor: 'var(--primary)' }} />
                                                 Per Question
                                             </label>
                                         </div>
                                     </div>
 
-                                    {/* Layout & Toggles */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        <label style={{ fontWeight: 700, fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Layout Mode</label>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    {/* Column 2: Visibility */}
+                                    <div style={{ background: 'var(--bg-surface)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                                            <Eye size={14} /> Visibility
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Show Result</span>
+                                                <div
+                                                    onClick={() => {
+                                                        const newVal = !editModalData.showResult;
+                                                        setEditModalData({ ...editModalData, showResult: newVal, showAnswers: newVal ? editModalData.showAnswers : false });
+                                                    }}
+                                                    style={{ width: '36px', height: '20px', borderRadius: '10px', background: editModalData.showResult ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'all 0.2s', cursor: 'pointer', padding: '2px' }}
+                                                >
+                                                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'white', position: 'absolute', left: editModalData.showResult ? '18px' : '2px', transition: 'all 0.2s' }} />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: editModalData.showResult ? 1 : 0.5 }}>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Show Answers</span>
+                                                <div
+                                                    onClick={() => editModalData.showResult && setEditModalData({ ...editModalData, showAnswers: !editModalData.showAnswers })}
+                                                    style={{ width: '36px', height: '20px', borderRadius: '10px', background: editModalData.showAnswers ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'all 0.2s', cursor: editModalData.showResult ? 'pointer' : 'not-allowed', padding: '2px' }}
+                                                >
+                                                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'white', position: 'absolute', left: editModalData.showAnswers ? '18px' : '2px', transition: 'all 0.2s' }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: 'auto', fontSize: '0.65rem', color: 'var(--text-tertiary)', fontWeight: 600, fontStyle: 'italic' }}>
+                                            Candidates see feedback after submission.
+                                        </div>
+                                    </div>
+
+                                    {/* Column 3: Layout */}
+                                    <div style={{ background: 'var(--bg-surface)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#3b82f6', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                                            <Layers size={14} /> Flow
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                                             {['scroll', 'step'].map(mode => (
                                                 <button
                                                     key={mode}
                                                     onClick={() => (mode === 'step' || editModalData.timeMode !== 'question') && setEditModalData({ ...editModalData, examMode: mode })}
                                                     style={{
-                                                        flex: 1, padding: '0.625rem',
-                                                        borderRadius: '10px',
+                                                        width: '100%', padding: '0.625rem', borderRadius: '12px', textAlign: 'left',
                                                         border: `2px solid ${editModalData.examMode === mode ? 'var(--primary)' : 'var(--border)'}`,
-                                                        background: editModalData.examMode === mode ? 'var(--primary-light)' : 'transparent',
-                                                        color: editModalData.examMode === mode ? 'var(--primary)' : 'var(--text-tertiary)',
-                                                        fontWeight: 700, fontSize: '0.8125rem',
-                                                        cursor: (mode === 'scroll' && editModalData.timeMode === 'question') ? 'not-allowed' : 'pointer',
-                                                        transition: 'all 0.2s',
+                                                        background: editModalData.examMode === mode ? 'var(--primary-light)' : 'var(--bg-app)',
+                                                        color: editModalData.examMode === mode ? 'var(--primary)' : 'var(--text-secondary)',
+                                                        fontWeight: 800, fontSize: '0.75rem', cursor: (mode === 'scroll' && editModalData.timeMode === 'question') ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
                                                         opacity: (mode === 'scroll' && editModalData.timeMode === 'question') ? 0.5 : 1
                                                     }}
                                                 >
-                                                    {mode === 'scroll' ? 'Scroll' : 'Step'}
+                                                    {mode === 'scroll' ? 'Scroll' : 'Step'} Mode
                                                 </button>
                                             ))}
                                         </div>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600, marginTop: '0.5rem' }}>
-                                            <div
-                                                onClick={() => {
-                                                    const newVal = !editModalData.showResult;
-                                                    setEditModalData({
-                                                        ...editModalData,
-                                                        showResult: newVal,
-                                                        showAnswers: newVal ? editModalData.showAnswers : false
-                                                    });
-                                                }}
-                                                style={{ width: '40px', height: '22px', borderRadius: '11px', background: editModalData.showResult ? 'var(--primary)' : 'var(--border)', position: 'relative', transition: 'all 0.2s', cursor: 'pointer', padding: '2px' }}
-                                            >
-                                                <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', position: 'absolute', left: editModalData.showResult ? '20px' : '2px', transition: 'all 0.2s' }} />
-                                            </div>
-                                            Show Results
-                                        </label>
-                                        <label style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.75rem',
-                                            cursor: editModalData.showResult ? 'pointer' : 'not-allowed',
-                                            fontSize: '0.8125rem',
-                                            fontWeight: 600,
-                                            opacity: editModalData.showResult ? 1 : 0.5
-                                        }}>
-                                            <div
-                                                onClick={() => editModalData.showResult && setEditModalData({ ...editModalData, showAnswers: !editModalData.showAnswers })}
-                                                style={{
-                                                    width: '40px',
-                                                    height: '22px',
-                                                    borderRadius: '11px',
-                                                    background: editModalData.showAnswers ? 'var(--primary)' : 'var(--border)',
-                                                    position: 'relative',
-                                                    transition: 'all 0.2s',
-                                                    cursor: editModalData.showResult ? 'pointer' : 'not-allowed',
-                                                    padding: '2px'
-                                                }}
-                                            >
-                                                <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', position: 'absolute', left: editModalData.showAnswers ? '20px' : '2px', transition: 'all 0.2s' }} />
-                                            </div>
-                                            Show Answers
-                                        </label>
+                                        <div style={{ marginTop: 'auto', background: 'rgba(59, 130, 246, 0.05)', padding: '0.5rem', borderRadius: '8px', fontSize: '0.6rem', color: '#1d4ed8', fontWeight: 700 }}>
+                                            Navigation strategy for the candidate.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
                             {/* Status */}
                             <div style={{ background: 'var(--bg-app)', borderRadius: '20px', padding: '1.25rem 1.75rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>Status</div>
@@ -2149,39 +2237,42 @@ const CreateTest = () => {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
             {/* Delete Confirmation Modal */}
-            {deleteConfirm && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000, animation: 'fadeIn 0.2s' }}>
-                    <div style={{ background: 'var(--bg-surface)', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '2rem', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid var(--border)', textAlign: 'center', animation: 'scaleUp 0.3s ease-out' }}>
-                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-                            <Trash2 size={32} />
-                        </div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Delete Examination?</h3>
-                        <p style={{ fontSize: '0.94rem', color: 'var(--text-tertiary)', marginBottom: '2rem', lineHeight: 1.5 }}>
-                            Are you sure you want to delete <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>"{deleteConfirm.name}"</span>? This action cannot be undone.
-                        </p>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button
-                                onClick={() => setDeleteConfirm(null)}
-                                style={{ flex: 1, padding: '0.875rem', borderRadius: '14px', border: 'none', background: 'var(--bg-app)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
-                                onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-app)'}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => handleDeleteTest(deleteConfirm.id)}
-                                style={{ flex: 1, padding: '0.875rem', borderRadius: '14px', border: 'none', background: 'var(--error)', color: 'white', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)', transition: 'all 0.2s' }}
-                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                            >
-                                Delete Test
-                            </button>
+            {
+                deleteConfirm && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000, animation: 'fadeIn 0.2s' }}>
+                        <div style={{ background: 'var(--bg-surface)', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '2rem', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid var(--border)', textAlign: 'center', animation: 'scaleUp 0.3s ease-out' }}>
+                            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                                <Trash2 size={32} />
+                            </div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>Delete Examination?</h3>
+                            <p style={{ fontSize: '0.94rem', color: 'var(--text-tertiary)', marginBottom: '2rem', lineHeight: 1.5 }}>
+                                Are you sure you want to delete <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>"{deleteConfirm.name}"</span>? This action cannot be undone.
+                            </p>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    style={{ flex: 1, padding: '0.875rem', borderRadius: '14px', border: 'none', background: 'var(--bg-app)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-app)'}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteTest(deleteConfirm.id)}
+                                    style={{ flex: 1, padding: '0.875rem', borderRadius: '14px', border: 'none', background: 'var(--error)', color: 'white', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                >
+                                    Delete Test
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <style>{`
                 @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -2191,7 +2282,7 @@ const CreateTest = () => {
                 .hide-scrollbar::-webkit-scrollbar { display: none; }
                 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
-        </div>
+        </div >
     );
 };
 

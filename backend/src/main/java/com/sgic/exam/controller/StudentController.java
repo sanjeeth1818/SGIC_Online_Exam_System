@@ -12,6 +12,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @RestController
@@ -42,7 +43,7 @@ public class StudentController {
 
     @GetMapping
     public ResponseEntity<List<Student>> getAllStudents() {
-        List<Student> students = studentRepository.findAll();
+        List<Student> students = studentRepository.findAllByIsDeletedFalse();
         return new ResponseEntity<>(students, HttpStatus.OK);
     }
 
@@ -230,12 +231,23 @@ public class StudentController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteStudent(@PathVariable Long id) {
-        if (studentRepository.existsById(id)) {
-            studentRepository.deleteById(id);
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> deleteStudent(@PathVariable Long id) {
+        try {
+            return studentRepository.findById(id)
+                    .map(student -> {
+                        // Soft-delete: Just set the flag to true
+                        // This preserves historical records in test_student_groups, submissions, and
+                        // codes
+                        student.setDeleted(true);
+                        studentRepository.save(student);
+                        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+                    })
+                    .orElse(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Failed to delete student: " + e.getMessage()));
         }
     }
 }

@@ -56,4 +56,6 @@ public class Student {
 
     @Column(columnDefinition = "TEXT")
     private String statusHistory;
+
+    private boolean isDeleted = false;
 }
