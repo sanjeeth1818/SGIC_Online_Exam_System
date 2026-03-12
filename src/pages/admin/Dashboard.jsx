@@ -604,8 +604,12 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: `${CELL_GAP}px` }}>
                         {calendarDays.map((day, i) => {
                             const isToday = isCurrentMonth && day === today.getDate();
-                            const isPast = day && calendarData.past?.includes(day);
-                            const isUpcoming = day && calendarData.upcoming?.includes(day);
+                            const pastEntry = day && calendarData.past?.find(e => e.day === day);
+                            const upcomingEntry = day && calendarData.upcoming?.find(e => e.day === day);
+                            const isPast = !!pastEntry;
+                            const isUpcoming = !!upcomingEntry;
+                            const dayExams = isPast ? pastEntry.exams : isUpcoming ? upcomingEntry.exams : [];
+                            const isHighlighted = (isPast || isUpcoming) && !isToday;
 
                             let bg = 'transparent', color = 'var(--text-primary)', fontWeight = 500;
                             if (isToday) { bg = 'var(--primary)'; color = 'white'; fontWeight = 800; }
@@ -613,16 +617,77 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
                             else if (isUpcoming) { bg = 'rgba(16,185,129,0.1)'; color = 'var(--success)'; fontWeight = 600; }
 
                             return (
-                                <div key={i} style={{
-                                    height: `${CELL_SIZE}px`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    borderRadius: '10px', fontSize: '0.8rem', fontWeight,
-                                    color: day ? color : 'transparent', background: day ? bg : 'transparent',
-                                    cursor: day ? 'pointer' : 'default', transition: 'all 0.15s', userSelect: 'none',
-                                    boxShadow: isToday ? '0 4px 10px rgba(99,102,241,0.3)' : 'none'
-                                }}
-                                    onMouseEnter={e => { if (day && !isToday) { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; } }}
-                                    onMouseLeave={e => { if (day && !isToday) { e.currentTarget.style.background = bg; e.currentTarget.style.color = color; } }}
-                                >{day}</div>
+                                <div key={i} style={{ position: 'relative' }}>
+                                    <div style={{
+                                        height: `${CELL_SIZE}px`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        borderRadius: '10px', fontSize: '0.8rem', fontWeight,
+                                        color: day ? color : 'transparent', background: day ? bg : 'transparent',
+                                        cursor: day ? 'pointer' : 'default', transition: 'all 0.15s', userSelect: 'none',
+                                        boxShadow: isToday ? '0 4px 10px rgba(99,102,241,0.3)' : 'none'
+                                    }}
+                                        onMouseEnter={e => {
+                                            if (day && !isToday) { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; }
+                                            if (isHighlighted) {
+                                                const tip = e.currentTarget.parentElement.querySelector('.exam-tip');
+                                                if (tip) tip.style.display = 'block';
+                                            }
+                                        }}
+                                        onMouseLeave={e => {
+                                            if (day && !isToday) { e.currentTarget.style.background = bg; e.currentTarget.style.color = color; }
+                                            if (isHighlighted) {
+                                                const tip = e.currentTarget.parentElement.querySelector('.exam-tip');
+                                                if (tip) tip.style.display = 'none';
+                                            }
+                                        }}
+                                    >{day}</div>
+
+                                    {/* Exam Tooltip */}
+                                    {isHighlighted && dayExams.length > 0 && (
+                                        <div className="exam-tip" style={{
+                                            display: 'none',
+                                            position: 'absolute',
+                                            bottom: 'calc(100% + 8px)',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            zIndex: 999,
+                                            background: 'var(--bg-surface)',
+                                            border: `1px solid ${isPast ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+                                            borderRadius: '12px',
+                                            padding: '0.6rem 0.75rem',
+                                            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                            whiteSpace: 'nowrap',
+                                            minWidth: '140px',
+                                            pointerEvents: 'none'
+                                        }}>
+                                            <div style={{
+                                                fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase',
+                                                letterSpacing: '0.05em', color: isPast ? 'var(--error)' : 'var(--success)',
+                                                marginBottom: '0.4rem'
+                                            }}>
+                                                {isPast ? '📋 Past Exams' : '🗓️ Upcoming Exams'}
+                                            </div>
+                                            {dayExams.map((name, idx) => (
+                                                <div key={idx} style={{
+                                                    fontSize: '0.78rem', fontWeight: 600,
+                                                    color: 'var(--text-primary)',
+                                                    padding: '0.2rem 0',
+                                                    borderTop: idx > 0 ? '1px solid var(--border)' : 'none'
+                                                }}>
+                                                    {name}
+                                                </div>
+                                            ))}
+                                            {/* Arrow */}
+                                            <div style={{
+                                                position: 'absolute', bottom: '-5px', left: '50%',
+                                                transform: 'translateX(-50%) rotate(45deg)',
+                                                width: '9px', height: '9px',
+                                                background: 'var(--bg-surface)',
+                                                border: `1px solid ${isPast ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+                                                borderTop: 'none', borderLeft: 'none'
+                                            }} />
+                                        </div>
+                                    )}
+                                </div>
                             );
                         })}
                     </div>
@@ -748,7 +813,7 @@ const Dashboard = () => {
                 <StatCard title="Total Exams" value={stats.totalTests} icon={<FileText size={24} />} color="#6366f1" bgColor="rgba(99, 102, 241, 0.1)" />
                 <StatCard title="Total Students" value={stats.totalStudents} icon={<Users size={24} />} color="#10b981" bgColor="rgba(16, 185, 129, 0.1)" />
                 <StatCard title="Question Bank" value={stats.totalQuestions} icon={<Database size={24} />} color="#f59e0b" bgColor="rgba(245, 158, 11, 0.1)" />
-                <StatCard title="Specialized Categories" value={stats.totalCategories} icon={<Layers size={24} />} color="#ec4899" bgColor="rgba(236, 72, 153, 0.1)" />
+                <StatCard title="Total Categories" value={stats.totalCategories} icon={<Layers size={24} />} color="#ec4899" bgColor="rgba(236, 72, 153, 0.1)" />
             </div>
 
             {/* Main Content Layout */}
@@ -761,7 +826,7 @@ const Dashboard = () => {
                     <section>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <h2 style={{ fontSize: '1.35rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <Activity size={22} color="var(--primary)" /> Category Mastery Analysis
+                                <Activity size={22} color="var(--primary)" /> Category Analysis
                             </h2>
                             <PremiumDropdown
                                 value={period}

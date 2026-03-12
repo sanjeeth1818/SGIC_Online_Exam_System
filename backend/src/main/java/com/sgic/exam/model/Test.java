@@ -57,4 +57,7 @@ public class Test {
 
     @Transient
     private Boolean isReopened = false;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean isDeleted = false;
 }

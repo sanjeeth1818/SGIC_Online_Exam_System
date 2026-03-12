@@ -29,10 +29,6 @@ public class StudentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse("NIC already exists in the system"));
         }
-        if (studentRepository.existsByMobileNumber(student.getMobileNumber())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorResponse("Mobile number already exists in the system"));
-        }
 
         if (student.getRegisteredDate() == null) {
             student.setRegisteredDate(LocalDate.now());
@@ -59,10 +55,6 @@ public class StudentController {
         if (studentRepository.existsByNicAndIdNot(studentDetails.getNic(), id)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse("NIC already exists for another student"));
-        }
-        if (studentRepository.existsByMobileNumberAndIdNot(studentDetails.getMobileNumber(), id)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ErrorResponse("Mobile number already exists for another student"));
         }
 
         return studentRepository.findById(id)
@@ -239,7 +231,7 @@ public class StudentController {
                         // Soft-delete: Just set the flag to true
                         // This preserves historical records in test_student_groups, submissions, and
                         // codes
-                        student.setDeleted(true);
+                        student.setIsDeleted(true);
                         studentRepository.save(student);
                         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
                     })

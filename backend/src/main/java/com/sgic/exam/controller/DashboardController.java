@@ -103,7 +103,7 @@ public class DashboardController {
     }
 
     @GetMapping("/calendar")
-    public ResponseEntity<Map<String, List<Integer>>> getCalendarData(
+    public ResponseEntity<Map<String, Object>> getCalendarData(
             @RequestParam(required = false) Integer month,
             @RequestParam(required = false) Integer year) {
 
@@ -111,30 +111,53 @@ public class DashboardController {
         int targetMonth = (month != null) ? month : today.getMonthValue();
         int targetYear = (year != null) ? year : today.getYear();
 
-        List<Integer> past = new ArrayList<>();
-        List<Integer> upcoming = new ArrayList<>();
+        // day -> list of exam names
+        Map<Integer, List<String>> pastMap = new LinkedHashMap<>();
+        Map<Integer, List<String>> upcomingMap = new LinkedHashMap<>();
 
         List<com.sgic.exam.model.Test> tests = testRepository.findAll();
         for (com.sgic.exam.model.Test test : tests) {
             if (test.getStudentGroups() != null) {
                 for (TestStudentGroup group : test.getStudentGroups()) {
                     if (group.getExamDate() != null) {
-                        LocalDate examDate = LocalDate.parse(group.getExamDate());
-                        if (examDate.getMonthValue() == targetMonth && examDate.getYear() == targetYear) {
-                            if (examDate.isBefore(today)) {
-                                past.add(examDate.getDayOfMonth());
-                            } else if (examDate.isAfter(today)) {
-                                upcoming.add(examDate.getDayOfMonth());
+                        try {
+                            LocalDate examDate = LocalDate.parse(group.getExamDate());
+                            if (examDate.getMonthValue() == targetMonth && examDate.getYear() == targetYear) {
+                                int day = examDate.getDayOfMonth();
+                                String examName = test.getName() != null ? test.getName() : "Unnamed Exam";
+                                if (examDate.isBefore(today)) {
+                                    pastMap.computeIfAbsent(day, k -> new ArrayList<>()).add(examName);
+                                } else {
+                                    upcomingMap.computeIfAbsent(day, k -> new ArrayList<>()).add(examName);
+                                }
                             }
+                        } catch (Exception ignored) {
                         }
                     }
                 }
             }
         }
 
-        Map<String, List<Integer>> calendarInfo = new HashMap<>();
-        calendarInfo.put("past", past.stream().distinct().collect(Collectors.toList()));
-        calendarInfo.put("upcoming", upcoming.stream().distinct().collect(Collectors.toList()));
+        // Convert maps to lists of {day, exams} objects
+        List<Map<String, Object>> pastList = new ArrayList<>();
+        for (Map.Entry<Integer, List<String>> e : pastMap.entrySet()) {
+            Map<String, Object> obj = new HashMap<>();
+            obj.put("day", e.getKey());
+            obj.put("exams", e.getValue().stream().distinct().collect(Collectors.toList()));
+            pastList.add(obj);
+        }
+
+        List<Map<String, Object>> upcomingList = new ArrayList<>();
+        for (Map.Entry<Integer, List<String>> e : upcomingMap.entrySet()) {
+            Map<String, Object> obj = new HashMap<>();
+            obj.put("day", e.getKey());
+            obj.put("exams", e.getValue().stream().distinct().collect(Collectors.toList()));
+            upcomingList.add(obj);
+        }
+
+        Map<String, Object> calendarInfo = new HashMap<>();
+        calendarInfo.put("past", pastList);
+        calendarInfo.put("upcoming", upcomingList);
         return ResponseEntity.ok(calendarInfo);
     }
 

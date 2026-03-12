@@ -1236,7 +1236,7 @@ const CreateTest = () => {
                                     </>
                                 ) : (
                                     <>
-                                        {step === 4 ? 'Publish Examination' : 'Save & Continue'} {step < 4 && <ArrowRight size={20} />}
+                                        {step === 4 ? 'Create' : 'Continue'} {step < 4 && <ArrowRight size={20} />}
                                     </>
                                 )}
                             </button>
@@ -1714,15 +1714,34 @@ const CreateTest = () => {
                                                         style={{ border: 'none', outline: 'none', background: 'transparent', fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}
                                                     />
                                                 </div>
-                                                <button
-                                                    onClick={() => {
-                                                        const newGroups = editModalData.studentGroups.filter((_, i) => i !== gIdx);
-                                                        setEditModalData({ ...editModalData, studentGroups: newGroups });
-                                                    }}
-                                                    style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer' }}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+
+                                                {/* Calculate if the batch is locked safely before rendering the button */}
+                                                {(() => {
+                                                    const isBatchLocked = group.students?.some(s => {
+                                                        const codeEntry = studentCodes.find(c => c.studentId === s.id);
+                                                        return codeEntry && (codeEntry.status === 'STARTED' || codeEntry.status === 'USED');
+                                                    });
+
+                                                    return isBatchLocked ? (
+                                                        <div title="Cannot delete batch: One or more students have already started the exam" style={{ cursor: 'not-allowed', opacity: 0.5, display: 'flex', alignItems: 'center' }}>
+                                                            <Trash2 size={16} color="var(--border)" />
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const newGroups = editModalData.studentGroups.filter((_, i) => i !== gIdx);
+                                                                setEditModalData({ ...editModalData, studentGroups: newGroups });
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                            title="Delete Batch"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    );
+                                                })()}
                                             </div>
 
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>

@@ -11,6 +11,10 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     long countByCategoryId(Long categoryId);
 
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(q) > 0 FROM Question q WHERE q.category.id = :categoryId AND TRIM(LOWER(q.text)) = TRIM(LOWER(:text))")
+    boolean existsDuplicateInCategory(@org.springframework.data.repository.query.Param("categoryId") Long categoryId,
+            @org.springframework.data.repository.query.Param("text") String text);
+
     @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     void deleteByCategoryId(Long categoryId);

@@ -35,14 +35,44 @@ public class QuestionController {
         return questionRepository.findByCategoryId(categoryId);
     }
 
+    // Helper method to catch duplicates by comparing canonicalized text (ignoring
+    // all whitespace, newlines, and punctuation)
+    private boolean isDuplicateQuestion(Long categoryId, String newText) {
+        if (newText == null || newText.trim().isEmpty())
+            return false;
+
+        // Strip everything except letters and numbers
+        String canonicalNew = newText.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+
+        List<Question> existingQuestions = questionRepository.findByCategoryId(categoryId);
+        for (Question q : existingQuestions) {
+            if (q.getText() != null) {
+                String canonicalExisting = q.getText().replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+                if (canonicalNew.equals(canonicalExisting)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @PostMapping
-    public ResponseEntity<Question> createQuestion(@Valid @RequestBody QuestionRequest questionRequest) {
+    public ResponseEntity<?> createQuestion(@Valid @RequestBody QuestionRequest questionRequest) {
         Category category = categoryRepository.findById(Objects.requireNonNull(questionRequest.getCategoryId()))
                 .orElseThrow(() -> new RuntimeException("Category not found"));
 
+        String originalText = questionRequest.getText();
+
+        // Robust duplicate check: strictly compares alphanumeric characters only
+        if (isDuplicateQuestion(category.getId(), originalText)) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "A question with identical text already exists in this category.");
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT).body(error);
+        }
+
         Question question = new Question();
         question.setCategory(category);
-        question.setText(questionRequest.getText());
+        question.setText(originalText); // Save EXACT original formatting
         question.setType(questionRequest.getType());
         question.setOptions(questionRequest.getOptions());
         question.setCorrectAnswer(questionRequest.getCorrectAnswer());
@@ -222,10 +252,19 @@ public class QuestionController {
                         }
                     }
 
+                    // Robust duplicate check: strictly compares alphanumeric characters only
+                    if (isDuplicateQuestion(category.getId(), text)) {
+                        errors.add("Row " + rowNumber
+                                + ": Duplicate — a question with this meaning already exists in category '"
+                                + categoryName
+                                + "'");
+                        continue;
+                    }
+
                     // Create and save the question
                     Question question = new Question();
                     question.setCategory(category);
-                    question.setText(text);
+                    question.setText(text); // Save EXACT original formatting
                     question.setType(type.equalsIgnoreCase("MCQ") ? "MCQ" : "Short");
                     question.setOptions(options);
                     question.setCorrectAnswer(correctAnswer);

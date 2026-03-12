@@ -37,7 +37,7 @@ const Students = () => {
 
     const VALIDATION_PATTERNS = {
         nic: /^(?:[0-9]{9}[vVxX]|[0-9]{12})$/,
-        mobileNumber: /^(?:\+94|0)?7[0-9]{8}$/
+        mobileNumber: /^[0-9]{10}$/
     };
 
     const validateForm = () => {
@@ -46,15 +46,17 @@ const Students = () => {
             errors.push("Invalid NIC format (9 digits + V/X or 12 digits)");
         }
         if (!VALIDATION_PATTERNS.mobileNumber.test(formData.mobileNumber)) {
-            errors.push("Invalid Mobile number (e.g., 0771234567)");
+            errors.push("Invalid Contact number (e.g., 0771234567 or 0112345678)");
+        }
+        if (!formData.email || formData.email.trim() === '') {
+            errors.push("Email address is required");
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            errors.push("Invalid email format");
         }
 
-        // Local uniqueness check
+        // Local uniqueness check (NIC only)
         const duplicateNic = students.find(s => s.nic === formData.nic && s.id !== editingId);
         if (duplicateNic) errors.push("NIC already registered for " + duplicateNic.name);
-
-        const duplicateMobile = students.find(s => s.mobileNumber === formData.mobileNumber && s.id !== editingId);
-        if (duplicateMobile) errors.push("Mobile number already in use");
 
         return errors;
     };
@@ -294,8 +296,21 @@ const Students = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+
+        let sanitizedValue = value;
+
+        // Block numbers and special characters from Full Name
+        if (name === 'name') {
+            sanitizedValue = value.replace(/[^a-zA-Z\s]/g, '');
+        }
+
+        // Block letters and symbols, and enforce max 10 digits for Contact Number
+        if (name === 'mobileNumber') {
+            sanitizedValue = value.replace(/\D/g, '').slice(0, 10);
+        }
+
         setFormData(prev => {
-            const newData = { ...prev, [name]: value };
+            const newData = { ...prev, [name]: sanitizedValue };
             // Clear comment whenever the status is changed to ensure isolation
             if (name === 'status') {
                 newData.statusComment = '';
@@ -895,7 +910,7 @@ const Students = () => {
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                         <div style={{ gridColumn: '1 / -1' }}>
-                                            <label style={{ display: 'block', marginBottom: '0.625rem', fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Full Legal Name *</label>
+                                            <label style={{ display: 'block', marginBottom: '0.625rem', fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Full Name *</label>
                                             <input
                                                 type="text"
                                                 name="name"
@@ -908,7 +923,7 @@ const Students = () => {
                                         </div>
 
                                         <div>
-                                            <label style={{ display: 'block', marginBottom: '0.625rem', fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Email Address</label>
+                                            <label style={{ display: 'block', marginBottom: '0.625rem', fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Email Address *</label>
                                             <div style={{ position: 'relative' }}>
                                                 <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                                 <input
@@ -916,6 +931,7 @@ const Students = () => {
                                                     name="email"
                                                     value={formData.email}
                                                     onChange={handleInputChange}
+                                                    required
                                                     style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-app)', outline: 'none', fontSize: '0.9375rem' }}
                                                     placeholder="contact@institute.lk"
                                                 />
@@ -923,7 +939,7 @@ const Students = () => {
                                         </div>
 
                                         <div>
-                                            <label style={{ display: 'block', marginBottom: '0.625rem', fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Mobile Connection *</label>
+                                            <label style={{ display: 'block', marginBottom: '0.625rem', fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Contact Number *</label>
                                             <div style={{ position: 'relative' }}>
                                                 <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                                 <input
@@ -933,7 +949,7 @@ const Students = () => {
                                                     onChange={handleInputChange}
                                                     required
                                                     style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-app)', outline: 'none', fontSize: '0.9375rem' }}
-                                                    placeholder="+94 XX XXX XXXX"
+                                                    placeholder="0XXXXXXXXX (10 digits)"
                                                 />
                                             </div>
                                         </div>

@@ -157,7 +157,7 @@ public class TestController {
     @GetMapping
     public ResponseEntity<?> getAllTests() {
         try {
-            List<Test> tests = testRepository.findAll();
+            List<Test> tests = testRepository.findAllByIsDeletedFalseOrIsDeletedIsNull();
             List<TestResponse> response = tests.stream()
                     .map(this::convertToResponse)
                     .collect(Collectors.toList());
@@ -363,26 +363,13 @@ public class TestController {
             Test test = testRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Test not found"));
 
-            // --- PARTICIPATION SAFEGUARD: Check if any student has started or finished ---
-            java.util.List<StudentExamCode> codes = studentExamCodeRepository.findByTestId(test.getId());
-            boolean hasStartedOrUsed = codes.stream()
-                    .anyMatch(c -> "STARTED".equalsIgnoreCase(c.getStatus()) || "USED".equalsIgnoreCase(c.getStatus()));
-
-            if (hasStartedOrUsed) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "message",
-                        "Cannot delete an examination that is currently in progress or already completed by students. "
-                                +
-                                "(One or more students have already used their access codes)"));
-            }
-            // ------------------------------------------------------------------------------
-
-            // Notify students and update status before deletion
+            // 1. Notify students and update their statuses
             if (test.getStudentGroups() != null) {
                 List<com.sgic.exam.model.Student> affectedStudents = new java.util.ArrayList<>();
                 for (TestStudentGroup group : test.getStudentGroups()) {
                     if (group.getStudents() != null) {
                         for (com.sgic.exam.model.Student s : group.getStudents()) {
+                            // Only notify and "un-allocate" students who haven't finished
                             if ("Allocated".equals(s.getStatus()) || "Rescheduled".equals(s.getStatus())) {
                                 emailService.sendCancellationStudentNotification(s, test);
 
@@ -410,10 +397,21 @@ public class TestController {
                 }
             }
 
-            // Cleanup codes
-            studentExamCodeRepository.deleteByTestId(test.getId());
+            // 2. Handle Student Exam Codes (Instead of deleting them, cancel the unused
+            // ones)
+            java.util.List<StudentExamCode> codes = studentExamCodeRepository.findByTestId(test.getId());
+            for (StudentExamCode code : codes) {
+                if (!"USED".equalsIgnoreCase(code.getStatus())) {
+                    code.setStatus("CANCELLED");
+                    studentExamCodeRepository.save(code);
+                }
+            }
 
-            testRepository.delete(test);
+            // 3. Perform Soft Delete on the Test
+            test.setIsDeleted(true);
+            test.setStatus("Draft"); // Prevent it from being considered active
+            testRepository.save(test);
+
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
             e.printStackTrace();

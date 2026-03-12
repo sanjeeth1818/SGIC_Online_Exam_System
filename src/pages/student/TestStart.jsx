@@ -39,7 +39,10 @@ const TestStart = () => {
             const res = await fetch('/api/exam-entry/validate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code })
+                body: JSON.stringify({
+                    code,
+                    sessionToken: sessionStorage.getItem('examSessionToken')
+                })
             });
 
             const data = await res.json();

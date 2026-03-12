@@ -36,6 +36,7 @@ public class Student {
     @NotBlank(message = "NIC is required")
     private String nic;
 
+    @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;
 
@@ -57,5 +58,14 @@ public class Student {
     @Column(columnDefinition = "TEXT")
     private String statusHistory;
 
-    private boolean isDeleted = false;
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean isDeleted = false;
+
+    @jakarta.persistence.PrePersist
+    @jakarta.persistence.PreUpdate
+    public void preSave() {
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
+        }
+    }
 }

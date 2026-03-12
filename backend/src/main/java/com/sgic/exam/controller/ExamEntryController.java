@@ -43,6 +43,15 @@ public class ExamEntryController {
             return ResponseEntity.ok(response);
         }
 
+        String requestToken = request.get("sessionToken");
+        if ("STARTED".equalsIgnoreCase(entry.getStatus()) && !Boolean.TRUE.equals(entry.getIsReopened())) {
+            if (entry.getCurrentSessionToken() != null && !entry.getCurrentSessionToken().equals(requestToken)) {
+                response.put("success", false);
+                response.put("message", "This exam is already in progress in another browser or tab.");
+                return ResponseEntity.ok(response);
+            }
+        }
+
         if ("USED".equalsIgnoreCase(entry.getStatus()) || "EXPIRED".equalsIgnoreCase(entry.getStatus())) {
             response.put("success", false);
             response.put("message", "This code has already been used or has expired.");

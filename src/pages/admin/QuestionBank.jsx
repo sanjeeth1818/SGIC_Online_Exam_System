@@ -11,6 +11,7 @@ const QuestionBank = () => {
     const [questionToDelete, setQuestionToDelete] = useState(null);
     const [editingQuestion, setEditingQuestion] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All'); // 'All', 'Active', 'Inactive'
 
     const [questionForm, setQuestionForm] = useState({
         type: 'MCQ',
@@ -129,6 +130,11 @@ const QuestionBank = () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(backendPayload)
                 });
+                if (res.status === 409) {
+                    const errData = await res.json();
+                    setNotification({ type: 'error', message: errData.message || 'Duplicate question detected in this category.' });
+                    return; // Keep the modal open so admin can correct
+                }
                 if (!res.ok) throw new Error('Failed to create');
                 setNotification({ type: 'success', message: 'Question added successfully!' });
             }
@@ -233,7 +239,8 @@ const QuestionBank = () => {
         const matchesCategory = selectedCategory ? q.categoryId === selectedCategory.id : true;
         const matchesSearch = q.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (cat && cat.name.toLowerCase().includes(searchTerm.toLowerCase()));
-        return matchesCategory && matchesSearch;
+        const matchesStatus = statusFilter === 'All' ? true : q.status === statusFilter;
+        return matchesCategory && matchesSearch && matchesStatus;
     });
 
     return (
@@ -261,6 +268,7 @@ const QuestionBank = () => {
                             onClick={() => {
                                 setSelectedCategory(null);
                                 setSearchTerm('');
+                                setStatusFilter('All');
                             }}
                             style={{
                                 width: '42px', height: '42px', borderRadius: '12px',
@@ -403,7 +411,8 @@ const QuestionBank = () => {
                                     background: `${cat.color}08`,
                                     padding: '0.4rem 0.9rem',
                                     borderRadius: '100px',
-                                    width: 'fit-content'
+                                    width: 'fit-content',
+                                    marginBottom: '0.5rem'
                                 }}>
                                     <span style={{
                                         color: `${cat.color}aa`,
@@ -412,8 +421,22 @@ const QuestionBank = () => {
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.03em'
                                     }}>
-                                        {cat.questionCount} Questions Added
+                                        {cat.questionCount} Total
                                     </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }}></div>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                            {questions.filter(q => q.categoryId === cat.id && q.status === 'Active').length} Active
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }}></div>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                            {questions.filter(q => q.categoryId === cat.id && q.status === 'Inactive').length} Inactive
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -422,19 +445,63 @@ const QuestionBank = () => {
             ) : (
                 // Detailed Question List for Category
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {/* Status Filter Buttons */}
+                    <div style={{ display: 'flex', gap: '0.625rem', marginBottom: '0.5rem' }}>
+                        {['All', 'Active', 'Inactive'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setStatusFilter(f)}
+                                style={{
+                                    padding: '0.45rem 1.1rem',
+                                    borderRadius: '999px',
+                                    border: statusFilter === f
+                                        ? `1.5px solid ${f === 'Active' ? '#22c55e' : f === 'Inactive' ? '#ef4444' : 'var(--primary)'}`
+                                        : '1.5px solid var(--border)',
+                                    background: statusFilter === f
+                                        ? f === 'Active' ? '#f0fdf4' : f === 'Inactive' ? '#fef2f2' : 'var(--primary-light)'
+                                        : 'var(--bg-surface)',
+                                    color: statusFilter === f
+                                        ? f === 'Active' ? '#16a34a' : f === 'Inactive' ? '#dc2626' : 'var(--primary)'
+                                        : 'var(--text-secondary)',
+                                    fontWeight: 700,
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem'
+                                }}
+                            >
+                                {f !== 'All' && (
+                                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: f === 'Active' ? '#22c55e' : '#ef4444' }}></div>
+                                )}
+                                {f}
+                                <span style={{ opacity: 0.7 }}>
+                                    ({questions.filter(q => q.categoryId === selectedCategory?.id && (f === 'All' || q.status === f)).length})
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
                     {filteredQuestions.length === 0 ? (
                         <div style={{
                             textAlign: 'center', padding: '5rem', background: 'var(--bg-surface)',
                             borderRadius: 'var(--radius-xl)', border: '1px dashed var(--border)'
                         }}>
                             <HelpCircle size={48} color="var(--text-tertiary)" style={{ marginBottom: '1rem' }} />
-                            <h3 style={{ color: 'var(--text-secondary)' }}>No questions found in this category</h3>
-                            <button
-                                onClick={handleAddQuestion}
-                                style={{ color: 'var(--primary)', fontWeight: 600, background: 'none', border: 'none', marginTop: '1rem', cursor: 'pointer' }}
-                            >
-                                Add your first question
-                            </button>
+                            <h3 style={{ color: 'var(--text-secondary)' }}>
+                                {statusFilter === 'All'
+                                    ? 'No questions found in this category'
+                                    : `No ${statusFilter.toLowerCase()} questions in this category`}
+                            </h3>
+                            {statusFilter === 'All' && (
+                                <button
+                                    onClick={handleAddQuestion}
+                                    style={{ color: 'var(--primary)', fontWeight: 600, background: 'none', border: 'none', marginTop: '1rem', cursor: 'pointer' }}
+                                >
+                                    Add your first question
+                                </button>
+                            )}
                         </div>
                     ) : (
                         filteredQuestions.map(q => (
