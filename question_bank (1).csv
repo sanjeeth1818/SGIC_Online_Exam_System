@@ -1,0 +1,155 @@
+categoryName,type,text,optionA,optionB,optionC,optionD,correctAnswer
+Creative & Critical thinking,MCQ,"A box contains 5 identical balls. One ball is heavier than the rest. Using a balance scale only twice, how can you find the heaviest ball?",Compare any two balls twice,Compare three balls vs two balls,Compare one by one,Impossible with two weighings,Compare three balls vs two balls
+Creative & Critical thinking,MCQ,"In a pet shop, the numbers of cats and dogs are initially in the ratio 7:5. One week later, 7 cats and 10 dogs are added. After this, the ratio of cats to dogs becomes 4:3. How many cats were there in the shop initially?",95,100,133,140,140
+Creative & Critical thinking,MCQ,"A hospital has 10 ventilators and 15 patients needing them. 5 patients are critical, 7 are moderate, and 3 are stable. Hospital policy is to maximize survival rate. Which strategy is most logical?",Give to critical only,Give to critical + moderate proportionally,"First-come, first-served",Random allocation,Give to critical + moderate proportionally
+Creative & Critical thinking,MCQ,"A product manager receives conflicting recommendations: one team suggests launching a new feature immediately, another team warns about potential bugs. The manager has limited time and incomplete data. Which approach demonstrates critical thinking and optimal risk management?",Follow most vocal team,"Analyze data, weigh risks, and decide",Postpone indefinitely,Choose randomly,"Analyze data, weigh risks, and decide"
+Creative & Critical thinking,MCQ,A company uses AI for recruitment. The algorithm sometimes favors candidates from a particular background due to historical data. Which statement reflects the highest-order critical thinking about AI risk?,Speed is main concern,Bias must be addressed,Accuracy is irrelevant,Cost is the challenge,Bias must be addressed
+Creative & Critical thinking,MCQ,"An entrepreneur launches a startup that fails within a year due to low market demand. Reflecting critically, what is the most constructive way to interpret this failure?",End of all efforts,Loss with no value,Learning experience for future,Punishment for team,Learning experience for future
+Creative & Critical thinking,MCQ,"You have two solutions: one seems faster but risky, the other slower but safer. What is the most logical choice?",Choose faster solution,Choose safer solution,Flip a coin,Ask everyone’s opinion,Choose safer solution
+Creative & Critical thinking,MCQ,"A student can take a shortcut to finish an assignment quickly, but it might have some errors. Taking the longer route ensures accuracy but takes more time. Which choice demonstrates better critical thinking?",Take shortcut,Take longer route for accuracy,Copy from a friend,Ignore assignment,Take longer route for accuracy
+Creative & Critical thinking,MCQ,"I speak without a mouth and hear without ears. I have nobody, but I come alive with wind. What am I?",Echo,Shadow,Thought,Signal,Echo
+Creative & Critical thinking,MCQ,You have one sheet of paper and a pen. You need to teach 10 children a geometry concept without a board. Which method is most creative?,Draw on floor with chalk,Fold paper to create shapes,Explain verbally only,Memorize formulas,Fold paper to create shapes
+Creative & Critical thinking,MCQ,Which object best represents innovation?,Wheel,Stone,Stick,Paper,Wheel
+Creative & Critical thinking,MCQ,"What has a head, a tail, but no body?",Snake,Coin,Comet,River,Coin
+Creative & Critical thinking,MCQ,A city park is becoming less popular because visitors feel it is boring and unattractive. The city council has a limited budget but wants to attract more people to the park. Which idea shows the most creative solution?,Increase the entry fee to maintain the park,Add simple interactive activities like art walls and community events,Close the park earlier to reduce maintenance costs,Remove benches to prevent crowding,Add simple interactive activities like art walls and community events
+Creative & Critical thinking,MCQ,A school wants students to develop creativity and teamwork during a science project. Which approach would best encourage creative thinking?,Give students exact instructions to follow step by step,Allow students to design their own experiments and present their ideas,Ask students to copy experiments from textbooks,Focus only on memorizing scientific formulas,Allow students to design their own experiments and present their ideas
+Creative & Critical thinking,MCQ,A small company wants to improve employee motivation without increasing salaries due to budget limits. Which strategy demonstrates the most creative thinking?,Increase working hours,"Provide recognition programs, flexible schedules, and opportunities for skill development",Ignore employee feedback,Reduce break times to increase productivity,"Provide recognition programs, flexible schedules, and opportunities for skill development"
+English,MCQ,"A list of numbers is described as advancing progressively in such a way that each successive element exceeds the immediately preceding element by a constant and unvarying quantity. The actual numerical values themselves remain undisclosed, and no information is provided concerning either the origin or the termination of the list. The only characteristic that has been explicitly specified is that the incremental difference between consecutive elements remains perfectly consistent throughout the entirety of the sequence. Based solely on this description, can the sequence be accurately classified as an arithmetic sequence?",Yes,No,Only at the beginning,Cannot be decided,Yes
+English,MCQ,"A certain operational procedure is described as unfolding through a structured progression consisting of four clearly distinguishable stages. It is explicitly indicated that the commencement of the third stage cannot occur until the second stage has been entirely completed. Additionally, the fourth stage is defined as an event that occurs exclusively at the ultimate conclusion of the entire procedure. The first stage, interestingly, is characterized not by a specific activity of its own but rather by the absence of the conditions associated with the fourth stage. Taking all of these constraints into consideration, which stage must logically constitute the starting point of the process?",First Stage,Second Stage,Third Stage,Fourth Stage,First Stage
+English,MCQ,"An individual explains that the commencement of his professional duties took place at a time precisely fifteen minutes after the completion of the sixth consecutive hour measured from the exact moment at which the sun rose above the horizon. For the sake of analytical clarity, assume that sunrise occurs uniformly at exactly 06:00 in the morning, regardless of geographical or seasonal variations. When the temporal description provided by the individual is translated into standard clock notation, which specific time accurately corresponds to the beginning of his work?",12.00 PM,12.15 PM,11.45 AM,6.15 AM,12.15 PM
+English,MCQ,"A person asserts that he possesses a rectangular container whose interior currently contains a certain quantity of liquid. He further specifies that the liquid occupies precisely one quarter of the container’s total internal capacity. However, the container itself bears no markings, measurements, or indicators that might reveal the level of liquid within it. If an observer is nevertheless required to describe the proportion of the container that is presently filled in the most exact fractional terms possible, which of the following fractions most accurately represents the quantity of liquid contained inside?",04-Jan,03-Jan,04-Mar,02-Jan,04-Jan
+English,MCQ,"Three containers, identified respectively as A, B, and C, are initially described as holding identical volumes of liquid under normal conditions. It is later reported that the entire contents of container A have been transferred into container B. Subsequently, a certain portion of the liquid contained in container B is transferred into container C, resulting in container C holding an amount of liquid equal to exactly half of its total capacity. Assuming that no liquid is lost during these transfers and that the operations are performed with perfect accuracy, which container ultimately contains the greatest volume of liquid?",Container A holds the greatest volume,Container B holds the greatest volume,Container C holds the greatest volume,All containers hold equal volumes,Container B holds the greatest volume
+English,MCQ,"Consider a situation in which every element belonging to a particular set is defined as possessing a specific property. It is further stated that a certain object unquestionably belongs to this set. Without introducing any additional assumptions or external information, what logical conclusion can be drawn regarding the relationship between the object and the property that characterizes the entire set?",The object must possess the property,The object cannot possess the property,The object may or may not possess the property,No conclusion can be made,The object must possess the property
+English,MCQ,"A process is described as unfolding through a rigidly structured sequence in which each step can only occur after the immediate completion of the preceding step. No stage is permitted to overlap with another, and no stage may begin prematurely. If such a process is analyzed purely in terms of its operational logic, what fundamental organizational principle best describes the structure of this procedure?",Random progression,Sequential order,Parallel execution,Independent occurrence,Sequential order
+English,MCQ,"A researcher describes a numerical pattern in which each new value is obtained by adding a constant quantity to the value that came immediately before it. This addition remains identical for every step throughout the pattern, and no deviations from this rule are ever introduced. From the standpoint of mathematical classification, what defining characteristic best describes this pattern?",Constant ratio,Constant difference,Random variation,Decreasing interval,Constant difference
+English,MCQ,"A statement declares that a particular rule applies universally to every possible instance within a defined system and that no exceptions are permitted under any circumstances. If an individual instance within the system fails to conform to this rule, what logical conclusion must necessarily follow?",The rule has been violated,The rule becomes optional,The system changes automatically,The rule applies only partially,The rule has been violated
+English,MCQ,"A description explains that a certain event recurs repeatedly at perfectly regular intervals of time. The duration separating each occurrence remains identical throughout the entire observation period, and no irregularities or disruptions are ever recorded. What general type of pattern does this situation most accurately represent?",Random pattern,Periodic pattern,Chaotic pattern,Irregular pattern,Periodic pattern
+English,MCQ,"A particular system of organization is described as one in which every subsequent action is entirely dependent upon the successful completion of the action that precedes it. No action may begin prematurely, nor may two actions occur simultaneously. Each stage must be executed in its proper order to ensure the integrity of the entire process. From the standpoint of structural analysis, which principle most accurately characterizes this form of organization?",Parallel operation,Sequential execution,Random arrangement,Independent operation,Sequential execution
+English,MCQ,"An observer notices that a sequence of numbers evolves according to a rule whereby each number is produced by multiplying the preceding number by a fixed and unchanging quantity. The initial value of the sequence is not revealed, yet the multiplicative relationship remains perfectly consistent for every step that follows. Based solely on this information, how should the sequence be classified?",Arithmetic sequence,Geometric sequence,Random sequence,Undefined sequence,Geometric sequence
+English,MCQ,"A regulation states that a specific activity may only occur if two independent conditions have both been satisfied beforehand. Should either condition remain unfulfilled, the activity in question is explicitly prohibited from taking place. If an observer determines that neither of the required conditions has been met, what conclusion logically follows?",The activity must occur,The activity cannot occur,The activity becomes optional,The regulation becomes invalid,The activity cannot occur
+English,MCQ,"A water reservoir is described as containing a quantity of liquid equal to precisely one half of its total capacity. If an identical quantity of water is subsequently added to the reservoir, resulting in the container becoming completely full, what fraction of the reservoir’s capacity was originally empty?",04-Jan,03-Jan,02-Jan,04-Mar,02-Jan
+English,MCQ,"A description of a structured workflow indicates that the final stage of the process can only occur once all preceding stages have been fully completed. No shortcuts or omissions are permitted, and each stage must contribute to the completion of the next. From a logical perspective, what characteristic best describes the relationship between the stages?",Independent dependency,Sequential dependency,Random dependency,Optional dependency,Sequential dependency
+English,MCQ,"A rule within a system specifies that every member belonging to a certain category must possess a particular attribute. If an individual object is confirmed to belong to that category, what logical inference can be made regarding that object?",The object must possess the attribute,The object cannot possess the attribute,The attribute becomes optional,No conclusion can be drawn,The object must possess the attribute
+English,MCQ,"A numerical pattern is observed in which the difference between consecutive numbers remains exactly the same throughout the entire list. The numbers themselves may increase indefinitely, but the interval separating them never changes. Which defining property best describes this pattern?",Constant ratio,Constant difference,Variable difference,Random difference,Constant difference
+English,MCQ,"A person describes an event that occurs exactly three hours after the moment defined as noon. Assuming that noon corresponds to 12:00 PM according to standard timekeeping conventions, what time does the described event occur?",2:00 PM,3:00 PM,4:00 PM,5:00 PM,3:00 PM
+English,MCQ,"A storage tank is initially empty and begins to fill with water at a perfectly constant rate such that one third of its total capacity is filled during every hour of operation. If the filling process continues without interruption for two hours, what proportion of the tank will contain water?",03-Jan,02-Jan,03-Feb,Full,03-Feb
+English,MCQ,"A rule governing a particular system declares that it applies universally to every possible case without the slightest exception. If a single instance is discovered that does not conform to this rule, what inevitable conclusion must be drawn regarding the rule itself?",The rule has been violated,The rule becomes optional,The rule applies only partially,The rule automatically changes,The rule has been violated
+General Knowledge Questions,MCQ,"In binary number system, what is the result of 1101101 + 1011011 = ?",11001000,11011000,11010000,11101000,11001000
+General Knowledge Questions,MCQ,What does WWW stand for in computer networks?,World Wide Web,Wireless Wide Web,World Web Wide,Wide World Web,World Wide Web
+General Knowledge Questions,MCQ,Which technology is mainly used to create immersive 3D environments?,AI,IoT,Virtual Reality,Blockchain,Virtual Reality
+General Knowledge Questions,MCQ,Which programming language was specifically developed for artificial intelligence research in the 1960s?,Python,Lisp,Java,C,Lisp
+General Knowledge Questions,MCQ,Which of the following memory is non-volatile?,SRAM,DRAM,EEPROM,CPU Cache,EEPROM
+General Knowledge Questions,MCQ,Which programming paradigm focuses on objects and classes?,Procedural Programming,Object-Oriented Programming,Functional Programming,Logic Programming,Object-Oriented Programming
+General Knowledge Questions,MCQ,"In cloud computing, which model provides hardware resources over the Internet?",SaaS,PaaS,IaaS,DaaS,IaaS
+General Knowledge Questions,MCQ,Which technology is used to secure communication over the Internet using encryption?,HTTP,HTTPS,FTP,SMTP,HTTPS
+General Knowledge Questions,MCQ,What is the main purpose of Git in software development?,Code Compilation,Version Control,Debugging,Testing,Version Control
+General Knowledge Questions,MCQ,Which AI concept allows machines to learn patterns from data without being explicitly programmed?,Machine Learning,Natural Language Processing,Robotics,Blockchain,Machine Learning
+General Knowledge Questions,MCQ,"Which data structure uses the 'first in, first out' (FIFO) principle?",Stack,Queue,Tree,Graph,Queue
+General Knowledge Questions,MCQ,Which type of malware disguises itself as legitimate software to trick users?,Worm,Trojan Horse,Spyware,Ransomware,Trojan Horse
+General Knowledge Questions,MCQ,Who is credited with inventing the World Wide Web in 1989?,Vint Cerf,Tim Berners-Lee,Bill Gates,Steve Jobs,Tim Berners-Lee
+General Knowledge Questions,MCQ,Which IPv6 address type is used to communicate with all nodes on a network segment?,Unicast,Multicast,Anycast,Broadcast,Multicast
+General Knowledge Questions,MCQ,Which encryption algorithm is widely used for securing online banking transactions?,AES,DES,RSA,MD5,RSA
+IQ Questions,MCQ,There are 4 cans of different colors arranged in a specific order. Another set of 4 cans must be arranged in the same order. What is the time required to arrange them? Determine the best-case and worst-case scenarios.,"1, 7","1, 4","1, 24","4, 7","1, 4"
+IQ Questions,MCQ,"At a four-way junction, each direction receives a green signal for 30 seconds, followed by a 5-second buffer before the next direction turns green. If a passenger arrives just as the signal turns red for their direction, how long will they have to wait before they can move?",120 seconds,110 seconds,100 seconds,107 seconds,110 seconds
+IQ Questions,MCQ,"In a box, there are 3 red balls and 5 blue balls. What is the probability of drawing 2 blue balls consecutively without replacement?",05-Aug,May-14,03-Apr,03-Aug,May-14
+IQ Questions,MCQ,"Find the next number in the sequence:
+
+7, -21, 63, -189, …….",567,-132,657,1250,567
+IQ Questions,Short,A rope is cut into three parts whose lengths are in arithmetic progression. The sum of the three parts is 120 cm and the difference between the largest and smallest is 40 cm. Find the length of each part.,,,,"20 cm, 40 cm, 60 cm",
+IQ Questions,MCQ,A train 150 m long crosses a pole in 10 seconds. What is its speed?,36 km/h,45 km/h,54 km/h,60 km/h,54 km/h
+IQ Questions,MCQ,"A man walks 5 km south, then 3 km east, then 5 km north. Where is he now from the starting point?",3 km East,3 km West,5 km East,Same point,3 km East
+IQ Questions,MCQ,"Find the odd one out:
+
+Square, Triangle, Circle, Rectangle
+","a.	Square",Triangle,Circle,Rectangle,Circle
+IQ Questions,Short,"A cube is painted on all sides. If it is cut into 27 smaller cubes of equal size, how many small cubes will have exactly 2 painted faces?",,,,12,
+IQ Questions,Short,"At a four-way traffic junction, each direction gets 30 seconds green signal, followed by 5 Seconds buffer. If a passenger arrives just as the light turns red, how long will they wait before they can move?",,,,110 seconds,
+IQ Questions,MCQ,"Seven people are sitting in a row. A must sit to the left of B, C cannot sit next to D, E must be in the middle. How many different seating arrangements are possible?",144,180,120,126,144
+IQ Questions,MCQ,"A box contains 5 red, 4 blue, and 3 green balls. Two balls are drawn one after the other without replacement. Probability that one is red and the other is green is:",May-22,15/66,May-33,Oct-33,May-22
+IQ Questions,MCQ,A word is coded as follows: WORD → VRPG. If SMART → ?,UOCTU,TNBSU,TNBSV,UNBST,TNBSU
+IQ Questions,MCQ,A cube of 6 cm is painted on all sides. It is then cut into 1 cm³ smaller cubes. How many cubes have exactly 1 painted face?,96,54,64,36,96
+IQ Questions,MCQ,"In a sequence, each term is generated by multiplying the previous term by 2 and then subtracting the term before the previous one. The first two terms are 2 and 3. What is the 5th term?",43,44,45,46,46
+Logic questions,MCQ,"Find the next number in the series:
+
+5, 16, 49, 148, 445, ____?
+",1336,1334,1335,1340,1334
+Logic questions,MCQ,"In a company, some engineers also work as managers. Every manager works as a leader, but not every leader is a manager. Based on the above statements, which conclusion is definitely true?",All engineers are leaders,Some engineers may be leaders,All leaders are manager,No engineer is a leader,Some engineers may be leaders
+Logic questions,MCQ,"The present age of a father is 5 times the age of his son. 15 years later, the father will be 3 times as old as his son. What is the present age of the son?",8,10,12,15,15
+Logic questions,MCQ,"In a particular coding method, PEN = 33, BOOK = 41, PAPER = 50, then NOTE = ?",38,39,40,41,40
+Logic questions,MCQ,A man says: “I am lying right now.” Which is correct?,The statement is true,The statement is false,The statement is both true and false,The statement cannot be logically evaluated,The statement cannot be logically evaluated
+Logic questions,MCQ,"If in a certain code, MANGO is written as NZOHF, then APPLE is written as ?",BQQMF,BPPMF,CQQNG,ZOOKD,BQQMF
+Logic questions,MCQ,"A man is facing West. He turns 90° clockwise, then 180° anticlockwise. Which direction is he facing now?",North,South,East,West,South
+Logic questions,MCQ,"Find the missing term:
+
+A, C, F, J, O, ____ ?",T,U,V,W,U
+Logic questions,MCQ,A clock shows 3:15. What is the angle between the hour and minute hand?,0°,7.5°,15°,22.5°,7.5°
+Logic questions,MCQ,A bag contains 5 white and 7 black balls. Two balls are drawn randomly. What is the probability that both are white?,May-66,Oct-66,20/132,05-Dec,Oct-66
+Logic questions,MCQ,"Five friends A, B, C, D, and E are sitting in a row facing north.
+
+A is to the immediate right of B.
+C is at one of the ends.
+D is between A and E.
+
+Who is sitting in the middle?
+",A,B,D,E,D
+Logic questions,MCQ,"In a family of six members P, Q, R, S, T and U:
+
+•	P is the father of Q.
+•	Q is the sister of R.
+•	R is the son of S.
+•	T is the mother of R.
+•	U is the brother of P.
+
+Who is the grandmother of R?
+",P,Q,T,Cannot be determined,Cannot be determined
+Logic questions,MCQ,"If 7² + 8² = 113,
+
+9² + 10² = 181,
+
+Then 11² + 12² = ?
+",265,266,267,268,265
+Logic questions,MCQ,"START
+READ n
+isPrime = True
+FOR i = 2 TO n-1
+    IF n % i == 0 THEN
+        isPrime = False
+        BREAK
+    END IF
+END FOR
+IF isPrime AND n > 1 THEN
+    PRINT ""Prime""
+ELSE
+    PRINT ""Not Prime""
+END IF
+END
+
+If n = 13, what will the program print?",Prime,Not Prime,Even,Odd,Prime
+Logic questions,MCQ,"START
+READ n
+rev = 0
+WHILE n > 0
+    digit = n % 10
+    rev = rev * 10 + digit
+    n = n / 10
+END WHILE
+PRINT rev
+END
+
+If n = 1234, what is the output?
+",4321,1234,2341,4312,4312
+Technical Questions,MCQ,Which of the following is mainly used for web page design?,Python,Java,HTML,C,HTML
+Technical Questions,MCQ,"Which cloud storage type is object storage, optimized for unstructured data?",EBS,S3,EC2 Instance Store,RDS,S3
+Technical Questions,MCQ,Which AI tool cannot generate images?,ChatGPT,Gemini,DeepSeek,Grok,DeepSeek
+Technical Questions,MCQ,Which type of NoSQL database is column-oriented?,MongoDB,Cassandra,Redis,MySQL,Cassandra
+Technical Questions,MCQ,What does HTTP stand for?,High Text Transfer Protocol,Hyper Text Transfer Protocol,Hyper Transfer Text Program,High Transfer Text Program,Hyper Text Transfer Protocol
+Technical Questions,MCQ,Which testing technique treats the software as a 'mystery box' where you only check inputs and outputs without looking inside the code?,White-box testing,Black-box testing,Gray-box testing,Red-box testing,Black-box testing
+Technical Questions,MCQ,"If a defect is found after deployment, in which SDLC phase was it missed?",Testing,Maintenance,Design,Deployment,Testing
+Technical Questions,MCQ,"If the expected result of a login page is 'User should be redirected to dashboard,' but the actual result is 'User sees an error message,' what is this considered?",Test Case,Defect,Derived Result,Requirement,Defect
+Technical Questions,MCQ,Which type of testing ensures that the recent code changes have not affected the existing functionality?,Unit Testing,Regression Testing,Smoke Testing,Performance Testing,Regression Testing
+Technical Questions,MCQ,"After a recent deployment, a website fails to load for some users. By analyzing logs, server response codes, and network configurations, the team discovers that a recent configuration change caused the issue. This process is called:",Root Cause Analysis,Regression Testing,User Feedback Analysis,Code Refactoring,Root Cause Analysis
+Technical Questions,MCQ,What is a branch in Git?,A copy of the repository on GitHub,A parallel version of the repository,A deleted repository,A file in GitHub,A parallel version of the repository
+Technical Questions,MCQ,What does the command git clone <URL> do?,Deletes the repository,Downloads a repository to your local machine,Creates a new GitHub account,Merges two branches,Downloads a repository to your local machine
+Technical Questions,MCQ,"In GitHub, if two people edit the same line in a file at the same time, what will happen when they try to combine their work?",Git automatically deletes one change,Merge conflict,Code runs twice,File is ignored,Merge conflict
+Technical Questions,MCQ,Which testing type checks whether a software meets business requirements and satisfies user needs?,System Testing,Acceptance Testing,Integration Testing,Unit Testing,Acceptance Testing
+Technical Questions,MCQ,"In Git, which command is used to combine changes from one branch into another?",git merge,git commit,git push,git branch,git merge

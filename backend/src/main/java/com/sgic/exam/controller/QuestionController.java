@@ -70,8 +70,8 @@ public class QuestionController {
 
     @GetMapping("/export")
     public ResponseEntity<String> exportToCsv(
-            @RequestParam(required = false) Long categoryId) {
-        String csvContent = questionService.exportToCsv(categoryId);
+            @RequestParam(required = false) List<Long> categoryIds) {
+        String csvContent = questionService.exportToCsv(categoryIds);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"question_bank.csv\"")
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")

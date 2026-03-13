@@ -21,5 +21,5 @@ public interface QuestionService {
 
     Map<String, Object> bulkUpload(MultipartFile file);
 
-    String exportToCsv(Long categoryId);
+    String exportToCsv(java.util.List<Long> categoryIds);
 }

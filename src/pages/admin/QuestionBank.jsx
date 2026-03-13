@@ -29,6 +29,8 @@ const QuestionBank = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadResult, setUploadResult] = useState(null);
     const [isDragOver, setIsDragOver] = useState(false);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [selectedExportCategories, setSelectedExportCategories] = useState([]);
 
     const fetchData = async () => {
         try {
@@ -225,21 +227,32 @@ const QuestionBank = () => {
 
     const handleDownload = async () => {
         try {
-            const url = selectedCategory
-                ? `/api/questions/export?categoryId=${selectedCategory.id}`
-                : '/api/questions/export';
+            let url = '/api/questions/export';
+            if (selectedExportCategories.length > 0) {
+                const ids = selectedExportCategories.join(',');
+                url += `?categoryIds=${ids}`;
+            }
+
             const res = await fetch(url);
             if (!res.ok) throw new Error('Export failed');
             const blob = await res.blob();
             const objectUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = objectUrl;
-            a.download = selectedCategory
-                ? `${selectedCategory.name.replace(/\s+/g, '_')}_questions.csv`
-                : 'question_bank.csv';
+            
+            let filename = 'question_bank.csv';
+            if (selectedExportCategories.length === 1) {
+                const cat = categories.find(c => c.id === selectedExportCategories[0]);
+                if (cat) filename = `${cat.name.replace(/\s+/g, '_')}_questions.csv`;
+            } else if (selectedExportCategories.length > 1 && selectedExportCategories.length < categories.length) {
+                filename = 'selected_categories_questions.csv';
+            }
+
+            a.download = filename;
             a.click();
             URL.revokeObjectURL(objectUrl);
             setNotification({ type: 'success', message: 'Question bank exported successfully!' });
+            setIsExportModalOpen(false);
         } catch (error) {
             setNotification({ type: 'error', message: 'Failed to export questions.' });
         }
@@ -338,8 +351,15 @@ const QuestionBank = () => {
                     </div>
                     <button
                         id="download-question-bank-btn"
-                        onClick={handleDownload}
-                        title={selectedCategory ? `Download ${selectedCategory.name} questions as CSV` : 'Download all questions as CSV'}
+                        onClick={() => {
+                            if (selectedCategory) {
+                                setSelectedExportCategories([selectedCategory.id]);
+                            } else {
+                                setSelectedExportCategories(categories.map(c => c.id));
+                            }
+                            setIsExportModalOpen(true);
+                        }}
+                        title="Download Question Bank"
                         style={{
                             display: 'flex', alignItems: 'center', gap: '0.625rem',
                             background: 'var(--bg-surface)', color: 'var(--text-primary)',
@@ -972,6 +992,123 @@ const QuestionBank = () => {
                                     }}
                                 >
                                     {isUploading ? 'Uploading...' : <><Upload size={18} /> Upload Questions</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                isExportModalOpen && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 1000, animation: 'fadeIn 0.2s ease-out'
+                    }}>
+                        <div
+                            className="hide-scrollbar"
+                            style={{
+                                background: 'var(--bg-surface)', width: '100%', maxWidth: '500px',
+                                borderRadius: 'var(--radius-2xl)', boxShadow: 'var(--shadow-lg)',
+                                padding: '2.5rem', animation: 'scaleUp 0.3s ease-out', maxHeight: '90vh', overflowY: 'auto'
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <Download size={24} color="#10b981" /> Export Question Bank
+                                </h2>
+                                <button onClick={() => setIsExportModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.94rem' }}>
+                                Choose the categories you wish to export as a CSV file.
+                            </p>
+
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>Categories ({selectedExportCategories.length}/{categories.length})</span>
+                                    <button 
+                                        onClick={() => {
+                                            if (selectedExportCategories.length === categories.length) {
+                                                setSelectedExportCategories([]);
+                                            } else {
+                                                setSelectedExportCategories(categories.map(c => c.id));
+                                            }
+                                        }}
+                                        style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer' }}
+                                    >
+                                        {selectedExportCategories.length === categories.length ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                </div>
+
+                                <div style={{ 
+                                    display: 'flex', flexDirection: 'column', gap: '0.5rem', 
+                                    maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem',
+                                    padding: '0.5rem', background: 'var(--bg-app)', borderRadius: '12px',
+                                    border: '1px solid var(--border)'
+                                }} className="hide-scrollbar">
+                                    {categories.map(cat => (
+                                        <div 
+                                            key={cat.id}
+                                            onClick={() => {
+                                                if (selectedExportCategories.includes(cat.id)) {
+                                                    setSelectedExportCategories(selectedExportCategories.filter(id => id !== cat.id));
+                                                } else {
+                                                    setSelectedExportCategories([...selectedExportCategories, cat.id]);
+                                                }
+                                            }}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '1rem',
+                                                padding: '0.75rem 1rem', borderRadius: '10px',
+                                                background: selectedExportCategories.includes(cat.id) ? 'white' : 'transparent',
+                                                border: `1.5px solid ${selectedExportCategories.includes(cat.id) ? cat.color : 'transparent'}`,
+                                                cursor: 'pointer', transition: 'all 0.2s',
+                                                boxShadow: selectedExportCategories.includes(cat.id) ? '0 4px 12px rgba(0,0,0,0.04)' : 'none'
+                                            }}
+                                        >
+                                            <div style={{
+                                                width: '20px', height: '20px', borderRadius: '6px',
+                                                border: `2px solid ${selectedExportCategories.includes(cat.id) ? cat.color : 'var(--text-tertiary)'}`,
+                                                background: selectedExportCategories.includes(cat.id) ? cat.color : 'transparent',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: 'white', transition: 'all 0.2s'
+                                            }}>
+                                                {selectedExportCategories.includes(cat.id) && <Check size={14} strokeWidth={4} />}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{cat.name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{cat.questionCount} Questions</div>
+                                            </div>
+                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: cat.color }}></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button
+                                    onClick={() => setIsExportModalOpen(false)}
+                                    style={{ flex: 1, padding: '1rem', borderRadius: '16px', border: 'none', background: 'var(--bg-app)', color: 'var(--text-secondary)', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-app)'}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDownload}
+                                    disabled={selectedExportCategories.length === 0}
+                                    style={{
+                                        flex: 2, padding: '1rem', borderRadius: '16px', border: 'none',
+                                        background: selectedExportCategories.length === 0 ? 'var(--border)' : '#10b981',
+                                        color: 'white', fontWeight: 800, cursor: selectedExportCategories.length === 0 ? 'not-allowed' : 'pointer',
+                                        boxShadow: selectedExportCategories.length === 0 ? 'none' : '0 10px 20px rgba(16, 185, 129, 0.2)',
+                                        transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                                    }}
+                                >
+                                    <Download size={18} /> Export CSV
                                 </button>
                             </div>
                         </div>

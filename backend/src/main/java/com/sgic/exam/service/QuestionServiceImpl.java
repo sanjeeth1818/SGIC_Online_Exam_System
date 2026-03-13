@@ -131,20 +131,50 @@ public class QuestionServiceImpl implements QuestionService {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
             String line;
             boolean isHeader = true;
+            StringBuilder logicalRow = new StringBuilder();
+            boolean inQuotes = false;
 
             while ((line = reader.readLine()) != null) {
+                if (logicalRow.length() > 0) {
+                    logicalRow.append("\n");
+                }
+                logicalRow.append(line);
+
+                // Count quotes to see if the record is complete
+                for (int i = 0; i < line.length(); i++) {
+                    if (line.charAt(i) == '"') {
+                        // Check for escaped quote ""
+                        if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                            i++; // Skip escaped quote
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    }
+                }
+
+                if (inQuotes) {
+                    continue; // Record spans multiple physical lines
+                }
+
+                String rowData = logicalRow.toString();
+                logicalRow.setLength(0); // Reset for next logical row
                 rowNumber++;
+
                 if (isHeader) {
+                    // Remove UTF-8 BOM if present on the first line
+                    if (rowData.startsWith("\uFEFF")) {
+                        rowData = rowData.substring(1);
+                    }
                     isHeader = false;
                     continue;
                 }
-                if (line.trim().isEmpty())
+                if (rowData.trim().isEmpty())
                     continue;
 
                 try {
-                    String[] cols = parseCSVLine(line);
+                    String[] cols = parseCSVLine(rowData);
                     if (cols.length < 4) {
-                        errors.add("Row " + rowNumber + ": Not enough columns");
+                        errors.add("Row " + rowNumber + ": Not enough columns (found " + cols.length + ")");
                         continue;
                     }
 
@@ -153,7 +183,7 @@ public class QuestionServiceImpl implements QuestionService {
                     String text = cols[2].trim();
 
                     if (categoryName.isEmpty() || type.isEmpty() || text.isEmpty()) {
-                        errors.add("Row " + rowNumber + ": Missing required fields");
+                        errors.add("Row " + rowNumber + ": Missing required fields (Category, Type, or Text)");
                         continue;
                     }
 
@@ -175,13 +205,14 @@ public class QuestionServiceImpl implements QuestionService {
 
                     if (type.equalsIgnoreCase("MCQ")) {
                         if (cols.length < 8) {
-                            errors.add("Row " + rowNumber + ": MCQ requires 8 columns");
+                            errors.add("Row " + rowNumber + ": MCQ requires 8 columns (found " + cols.length + ")");
                             continue;
                         }
                         for (int i = 3; i <= 6; i++)
                             options.add(cols[i].trim());
                         correctAnswer = cols[7].trim();
                     } else {
+                        // For Short Answer, correct answer is usually the last column if options are empty
                         correctAnswer = cols[cols.length - 1].trim();
                         if (correctAnswer.isEmpty() && cols.length > 3)
                             correctAnswer = cols[3].trim();
@@ -225,10 +256,15 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
     @Override
-    public String exportToCsv(Long categoryId) {
-        List<Question> questions = new java.util.ArrayList<>((categoryId != null)
-                ? questionRepository.findByCategoryId(categoryId)
-                : questionRepository.findAll());
+    public String exportToCsv(List<Long> categoryIds) {
+        List<Question> questions;
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            questions = questionRepository.findAll();
+        } else {
+            questions = questionRepository.findAll().stream()
+                .filter(q -> q.getCategory() != null && categoryIds.contains(q.getCategory().getId()))
+                .collect(Collectors.toList());
+        }
 
         // Sort by category name, then by question id to keep insertion order within
         // category
@@ -237,6 +273,7 @@ public class QuestionServiceImpl implements QuestionService {
                 .thenComparing(Question::getId));
 
         StringBuilder sb = new StringBuilder();
+        sb.append("\uFEFF"); // Add UTF-8 BOM for Excel compatibility
         sb.append("categoryName,type,text,optionA,optionB,optionC,optionD,correctAnswer\n");
 
         for (Question q : questions) {
@@ -306,7 +343,13 @@ public class QuestionServiceImpl implements QuestionService {
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
             if (c == '"') {
-                inQuotes = !inQuotes;
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    // Escaped quote: "" inside a quoted field
+                    current.append('"');
+                    i++; // Skip the next quote
+                } else {
+                    inQuotes = !inQuotes;
+                }
             } else if (c == ',' && !inQuotes) {
                 fields.add(current.toString());
                 current = new StringBuilder();
