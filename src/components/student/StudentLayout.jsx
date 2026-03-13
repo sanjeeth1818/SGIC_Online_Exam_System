@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { User, LogOut } from 'lucide-react';
 
 const StudentLayout = () => {
+    const location = useLocation();
+    // Strictly hide the header profile on the root code entry page
+    const isLoginPage = location.pathname === '/';
     const [studentName, setStudentName] = useState(sessionStorage.getItem('studentName') || 'Guest');
 
     useEffect(() => {
@@ -32,42 +35,44 @@ const StudentLayout = () => {
                 {/* Logo */}
                 <img src="/SGIC.png" alt="SGIC Logo" style={{ height: '90px', objectFit: 'contain' }} />
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-secondary)' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <User size={18} />
+                {!isLoginPage && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', animation: 'fadeIn 0.3s ease' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-secondary)' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <User size={18} />
+                            </div>
+                            <span style={{ fontWeight: 500 }}>{studentName}</span>
                         </div>
-                        <span style={{ fontWeight: 500 }}>{studentName}</span>
-                    </div>
 
-                    <div
-                        onClick={(e) => {
-                            if (window.location.pathname === '/exam') {
-                                e.preventDefault();
-                                window.dispatchEvent(new Event('requestExamExit'));
-                            } else {
-                                sessionStorage.removeItem('studentName');
-                                window.dispatchEvent(new Event('studentNameUpdated'));
-                                window.location.href = '/';
-                            }
-                        }}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            color: 'var(--text-tertiary)',
-                            fontWeight: 500,
-                            textDecoration: 'none',
-                            transition: 'color var(--transition-fast)',
-                            cursor: 'pointer'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--error)'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
-                    >
-                        <LogOut size={18} />
-                        Exit
+                        <div
+                            onClick={(e) => {
+                                if (window.location.pathname === '/exam') {
+                                    e.preventDefault();
+                                    window.dispatchEvent(new Event('requestExamExit'));
+                                } else {
+                                    sessionStorage.removeItem('studentName');
+                                    window.dispatchEvent(new Event('studentNameUpdated'));
+                                    window.location.href = '/';
+                                }
+                            }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                color: 'var(--text-tertiary)',
+                                fontWeight: 500,
+                                textDecoration: 'none',
+                                transition: 'color var(--transition-fast)',
+                                cursor: 'pointer'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--error)'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
+                        >
+                            <LogOut size={18} />
+                            Exit
+                        </div>
                     </div>
-                </div>
+                )}
             </header>
 
             {/* Main Content Area */}

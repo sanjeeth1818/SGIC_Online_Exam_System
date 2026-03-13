@@ -59,6 +59,7 @@ public class ExamEntryController {
         }
 
         Test test = testRepository.findById(Objects.requireNonNull(entry.getTestId())).orElse(null);
+
         if (test == null || !"Published".equalsIgnoreCase(test.getStatus())) {
             response.put("success", false);
             response.put("message", "The examination is not currently available.");

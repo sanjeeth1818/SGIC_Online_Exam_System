@@ -28,10 +28,16 @@ const ExamInterface = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [showExitModal, setShowExitModal] = useState(false);
+    const [isDuplicateTab, setIsDuplicateTab] = useState(false);
+
+    // Multi-tab Management
+    const channelRef = useRef(null);
+    const tabIdRef = useRef(Date.now().toString() + Math.random().toString());
 
     const [questions, setQuestions] = useState([]);
     const [answers, setAnswers] = useState({});
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [timeSpent, setTimeSpent] = useState({}); // Tracking actual seconds spent per question
 
     // Use a ref for currentStep and questions to use in timer without restarting it
@@ -40,7 +46,39 @@ const ExamInterface = () => {
         stateRef.current = { currentStep, questions, timeMode, isTransitioning, isSubmitting };
     }, [currentStep, questions, timeMode, isTransitioning, isSubmitting]);
 
+    // Initialize BroadcastChannel for cross-tab communication
+    useEffect(() => {
+        const code = sessionStorage.getItem('currentExamCode');
+        if (!code) return;
+
+        const channelName = `exam_channel_${code}`;
+        const channel = new BroadcastChannel(channelName);
+        channelRef.current = channel;
+
+        // When this newly opened tab loads, ask if any other tab is already running the exam
+        channel.postMessage({ type: 'CHECK_EXISTING', tabId: tabIdRef.current });
+
+        channel.onmessage = (event) => {
+            if (event.data.type === 'CHECK_EXISTING' && event.data.tabId !== tabIdRef.current) {
+                // We are the older, active tab. Tell the new tab access is denied.
+                channel.postMessage({ type: 'ACCESS_DENIED', targetTabId: event.data.tabId });
+            } else if (event.data.type === 'ACCESS_DENIED' && event.data.targetTabId === tabIdRef.current) {
+                // We are the new tab, and an older tab just denied our access
+                setIsDuplicateTab(true);
+                sessionStorage.removeItem('currentExamCode');
+                sessionStorage.removeItem('examStartedAt');
+                sessionStorage.removeItem('examSessionToken');
+            }
+        };
+
+        return () => {
+            channel.close();
+        };
+    }, [navigate]);
+
     const fetchQuestions = useCallback(async () => {
+        if (isDuplicateTab) return; // Silent stop if this tab is denied access
+
         const code = sessionStorage.getItem('currentExamCode');
         if (!code) {
             navigate('/');
@@ -171,10 +209,11 @@ const ExamInterface = () => {
 
             setIsLoading(false);
         } catch (error) {
-            console.error(error);
-            navigate('/');
+            console.error('Exam Verification Error:', error);
+            setError(`Admission Error: ${error.message}. Please contact your administrator or check your examination code.`);
+            setIsLoading(false);
         }
-    }, [navigate]);
+    }, [isDuplicateTab, navigate]);
 
     const handleAnswerChange = useCallback((qId, value) => {
         setAnswers(prev => {
@@ -207,7 +246,7 @@ const ExamInterface = () => {
         }
     }, [answers, timeSpent]);
 
-    const processFinalSubmission = useCallback(async () => {
+    const processFinalSubmission = useCallback(async (redirectPath = '/complete') => {
         if (isLoading || isSubmitting) return;
 
         setIsSubmitting(true);
@@ -267,12 +306,12 @@ const ExamInterface = () => {
                 sessionStorage.removeItem('examCurrentStep');
                 sessionStorage.removeItem('examStartedAt');
                 sessionStorage.removeItem('examSessionToken');
-                navigate('/complete');
+                navigate(redirectPath);
 
             } catch (error) {
                 console.error(`Submission Attempt ${attempts} Failed:`, error);
                 if (attempts === maxAttempts) {
-                    alert(`Submission Failed after ${maxAttempts} attempts: ${error.message}. Please check your connection and try again.`);
+                    setError(`Submission Failed after ${maxAttempts} attempts: ${error.message}. Please check your connection and try again.`);
                     setIsSubmitting(false);
                 } else {
                     // Wait 1s before retry
@@ -338,6 +377,7 @@ const ExamInterface = () => {
 
         const interval = setInterval(() => {
             const { isTransitioning, isSubmitting, currentStep, questions, timeMode } = stateRef.current;
+
             if (isTransitioning || isSubmitting) return;
 
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -402,10 +442,123 @@ const ExamInterface = () => {
     const answeredCount = Object.keys(answers).filter(k => answers[k] !== '' && answers[k] !== null).length;
     const progressPercent = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
+    // --- RENDER LAYERS ---
+
+    // 1. DUPLICATE TAB BLOCKER (Highest Priority)
+    if (isDuplicateTab) {
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(15, 23, 42, 0.95)',
+                backdropFilter: 'blur(16px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 10000,
+                animation: 'fadeIn 0.5s ease'
+            }}>
+                <div style={{
+                    background: 'var(--bg-surface)',
+                    padding: '3.5rem',
+                    borderRadius: '32px',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                    border: '1px solid var(--border)',
+                    width: '100%',
+                    maxWidth: '540px',
+                    textAlign: 'center',
+                    animation: 'modalSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    <div style={{
+                        width: '96px', height: '96px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        color: 'var(--error)',
+                        borderRadius: '28px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 2.5rem auto',
+                        boxShadow: '0 10px 20px rgba(239, 68, 68, 0.15)'
+                    }}>
+                        <AlertCircle size={48} />
+                    </div>
+
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '1.25rem', color: 'var(--text-primary)', letterSpacing: '-0.025em' }}>
+                        Access Restricted
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '3rem', lineHeight: 1.7, fontSize: '1.15rem' }}>
+                        Examination is already running in another tab. This duplicate session has been blocked to ensure examination integrity.
+                    </p>
+
+                    <button
+                        onClick={() => navigate('/')}
+                        style={{
+                            width: '100%',
+                            padding: '1.25rem',
+                            borderRadius: '20px',
+                            border: 'none',
+                            background: 'var(--primary)',
+                            color: 'white',
+                            fontWeight: 800,
+                            fontSize: '1.25rem',
+                            cursor: 'pointer',
+                            boxShadow: '0 10px 30px rgba(var(--primary-rgb), 0.4)',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.75rem'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'}
+                        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0) scale(1)'}
+                    >
+                        Return to Portal Home
+                    </button>
+                </div>
+                <style>{`
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes modalSlideUp { 
+                        from { opacity: 0; transform: translateY(40px) scale(0.95); } 
+                        to { opacity: 1; transform: translateY(0) scale(1); } 
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
+    // 2. ERROR STATE
+    if (error) {
+        return (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                <div style={{
+                    maxWidth: '500px', width: '100%', background: 'var(--bg-surface)',
+                    padding: '2.5rem', borderRadius: '24px', textAlign: 'center',
+                    boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)'
+                }}>
+                    <div style={{ color: 'var(--error)', marginBottom: '1.5rem' }}>
+                        <AlertCircle size={56} style={{ margin: '0 auto' }} />
+                    </div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--text-primary)' }}>Admission Conflict</h2>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>{error}</p>
+                    <button
+                        onClick={() => navigate('/')}
+                        style={{
+                            width: '100%', padding: '1rem', borderRadius: '12px',
+                            background: 'var(--primary)', color: 'white', fontWeight: 700,
+                            border: 'none', cursor: 'pointer'
+                        }}
+                    >
+                        Return to Home
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // 3. LOADING STATE
     if (isLoading) {
         return (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Loading Exam Questions...</div>
+                <div style={{ textAlign: 'center' }}>
+                    <Loader2 size={48} className="animate-spin" style={{ color: 'var(--primary)', margin: '0 auto 1.5rem auto' }} />
+                    <div style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Preparing Examination...</div>
+                </div>
             </div>
         );
     }
@@ -740,7 +893,7 @@ const ExamInterface = () => {
                                 Continue Exam
                             </button>
                             <button
-                                onClick={processFinalSubmission}
+                                onClick={() => processFinalSubmission()}
                                 style={{
                                     flex: 1,
                                     padding: '0.875rem',
@@ -831,7 +984,7 @@ const ExamInterface = () => {
                                 Stay Here
                             </button>
                             <button
-                                onClick={processFinalSubmission}
+                                onClick={() => processFinalSubmission('/')}
                                 style={{
                                     flex: 1,
                                     padding: '0.875rem',

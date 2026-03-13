@@ -100,9 +100,11 @@ public class ExamPortalController {
         // 2. Fallback removed (was testCode lookup)
 
         return testOpt.map(test -> {
-            if (!"Published".equals(test.getStatus())) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Test is not active."));
+            if (!"Published".equalsIgnoreCase(test.getStatus())) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "The examination is not currently available."));
             }
+
             if (entry.isPresent()) {
                 if (entry.get().getAdditionalTime() != null) {
                     test.setAdditionalTime(entry.get().getAdditionalTime());

@@ -88,34 +88,110 @@ public class EmailService {
                 message.setFrom(new InternetAddress(config.getSenderEmail()));
             }
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(student.getEmail()));
-            message.setSubject("Upcoming Exam: " + test.getName());
+            message.setSubject("Scheduled Aptitude Examination – SGIC");
 
-            String htmlContent = "<html><body style='font-family: Arial, sans-serif; color: #333; line-height: 1.6;'>" +
-                    "<div style='max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;'>"
+            String htmlContent = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                    "<style>" +
+                    "  @media screen and (max-width: 600px) {" +
+                    "    .container { width: 100% !important; border-radius: 0 !important; }" +
+                    "    .content { padding: 40px 25px !important; }" +
+                    "    .header { padding: 50px 20px !important; }" +
+                    "  }" +
+                    "</style></head>" +
+                    "<body style='font-family: \"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0;'>"
                     +
-                    "<div style='background-color: #007bff; color: white; padding: 20px; text-align: center;'>" +
-                    "<h2 style='margin: 0;'>New Exam Scheduled</h2>" +
-                    "</div>" +
-                    "<div style='padding: 30px;'>" +
-                    "<p>Dear <strong>" + student.getName() + "</strong>,</p>" +
-                    "<p>You have been scheduled for a new examination. Please find the details below:</p>" +
-                    "<div style='background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #007bff;'>"
+                    "  <center>" +
+                    "    <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px; background-color: #ffffff; margin: 30px auto; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);' class='container'>"
                     +
-                    "<p style='margin: 5px 0;'><strong>Examination:</strong> " + test.getName() + "</p>" +
-                    "<p style='margin: 5px 0;'><strong>Scheduled Date:</strong> " + examDate + "</p>" +
-                    "<p style='margin: 5px 0;'><strong>Individual Exam Code:</strong> <span style='font-size: 1.25em; color: #d9534f; font-weight: bold;'>"
-                    + examCode + "</span></p>" +
-                    "</div>" +
-                    "<p>Please ensure you are ready on the scheduled date. Use your individual exam code to access the test.</p>"
+                    "      <tr>" +
+                    "        <td align='center' bgcolor='#4f46e5' style='background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); padding: 60px 40px;' class='header'>"
                     +
-                    "<hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;' />" +
-                    "<p>Best regards,<br/><strong>SGIC Examination System</strong></p>" +
-                    "</div>" +
-                    "<div style='background-color: #f1f1f1; color: #777; padding: 15px; text-align: center; font-size: 0.8em;'>"
+                    "          <img src='https://www.samuelgnanam.com/wp-content/uploads/2021/08/SGIC-Logo-White.png' alt='SGIC Logo' style='height: 45px; margin-bottom: 25px;'>"
                     +
-                    "<p>&copy; 2026 SGIC All Rights Reserved</p>" +
-                    "</div>" +
-                    "</div></body></html>";
+                    "          <h1 style='margin: 0; color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; text-transform: none;'>Examination Invitation</h1>"
+                    +
+                    "          <p style='margin: 10px 0 0; color: #c7d2fe; font-size: 16px; font-weight: 500;'>SGIC Aptitude Assessment Session</p>"
+                    +
+                    "        </td>" +
+                    "      </tr>" +
+                    "      <tr>" +
+                    "        <td style='padding: 55px 50px;' class='content'>" +
+                    "          <p style='font-size: 17px; color: #1e293b; margin-bottom: 28px;'>Dear <strong>"
+                    + student.getName() + "</strong>,</p>" +
+                    "          <p style='font-size: 16px; color: #475569; line-height: 1.8; margin-bottom: 40px;'>We are pleased to inform you that you have been <strong>shortlisted</strong> for our Aptitude Examination. Please review your session details below.</p>"
+                    +
+                    "          " +
+                    "          <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin: 0 0 15px 0; font-weight: 800;'>Session Information</h3>"
+                    +
+                    "          <div style='background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 30px; margin-bottom: 40px;'>"
+                    +
+                    "            <table width='100%' cellpadding='0' cellspacing='0'>" +
+                    "              <tr><td style='padding: 10px 0; color: #64748b; font-size: 14px;'>Assessment</td><td style='padding: 10px 0; color: #0f172a; font-weight: 700; font-size: 16px; text-align: right;'>Aptitude Test</td></tr>"
+                    +
+                    "              <tr><td style='padding: 10px 0; color: #64748b; font-size: 14px;'>Date</td><td style='padding: 10px 0; color: #0f172a; font-weight: 700; font-size: 16px; text-align: right;'>"
+                    + examDate + "</td></tr>" +
+                    "              <tr><td style='padding: 20px 0 0 0; color: #64748b; font-size: 14px;'>Access Code</td><td style='padding: 20px 0 0 0; text-align: right;'><span style='background: #1e293b; color: #ffffff; padding: 10px 20px; border-radius: 12px; font-weight: 900; font-size: 24px; letter-spacing: 4px;'>"
+                    + examCode + "</span></td></tr>" +
+                    "            </table>" +
+                    "          </div>" +
+                    "          " +
+                    "          <table width='100%' cellpadding='0' cellspacing='0'>" +
+                    "            <tr>" +
+                    "              <td style='padding-right: 20px; vertical-align: top;'>" +
+                    "                <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin: 0 0 12px 0; font-weight: 800;'>Location</h3>"
+                    +
+                    "                <p style='font-size: 15px; color: #475569; line-height: 1.6; margin: 0 0 35px 0;'>"
+                    +
+                    "                  Ground Floor, Samuel Gnanam IT Centre<br/>" +
+                    "                  Thirunelveli, Jaffna" +
+                    "                </p>" +
+                    "              </td>" +
+                    "              <td style='vertical-align: top;'>" +
+                    "                <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin: 0 0 12px 0; font-weight: 800;'>Dress Code</h3>"
+                    +
+                    "                <p style='font-size: 15px; color: #475569; margin: 0;'>Smart Casual</p>" +
+                    "              </td>" +
+                    "            </tr>" +
+                    "          </table>" +
+                    "          " +
+                    "          <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin: 5px 0 20px 0; font-weight: 800;'>Required Documents</h3>"
+                    +
+                    "          <div style='background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 10px 25px; margin-bottom: 45px;'>"
+                    +
+                    "            <ul style='font-size: 15px; color: #475569; line-height: 2.2; padding-left: 0; list-style: none; margin: 0;'>"
+                    +
+                    "              <li style='border-bottom: 1px solid #f1f5f9; padding: 5px 0;'>&bull; Updated CV (Hard Copy)</li>"
+                    +
+                    "              <li style='border-bottom: 1px solid #f1f5f9; padding: 5px 0;'>&bull; NIC - Original and Copy</li>"
+                    +
+                    "              <li style='border-bottom: 1px solid #f1f5f9; padding: 5px 0;'>&bull; Birth Certificate Copy</li>"
+                    +
+                    "              <li style='border-bottom: 1px solid #f1f5f9; padding: 5px 0;'>&bull; Educational Certificates</li>"
+                    +
+                    "              <li style='padding: 5px 0;'>&bull; Work Experience Letters</li>" +
+                    "            </ul>" +
+                    "          </div>" +
+                    "          " +
+                    "          <div style='text-align: center; border-top: 1px solid #f1f5f9; padding-top: 40px;'>" +
+                    "            <p style='margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;'>SGIC HR Team</p>"
+                    +
+                    "            <p style='margin: 6px 0 0; font-size: 14px; color: #64748b;'>" +
+                    "              Samuel Gnanam IT Centre<br/>" +
+                    "              Tel: (+94) 21 221 4209 | <a href='https://www.samuelgnanam.com' style='color: #4f46e5; text-decoration: none; font-weight: 600;'>samuelgnanam.com</a>"
+                    +
+                    "            </p>" +
+                    "          </div>" +
+                    "        </td>" +
+                    "      </tr>" +
+                    "      <tr>" +
+                    "        <td align='center' bgcolor='#f8fafc' style='padding: 30px; color: #94a3b8; font-size: 12px; border-top: 1px solid #f1f5f9;'>"
+                    +
+                    "          &copy; 2026 Samuel Gnanam IT Centre. All Rights Reserved." +
+                    "        </td>" +
+                    "      </tr>" +
+                    "    </table>" +
+                    "  </center>" +
+                    "</body></html>";
 
             message.setContent(htmlContent, "text/html; charset=utf-8");
             transport.sendMessage(message, message.getAllRecipients());
@@ -168,34 +244,81 @@ public class EmailService {
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(student.getEmail()));
             message.setSubject("Exam Rescheduled: " + test.getName());
 
-            String htmlContent = "<html><body style='font-family: Arial, sans-serif; color: #333; line-height: 1.6;'>" +
-                    "<div style='max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;'>"
+            String htmlContent = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                    "<style>" +
+                    "  @media screen and (max-width: 600px) {" +
+                    "    .container { width: 100% !important; border-radius: 0 !important; }" +
+                    "    .content { padding: 40px 25px !important; }" +
+                    "    .header { padding: 50px 20px !important; }" +
+                    "  }" +
+                    "</style></head>" +
+                    "<body style='font-family: \"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; background-color: #fefce8; margin: 0; padding: 0;'>"
                     +
-                    "<div style='background-color: #ffc107; color: #1f2937; padding: 20px; text-align: center; border-bottom: 4px solid #eab308;'>"
+                    "  <center>" +
+                    "    <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px; background-color: #ffffff; margin: 30px auto; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);' class='container'>"
                     +
-                    "<h2 style='margin: 0;'>Exam Rescheduled</h2>" +
-                    "</div>" +
-                    "<div style='padding: 30px;'>" +
-                    "<p>Dear <strong>" + student.getName() + "</strong>,</p>" +
-                    "<p>Your examination session for <strong>" + test.getName()
-                    + "</strong> has been rescheduled. Please find your new schedule and access details below:</p>" +
-                    "<div style='background-color: #fff9db; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #ffc107;'>"
+                    "      <tr>" +
+                    "        <td align='center' bgcolor='#f59e0b' style='background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 60px 40px;' class='header'>"
                     +
-                    "<p style='margin: 5px 0;'><strong>Examination:</strong> " + test.getName() + "</p>" +
-                    "<p style='margin: 5px 0;'><strong>New Scheduled Date:</strong> " + examDate + "</p>" +
-                    "<p style='margin: 5px 0;'><strong>New Individual Exam Code:</strong> <span style='font-size: 1.25em; color: #d9534f; font-weight: bold;'>"
-                    + examCode + "</span></p>" +
-                    "</div>" +
-                    "<p>Please ensure you are available on this new date. Use the code above to access the assessment portal.</p>"
+                    "          <img src='https://www.samuelgnanam.com/wp-content/uploads/2021/08/SGIC-Logo-White.png' alt='SGIC Logo' style='height: 45px; margin-bottom: 25px;'>"
                     +
-                    "<hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;' />" +
-                    "<p>Best regards,<br/><strong>SGIC Examination Team</strong></p>" +
-                    "</div>" +
-                    "<div style='background-color: #f1f1f1; color: #777; padding: 15px; text-align: center; font-size: 0.8em;'>"
+                    "          <h1 style='margin: 0; color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; text-transform: none;'>Examination Update</h1>"
                     +
-                    "<p>&copy; 2026 SGIC All Rights Reserved</p>" +
-                    "</div>" +
-                    "</div></body></html>";
+                    "          <p style='margin: 10px 0 0; color: #fef3c7; font-size: 16px; font-weight: 500;'>Your session has been rescheduled</p>"
+                    +
+                    "        </td>" +
+                    "      </tr>" +
+                    "      <tr>" +
+                    "        <td style='padding: 55px 50px;' class='content'>" +
+                    "          <p style='font-size: 17px; color: #1e293b; margin-bottom: 28px;'>Dear <strong>"
+                    + student.getName() + "</strong>,</p>" +
+                    "          <p style='font-size: 16px; color: #475569; line-height: 1.8; margin-bottom: 40px;'>Please take note of the <strong>revised schedule</strong> for your examination session as outlined below. We apologize for any inconvenience caused.</p>"
+                    +
+                    "          " +
+                    "          <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #b45309; margin: 0 0 15px 0; font-weight: 800;'>Revised Details</h3>"
+                    +
+                    "          <div style='background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: 30px; margin-bottom: 40px;'>"
+                    +
+                    "            <table width='100%' cellpadding='0' cellspacing='0'>" +
+                    "              <tr><td style='padding: 10px 0; color: #92400e; font-size: 14px;'>Assessment</td><td style='padding: 10px 0; color: #0f172a; font-weight: 700; font-size: 16px; text-align: right;'>"
+                    + test.getName() + "</td></tr>" +
+                    "              <tr><td style='padding: 10px 0; color: #92400e; font-size: 14px;'>Updated Date</td><td style='padding: 10px 0; color: #0f172a; font-weight: 700; font-size: 16px; text-align: right;'>"
+                    + examDate + "</td></tr>" +
+                    "              <tr><td style='padding: 20px 0 0 0; color: #92400e; font-size: 14px;'>New Access Code</td><td style='padding: 20px 0 0 0; text-align: right;'><span style='background: #b45309; color: #ffffff; padding: 10px 20px; border-radius: 12px; font-weight: 900; font-size: 24px; letter-spacing: 4px;'>"
+                    + examCode + "</span></td></tr>" +
+                    "            </table>" +
+                    "          </div>" +
+                    "          " +
+                    "          <div style='background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 25px; border-left: 6px solid #f59e0b; margin-bottom: 45px;'>"
+                    +
+                    "            <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #0f172a; margin: 0 0 8px 0; font-weight: 800;'>Location Note</h3>"
+                    +
+                    "            <p style='font-size: 15px; color: #475569; line-height: 1.6; margin: 0;'>" +
+                    "              The venue remains the same: Samuel Gnanam IT Centre, Ground Floor. Please ensure you bring all required documents mentioned previously."
+                    +
+                    "            </p>" +
+                    "          </div>" +
+                    "          " +
+                    "          <div style='text-align: center; border-top: 1px solid #f1f5f9; padding-top: 40px;'>" +
+                    "            <p style='margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;'>SGIC HR Team</p>"
+                    +
+                    "            <p style='margin: 6px 0 0; font-size: 14px; color: #64748b;'>" +
+                    "              Samuel Gnanam IT Centre<br/>" +
+                    "              Tel: (+94) 21 221 4209 | <a href='https://www.samuelgnanam.com' style='color: #d97706; text-decoration: none; font-weight: 600;'>samuelgnanam.com</a>"
+                    +
+                    "            </p>" +
+                    "          </div>" +
+                    "        </td>" +
+                    "      </tr>" +
+                    "      <tr>" +
+                    "        <td align='center' bgcolor='#f8fafc' style='padding: 30px; color: #94a3b8; font-size: 12px; border-top: 1px solid #f1f5f9;'>"
+                    +
+                    "          &copy; 2026 Samuel Gnanam IT Centre. Powered by SGIC Recruitment Portal." +
+                    "        </td>" +
+                    "      </tr>" +
+                    "    </table>" +
+                    "  </center>" +
+                    "</body></html>";
 
             message.setContent(htmlContent, "text/html; charset=utf-8");
             transport.sendMessage(message, message.getAllRecipients());

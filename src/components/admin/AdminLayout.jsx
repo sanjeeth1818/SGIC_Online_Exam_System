@@ -5,11 +5,19 @@ import { LayoutDashboard, FolderTree, FileQuestion, FilePlus, ClipboardList, Set
 const AdminLayout = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const [refreshKey, setRefreshKey] = React.useState(0);
 
     const handleLogout = () => {
         localStorage.removeItem('adminToken');
         localStorage.removeItem('adminUser');
         navigate('/admin/login', { replace: true });
+    };
+
+    const handleNavClick = (path, e) => {
+        // If clicking the currently active path, increment refreshKey to force re-mount
+        if (location.pathname === path) {
+            setRefreshKey(prev => prev + 1);
+        }
     };
 
     const navItems = [
@@ -23,7 +31,7 @@ const AdminLayout = () => {
     ];
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-app)' }}>
+        <div style={{ display: 'flex', height: '100vh', width: '100vw', background: 'var(--bg-app)', overflow: 'hidden' }}>
             {/* Sidebar */}
             <aside style={{
                 width: '260px',
@@ -32,10 +40,11 @@ const AdminLayout = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 position: 'fixed',
-                left: 0,
                 top: 0,
-                bottom: 0,
-                zIndex: 100
+                left: 0,
+                height: '100vh',
+                zIndex: 1000,
+                flexShrink: 0
             }}>
                 <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                     <img
@@ -49,13 +58,14 @@ const AdminLayout = () => {
                     </div>
                 </div>
 
-                <nav style={{ padding: '1.5rem 1rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', overflowY: 'auto' }}>
+                <nav style={{ padding: '1.5rem 1rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', overflow: 'hidden' }}>
                     {navItems.map((item) => {
                         const isActive = location.pathname.startsWith(item.path);
                         return (
                             <NavLink
                                 key={item.name}
                                 to={item.path}
+                                onClick={(e) => handleNavClick(item.path, e)}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -104,8 +114,16 @@ const AdminLayout = () => {
             </aside>
 
             {/* Main Content */}
-            <main style={{ flex: 1, padding: '2rem 3rem', marginLeft: '260px', overflowY: 'auto' }}>
-                <Outlet />
+            <main style={{
+                flex: 1,
+                marginLeft: '260px',
+                height: '100vh',
+                overflowY: 'auto',
+                background: 'var(--bg-app)',
+                padding: '2rem 3rem',
+                minWidth: 0
+            }}>
+                <Outlet key={location.pathname + refreshKey} />
             </main>
         </div>
     );
