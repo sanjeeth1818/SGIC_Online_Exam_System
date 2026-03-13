@@ -4,7 +4,7 @@ import com.sgic.exam.model.EmailConfig;
 import com.sgic.exam.model.Student;
 import com.sgic.exam.model.Test;
 import com.sgic.exam.model.Submission;
-import com.sgic.exam.controller.SubmissionController.QuestionResult;
+import com.sgic.exam.dto.QuestionResult;
 import com.sgic.exam.repository.EmailConfigRepository;
 import com.sgic.exam.repository.AdminRepository;
 import com.sgic.exam.repository.StudentExamCodeRepository;
@@ -12,7 +12,6 @@ import com.sgic.exam.model.Admin;
 import com.sgic.exam.model.TestCategoryConfig;
 import com.sgic.exam.model.TestStudentGroup;
 import com.sgic.exam.model.StudentExamCode;
-import com.sgic.exam.controller.SubmissionController;
 import jakarta.mail.*;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
@@ -888,7 +887,7 @@ public class EmailService {
 
     @Async
     public void sendAdminStudentFinishedNotification(Student student, Test test, Submission submission,
-            List<SubmissionController.QuestionResult> breakdown, LocalDateTime startedAt) {
+            List<QuestionResult> breakdown, LocalDateTime startedAt) {
         System.out.println("Attempting to send Admin notification for student completion: " + student.getName());
         EmailConfig config = emailConfigRepository.findByConfigName(PRIMARY_CONFIG).orElse(null);
         if (config == null)
@@ -945,7 +944,7 @@ public class EmailService {
 
             // Category Breakdown Logic
             Map<String, int[]> catStats = new HashMap<>(); // [correct, total]
-            for (SubmissionController.QuestionResult qr : breakdown) {
+            for (QuestionResult qr : breakdown) {
                 String cat = qr.getCategoryName() != null ? qr.getCategoryName() : "Uncategorized";
                 int[] stats = catStats.computeIfAbsent(cat, k -> new int[2]);
                 stats[1]++;
@@ -980,7 +979,7 @@ public class EmailService {
             StringBuilder qHtml = new StringBuilder();
             qHtml.append("<div style='margin-top:20px;'>");
             for (int i = 0; i < breakdown.size(); i++) {
-                SubmissionController.QuestionResult qr = breakdown.get(i);
+                QuestionResult qr = breakdown.get(i);
                 String color = qr.isCorrect() ? "#16a34a" : "#dc2626";
                 qHtml.append(
                         "<div style='margin-bottom:15px; padding:15px; border:1px solid #e2e8f0; border-radius:8px;'>")

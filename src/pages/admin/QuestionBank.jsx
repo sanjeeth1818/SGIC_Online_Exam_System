@@ -223,6 +223,28 @@ const QuestionBank = () => {
         URL.revokeObjectURL(url);
     };
 
+    const handleDownload = async () => {
+        try {
+            const url = selectedCategory
+                ? `/api/questions/export?categoryId=${selectedCategory.id}`
+                : '/api/questions/export';
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Export failed');
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = selectedCategory
+                ? `${selectedCategory.name.replace(/\s+/g, '_')}_questions.csv`
+                : 'question_bank.csv';
+            a.click();
+            URL.revokeObjectURL(objectUrl);
+            setNotification({ type: 'success', message: 'Question bank exported successfully!' });
+        } catch (error) {
+            setNotification({ type: 'error', message: 'Failed to export questions.' });
+        }
+    };
+
     const openBulkUpload = () => {
         setUploadFile(null);
         setUploadResult(null);
@@ -314,6 +336,23 @@ const QuestionBank = () => {
                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                         />
                     </div>
+                    <button
+                        id="download-question-bank-btn"
+                        onClick={handleDownload}
+                        title={selectedCategory ? `Download ${selectedCategory.name} questions as CSV` : 'Download all questions as CSV'}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '0.625rem',
+                            background: 'var(--bg-surface)', color: 'var(--text-primary)',
+                            padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)',
+                            fontWeight: 700, transition: 'all 0.2s',
+                            border: '1px solid var(--border)', cursor: 'pointer'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#10b981'; e.currentTarget.style.color = '#10b981'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                    >
+                        <Download size={18} />
+                        Download CSV
+                    </button>
                     <button
                         onClick={openBulkUpload}
                         style={{
