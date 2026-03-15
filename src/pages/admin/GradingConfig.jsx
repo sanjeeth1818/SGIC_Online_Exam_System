@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Save, Plus, Trash2, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { LayoutGrid, Save, Plus, Trash2 } from 'lucide-react';
 
 const GradingConfig = () => {
-    const navigate = useNavigate();
     const [notification, setNotification] = useState(null);
     const [gradingScales, setGradingScales] = useState([
         { gradeLabel: 'A', minScore: 75, colorHex: '#16a34a' },
@@ -78,16 +76,8 @@ const GradingConfig = () => {
                 </div>
             )}
 
-            <div style={{ marginBottom: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                    <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Grading Configuration</h1>
-                </div>
-                <button
-                    onClick={() => navigate(-1)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', borderRadius: '10px', background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
-                >
-                    <ArrowLeft size={18} /> Back
-                </button>
+            <div style={{ marginBottom: '2.5rem' }}>
+                <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Grading Configuration</h1>
             </div>
 
             <div style={{ background: 'var(--bg-surface)', padding: '2.5rem', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
