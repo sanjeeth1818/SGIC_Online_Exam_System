@@ -8,7 +8,7 @@ const Categories = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState(null);
     const [categoryToDelete, setCategoryToDelete] = useState(null);
-    const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: '#1e40af' });
+    const [categoryForm, setCategoryForm] = useState({ name: '', color: '#1e40af' });
     const [notification, setNotification] = useState(null);
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -39,16 +39,16 @@ const Categories = () => {
     const handleOpenModal = (category = null) => {
         if (category) {
             setEditingCategory(category);
-            setCategoryForm({ name: category.name, description: category.description, color: category.color || '#1e40af' });
+            setCategoryForm({ name: category.name, color: category.color || '#1e40af' });
         } else {
             setEditingCategory(null);
-            setCategoryForm({ name: '', description: '', color: '#1e40af' });
+            setCategoryForm({ name: '', color: '#1e40af' });
         }
         setIsModalOpen(true);
     };
 
     const handleSave = async () => {
-        if (!categoryForm.name || !categoryForm.description) return;
+        if (!categoryForm.name) return;
 
         try {
             if (editingCategory) {
@@ -61,7 +61,10 @@ const Categories = () => {
                         questionCount: editingCategory.questionCount
                     })
                 });
-                if (!res.ok) throw new Error('Failed to update');
+                if (!res.ok) {
+                    const errMsg = await res.text();
+                    throw new Error(errMsg || 'Failed to update');
+                }
                 setNotification({ type: 'success', message: 'Category updated successfully!' });
             } else {
                 const res = await fetch('/api/categories', {
@@ -69,14 +72,17 @@ const Categories = () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...categoryForm, status: 'Active', questionCount: 0 })
                 });
-                if (!res.ok) throw new Error('Failed to create');
+                if (!res.ok) {
+                    const errMsg = await res.text();
+                    throw new Error(errMsg || 'Failed to create');
+                }
                 setNotification({ type: 'success', message: 'Category created successfully!' });
             }
             fetchCategories();
             setIsModalOpen(false);
         } catch (error) {
             console.error(error);
-            setNotification({ type: 'error', message: 'Failed to save category.' });
+            setNotification({ type: 'error', message: error.message || 'Failed to save category.' });
         }
     };
 
@@ -120,8 +126,7 @@ const Categories = () => {
     };
 
     const filteredCategories = categories.filter(cat =>
-        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cat.description?.toLowerCase().includes(searchTerm.toLowerCase())
+        cat.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -130,13 +135,14 @@ const Categories = () => {
             {notification && (
                 <div style={{
                     position: 'fixed', top: '2rem', right: '2rem',
-                    background: 'var(--success)', color: 'white',
+                    background: notification.type === 'success' ? 'var(--success)' : 'var(--error)', 
+                    color: 'white',
                     padding: '1rem 2rem', borderRadius: 'var(--radius-md)',
                     boxShadow: 'var(--shadow-lg)', zIndex: 2000,
                     display: 'flex', alignItems: 'center', gap: '0.75rem',
                     animation: 'slideIn 0.3s ease-out'
                 }}>
-                    <Check size={20} />
+                    {notification.type === 'success' ? <Check size={20} /> : <AlertTriangle size={20} />}
                     <span style={{ fontWeight: 500 }}>{notification.message}</span>
                 </div>
             )}
@@ -188,7 +194,6 @@ const Categories = () => {
                         <thead style={{ background: 'var(--bg-app)', borderBottom: '1px solid var(--border)' }}>
                             <tr>
                                 <th style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Category Name</th>
-                                <th style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Description</th>
                                 <th style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center' }}>Actions</th>
                             </tr>
                         </thead>
@@ -210,10 +215,6 @@ const Categories = () => {
                                             <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{cat.name}</span>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                                        {cat.description}
-                                    </td>
-
                                     <td style={{ padding: '1.25rem 1.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                             <button
@@ -272,16 +273,6 @@ const Categories = () => {
                                 />
                             </div>
 
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>Description</label>
-                                <textarea
-                                    value={categoryForm.description}
-                                    onChange={e => setCategoryForm({ ...categoryForm, description: e.target.value })}
-                                    rows="3"
-                                    style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', outline: 'none', resize: 'none' }}
-                                    placeholder="Enter category details..."
-                                />
-                            </div>
 
                             <div>
                                 <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600, fontSize: '0.875rem' }}>Folder Color</label>

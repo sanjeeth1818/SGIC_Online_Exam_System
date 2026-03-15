@@ -1047,7 +1047,7 @@ const Students = () => {
                                         className="btn-primary"
                                         style={{ padding: '0.75rem 2.5rem' }}
                                     >
-                                        {submitting ? 'Registering...' : (editingId ? 'Update Identity' : 'Enroll Student')}
+                                        {submitting ? 'Registering...' : (editingId ? 'Update Identity' : 'Add Student')}
                                     </button>
                                 </div>
                             </form>

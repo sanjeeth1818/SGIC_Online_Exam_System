@@ -27,9 +27,15 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public Category createCategory(CategoryRequest request) {
+        if (categoryRepository.findByNameIgnoreCase(request.getName().trim()).isPresent()) {
+            throw new RuntimeException("Category with name '" + request.getName() + "' already exists.");
+        }
+        if (categoryRepository.findByColor(request.getColor()).isPresent()) {
+            throw new RuntimeException("Category with this color already exists.");
+        }
+
         Category category = new Category();
-        category.setName(request.getName());
-        category.setDescription(request.getDescription());
+        category.setName(request.getName().trim());
         category.setColor(request.getColor());
         category.setStatus(request.getStatus() != null ? request.getStatus() : "Active");
         category.setQuestionCount(request.getQuestionCount() != null ? request.getQuestionCount() : 0);
@@ -43,12 +49,25 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
 
-        if (request.getName() != null)
-            category.setName(request.getName());
-        if (request.getDescription() != null)
-            category.setDescription(request.getDescription());
-        if (request.getColor() != null)
+        if (request.getName() != null) {
+            String newName = request.getName().trim();
+            categoryRepository.findByNameIgnoreCase(newName).ifPresent(existing -> {
+                if (!existing.getId().equals(id)) {
+                    throw new RuntimeException("Category with name '" + newName + "' already exists.");
+                }
+            });
+            category.setName(newName);
+        }
+        
+        if (request.getColor() != null) {
+            categoryRepository.findByColor(request.getColor()).ifPresent(existing -> {
+                if (!existing.getId().equals(id)) {
+                    throw new RuntimeException("Category with this color already exists.");
+                }
+            });
             category.setColor(request.getColor());
+        }
+
         if (request.getStatus() != null)
             category.setStatus(request.getStatus());
         if (request.getQuestionCount() != null)
