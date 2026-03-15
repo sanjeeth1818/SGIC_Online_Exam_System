@@ -122,33 +122,7 @@ const ExamInterface = () => {
 
             setBaseDuration(durationSeconds);
 
-            // TIMER PERSISTENCE: Check when the exam actually started
-            let effectiveStartTime = Date.now();
-            let initialTimeLeft = durationSeconds;
-
-            const serverStartedAt = testData.startedAt || sessionStorage.getItem('examStartedAt');
-            if (serverStartedAt) {
-                const startTimeMs = new Date(serverStartedAt).getTime();
-                const nowMs = Date.now();
-                const elapsedSeconds = Math.floor((nowMs - startTimeMs) / 1000);
-
-                initialTimeLeft = Math.max(0, durationSeconds - elapsedSeconds);
-                effectiveStartTime = nowMs; // Timer continues from NOW but with reduced initialTimeLeft
-                console.log(`Timer Sync: ${elapsedSeconds}s elapsed. Remaining: ${initialTimeLeft}s`);
-            }
-
-            setInitialTimeForStep(initialTimeLeft);
-            setTimeLeft(initialTimeLeft);
-            setStartTime(effectiveStartTime);
-
-            // Force 'step' mode if timing is per question
-            if (tMode === 'question') {
-                setMode('step');
-            } else {
-                setMode(testData.examMode || 'scroll');
-            }
-
-            // Fetch questions
+            // Fetch questions FIRST to know length
             const questRes = await fetch(`/api/exam-portal/questions/${code}`);
             if (!questRes.ok) throw new Error('Failed to fetch questions');
             const questData = await questRes.json();
@@ -162,13 +136,72 @@ const ExamInterface = () => {
 
             setQuestions(questionsList);
 
-            // Initialize per-question times if in question mode
+            // NAVIGATION PERSISTENCE: Restore question position FIRST (so timers map correctly)
+            let activeStepIndex = 0;
+            const savedStep = sessionStorage.getItem('examCurrentStep');
+            if (savedStep && parseInt(savedStep) < questionsList.length) {
+                activeStepIndex = parseInt(savedStep);
+                setCurrentStep(activeStepIndex);
+            }
+
+            // TIMER PERSISTENCE
+            let effectiveStartTime = Date.now();
+            let initialTimeLeft = durationSeconds;
+
             if (tMode === 'question') {
-                const initialTimes = {};
+                // Per-Question Mode Timer Logic
+                let initialTimes = {};
+                const cachedTimes = sessionStorage.getItem(`examPerQuestionTime_${code}`);
+                
+                if (cachedTimes) {
+                    try { initialTimes = JSON.parse(cachedTimes); } 
+                    catch (e) { console.error("Could not parse cached times", e); }
+                }
+
+                // Fill any missing questions with max duration
                 questionsList.forEach((_, idx) => {
-                    initialTimes[idx] = durationSeconds; // Each question gets full duration initially
+                    if (initialTimes[idx] === undefined) {
+                        initialTimes[idx] = durationSeconds;
+                    }
                 });
+
+                // Calculate offline drain for the active question
+                let activeTimeLeft = initialTimes[activeStepIndex];
+                const activeStartedAt = sessionStorage.getItem(`examActiveQuestionStartedAt_${code}`);
+                
+                if (activeStartedAt) {
+                    const elapsedSinceActiveStarted = Math.floor((Date.now() - parseInt(activeStartedAt)) / 1000);
+                    // Deduct the time spent while offline/refreshing
+                    activeTimeLeft = Math.max(0, activeTimeLeft - elapsedSinceActiveStarted);
+                    initialTimes[activeStepIndex] = activeTimeLeft; // Update dictionary
+                }
+
                 setPerQuestionTime(initialTimes);
+                sessionStorage.setItem(`examPerQuestionTime_${code}`, JSON.stringify(initialTimes));
+                
+                // Reset local anchor to NOW
+                setInitialTimeForStep(activeTimeLeft);
+                setTimeLeft(activeTimeLeft);
+                setStartTime(Date.now());
+                sessionStorage.setItem(`examActiveQuestionStartedAt_${code}`, Date.now().toString());
+
+                setMode('step'); // Force step mode
+            } else {
+                // Global Mode Timer Logic
+                const serverStartedAt = testData.startedAt || sessionStorage.getItem('examStartedAt');
+                if (serverStartedAt) {
+                    const startTimeMs = new Date(serverStartedAt).getTime();
+                    const nowMs = Date.now();
+                    const elapsedSeconds = Math.floor((nowMs - startTimeMs) / 1000);
+
+                    initialTimeLeft = Math.max(0, durationSeconds - elapsedSeconds);
+                    effectiveStartTime = nowMs; // Timer continues from NOW
+                }
+
+                setInitialTimeForStep(initialTimeLeft);
+                setTimeLeft(initialTimeLeft);
+                setStartTime(effectiveStartTime);
+                setMode(testData.examMode || 'scroll');
             }
 
             // Initialize time spent
@@ -201,11 +234,7 @@ const ExamInterface = () => {
                 }
             }
 
-            // NAVIGATION PERSISTENCE: Restore question position
-            const savedStep = sessionStorage.getItem('examCurrentStep');
-            if (savedStep && parseInt(savedStep) < questionsList.length) {
-                setCurrentStep(parseInt(savedStep));
-            }
+            // (Navigation persistence moved to top of block)
 
             setIsLoading(false);
         } catch (error) {
@@ -335,10 +364,15 @@ const ExamInterface = () => {
         // 1. Calculate and save remaining time for current step
         if (timeMode === 'question') {
             const currentRemaining = Math.max(0, initialTimeForStep - elapsed);
-            setPerQuestionTime(prev => ({ ...prev, [currentStep]: currentRemaining }));
+            
+            // Atomically update perQuestionTime immediately in session storage
+            const updatedTimes = { ...perQuestionTime, [currentStep]: currentRemaining };
+            setPerQuestionTime(updatedTimes);
+            sessionStorage.setItem(`examPerQuestionTime_${sessionStorage.getItem('currentExamCode')}`, JSON.stringify(updatedTimes));
 
             // 2. Prepare for next step
-            setInitialTimeForStep(perQuestionTime[newStep] ?? baseDuration);
+            setInitialTimeForStep(updatedTimes[newStep] ?? baseDuration);
+
         } else {
             // Whole Test Mode: We MUST carry over the remaining time to the next question
             setInitialTimeForStep(prev => Math.max(0, prev - elapsed));
@@ -355,9 +389,12 @@ const ExamInterface = () => {
         sessionStorage.setItem('examCurrentStep', newStep.toString());
         saveProgress(updatedSpent);
 
-        // 5. Reset anchors
+        // 5. Reset anchors strictly inside navigation boundary
         setStartTime(Date.now());
         setCurrentStep(newStep);
+        if (timeMode === 'question') {
+            sessionStorage.setItem(`examActiveQuestionStartedAt_${sessionStorage.getItem('currentExamCode')}`, Date.now().toString());
+        }
     }, [isTransitioning, startTime, questions, currentStep, timeMode, initialTimeForStep, perQuestionTime, baseDuration, timeSpent, saveProgress]);
 
     useEffect(() => {
@@ -567,89 +604,93 @@ const ExamInterface = () => {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease' }}>
 
             {/* Background Mask */}
-            <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '220px',
-                background: 'var(--bg-app)',
-                zIndex: 30
-            }}></div>
+            {mode === 'scroll' && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '220px',
+                    background: 'var(--bg-app)',
+                    zIndex: 30
+                }}></div>
+            )}
 
             {/* Fixed Progress Bar */}
-            <div style={{
-                position: 'fixed',
-                top: '110px',
-                left: '2rem',
-                right: '2rem',
-                zIndex: 40,
-                background: 'var(--bg-surface)',
-                padding: '1.5rem',
-                borderRadius: 'var(--radius-xl)',
-                boxShadow: 'var(--shadow-md)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                maxWidth: 'calc(100vw - 4rem)'
-            }}>
-                <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500 }}>
-                        <span>Progress: {answeredCount} / {questions.length} Answered</span>
-                        <span>{Math.round(progressPercent)}%</span>
-                    </div>
-                    <div style={{ height: '8px', background: 'var(--bg-app)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', background: 'var(--success)', width: `${progressPercent}%`, transition: 'width 0.3s ease' }}></div>
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginLeft: '3rem' }}>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        background: timeLeft < baseDuration * 0.2 ? 'var(--error-bg)' : timeLeft < baseDuration * 0.5 ? 'rgba(245, 158, 11, 0.1)' : 'var(--success-bg)',
-                        color: timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)',
-                        padding: '0.75rem 1.25rem',
-                        borderRadius: 'var(--radius-md)',
-                        fontWeight: 700,
-                        fontSize: '1.25rem',
-                        transition: 'all 0.3s ease',
-                        border: `1px solid ${timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)'}`
-                    }}>
-                        <Clock size={22} className={timeLeft < 10 ? 'animate-pulse' : ''} />
-                        <span style={{ fontFamily: 'monospace' }}>{formatTime(timeLeft)}</span>
+            {mode === 'scroll' && (
+                <div style={{
+                    position: 'fixed',
+                    top: '110px',
+                    left: '2rem',
+                    right: '2rem',
+                    zIndex: 40,
+                    background: 'var(--bg-surface)',
+                    padding: '1.5rem',
+                    borderRadius: 'var(--radius-xl)',
+                    boxShadow: 'var(--shadow-md)',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    maxWidth: 'calc(100vw - 4rem)'
+                }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500 }}>
+                            <span>Progress: {answeredCount} / {questions.length} Answered</span>
+                            <span>{Math.round(progressPercent)}%</span>
+                        </div>
+                        <div style={{ height: '8px', background: 'var(--bg-app)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', background: 'var(--success)', width: `${progressPercent}%`, transition: 'width 0.3s ease' }}></div>
+                        </div>
                     </div>
 
-                    <button
-                        onClick={handleSubmit}
-                        disabled={isSubmitting}
-                        style={{
-                            padding: '0.75rem 2rem',
-                            background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)',
-                            color: 'white',
-                            borderRadius: 'var(--radius-md)',
-                            fontWeight: 600,
-                            border: 'none',
-                            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                            boxShadow: 'var(--shadow-sm)',
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginLeft: '3rem' }}>
+                        <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem'
-                        }}
-                    >
-                        {isSubmitting ? (
-                            <>
-                                <Loader2 size={18} className="animate-spin" />
-                                Submitting...
-                            </>
-                        ) : 'Submit Test'}
-                    </button>
-                </div>
-            </div>
+                            gap: '0.75rem',
+                            background: timeLeft < baseDuration * 0.2 ? 'var(--error-bg)' : timeLeft < baseDuration * 0.5 ? 'rgba(245, 158, 11, 0.1)' : 'var(--success-bg)',
+                            color: timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)',
+                            padding: '0.75rem 1.25rem',
+                            borderRadius: 'var(--radius-md)',
+                            fontWeight: 700,
+                            fontSize: '1.25rem',
+                            transition: 'all 0.3s ease',
+                            border: `1px solid ${timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)'}`
+                        }}>
+                            <Clock size={22} className={timeLeft < 10 ? 'animate-pulse' : ''} />
+                            <span style={{ fontFamily: 'monospace' }}>{formatTime(timeLeft)}</span>
+                        </div>
 
-            <div style={{ height: '130px' }}></div>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            style={{
+                                padding: '0.75rem 2rem',
+                                background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)',
+                                color: 'white',
+                                borderRadius: 'var(--radius-md)',
+                                fontWeight: 600,
+                                border: 'none',
+                                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                                boxShadow: 'var(--shadow-sm)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 size={18} className="animate-spin" />
+                                    Submitting...
+                                </>
+                            ) : 'Submit Test'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div style={{ height: mode === 'scroll' ? '130px' : '20px' }}></div>
 
             {mode === 'scroll' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
@@ -711,70 +752,128 @@ const ExamInterface = () => {
                     ))}
                 </div>
             ) : (
-                <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <div style={{ flex: 1, background: 'var(--bg-surface)', padding: '3rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-
-                        <div style={{ fontSize: '1rem', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            Question {currentStep + 1} of {questions.length}
+                <div style={{ maxWidth: '100%', padding: '0 3rem', margin: '0 auto', width: '100%', display: 'flex', gap: '2rem', paddingBottom: '3rem', alignItems: 'flex-start' }}>
+                    
+                    {/* Left Sidebar: Progress & Navigation */}
+                    <div style={{ width: '300px', flexShrink: 0, background: 'var(--bg-surface)', padding: '1.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)' }}>
+                        <div style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>
+                                Progress
+                            </div>
+                            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {answeredCount} <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, fontSize: '1rem' }}>of {questions.length} answered</span>
+                            </div>
+                            <div style={{ height: '6px', background: 'var(--bg-app)', borderRadius: '3px', marginTop: '1rem', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', background: 'var(--success)', width: `${progressPercent}%`, transition: 'width 0.3s ease' }}></div>
+                            </div>
                         </div>
 
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 500, lineHeight: 1.5, marginBottom: '3rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>
+                            Questions
+                        </div>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+                            {questions.map((q, idx) => {
+                                const isCurrent = currentStep === idx;
+                                // Check if answer exists and is not an empty string or null
+                                const isAnswered = answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== '';
+
+                                return (
+                                    <button
+                                        key={q.id}
+                                        onClick={() => handleStepChange(idx)}
+                                        style={{
+                                            aspectRatio: '1',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontWeight: 600,
+                                            fontSize: '0.875rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            // Dynamic Styling based on state
+                                            background: isCurrent ? 'var(--primary)' : isAnswered ? 'var(--success-bg)' : 'transparent',
+                                            color: isCurrent ? 'white' : isAnswered ? 'var(--success)' : 'var(--text-secondary)',
+                                            border: `1px solid ${isCurrent ? 'var(--primary)' : isAnswered ? 'var(--success)' : 'var(--border)'}`,
+                                            boxShadow: isCurrent ? 'var(--shadow-sm)' : 'none'
+                                        }}
+                                        title={isAnswered ? `Question ${idx + 1} (Answered)` : `Question ${idx + 1}`}
+                                    >
+                                        {idx + 1}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Main Question Interface */}
+                    <div style={{ flex: 1, maxWidth: '1000px', margin: '0 auto', background: 'var(--bg-surface)', padding: '2.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Question {currentStep + 1} of {questions.length}
+                            </div>
+                        </div>
+
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 500, lineHeight: 1.6, marginBottom: '2rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
                             {questions[currentStep]?.text}
                         </h3>
 
-                        {questions[currentStep]?.type === 'mcq' ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1, opacity: timeLeft === 0 && timeMode === 'question' ? 0.6 : 1, pointerEvents: (timeLeft === 0 && timeMode === 'question') || isSubmitting ? 'none' : 'auto' }}>
-                                {questions[currentStep].options.map((opt, i) => (
-                                    <label key={i} style={{
-                                        display: 'flex', alignItems: 'center', gap: '1rem',
-                                        padding: '1.25rem', borderRadius: 'var(--radius-md)',
-                                        border: `2px solid ${answers[questions[currentStep].id] === opt ? 'var(--primary)' : 'var(--border)'}`,
-                                        background: answers[questions[currentStep].id] === opt ? 'var(--primary-light)' : 'transparent',
-                                        cursor: 'pointer', transition: 'all var(--transition-fast)'
-                                    }}
-                                        onMouseEnter={e => { if (answers[questions[currentStep].id] !== opt) e.currentTarget.style.background = 'var(--bg-surface-hover)' }}
-                                        onMouseLeave={e => { if (answers[questions[currentStep].id] !== opt) e.currentTarget.style.background = 'transparent' }}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name={`q-${questions[currentStep].id}`}
-                                            checked={answers[questions[currentStep].id] === opt}
-                                            onChange={() => handleAnswerChange(questions[currentStep].id, opt)}
-                                            style={{ width: '24px', height: '24px', accentColor: 'var(--primary)' }}
-                                            disabled={(timeLeft === 0 && timeMode === 'question') || isSubmitting}
-                                        />
-                                        <span style={{ fontSize: '1.125rem' }}>{opt}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        ) : (
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <textarea
-                                    rows="8"
-                                    placeholder="Type your answer here..."
-                                    value={answers[questions[currentStep]?.id] || ''}
-                                    onChange={(e) => handleAnswerChange(questions[currentStep].id, e.target.value)}
-                                    disabled={(timeLeft === 0 && timeMode === 'question') || isSubmitting}
-                                    style={{
-                                        flex: 1, width: '100%', padding: '1.5rem', borderRadius: 'var(--radius-md)',
-                                        border: '2px solid var(--border)', fontSize: '1.125rem', outline: 'none',
-                                        fontFamily: 'inherit', resize: 'none',
-                                        background: timeLeft === 0 && timeMode === 'question' ? 'var(--bg-app)' : 'transparent',
-                                        transition: 'border-color var(--transition-fast)',
-                                        opacity: timeLeft === 0 && timeMode === 'question' ? 0.6 : 1
-                                    }}
-                                    onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                                    onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                                />
-                                {timeLeft === 0 && timeMode === 'question' && (
-                                    <div style={{ color: 'var(--error)', fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <Clock size={16} /> Time expired for this question.
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        <div style={{ marginBottom: '2.5rem' }}>
+                            {questions[currentStep]?.type === 'mcq' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: timeLeft === 0 && timeMode === 'question' ? 0.6 : 1, pointerEvents: (timeLeft === 0 && timeMode === 'question') || isSubmitting ? 'none' : 'auto' }}>
+                                    {questions[currentStep].options.map((opt, i) => (
+                                        <label key={i} style={{
+                                            display: 'flex', alignItems: 'center', gap: '1rem',
+                                            padding: '1rem', borderRadius: 'var(--radius-md)',
+                                            border: `2px solid ${answers[questions[currentStep].id] === opt ? 'var(--primary)' : 'var(--border)'}`,
+                                            background: answers[questions[currentStep].id] === opt ? 'var(--primary-light)' : 'transparent',
+                                            cursor: 'pointer', transition: 'all var(--transition-fast)'
+                                        }}
+                                            onMouseEnter={e => { if (answers[questions[currentStep].id] !== opt) e.currentTarget.style.background = 'var(--bg-surface-hover)' }}
+                                            onMouseLeave={e => { if (answers[questions[currentStep].id] !== opt) e.currentTarget.style.background = 'transparent' }}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name={`q-${questions[currentStep].id}`}
+                                                checked={answers[questions[currentStep].id] === opt}
+                                                onChange={() => handleAnswerChange(questions[currentStep].id, opt)}
+                                                style={{ width: '22px', height: '22px', accentColor: 'var(--primary)', flexShrink: 0 }}
+                                                disabled={(timeLeft === 0 && timeMode === 'question') || isSubmitting}
+                                            />
+                                            <span style={{ fontSize: '1.0625rem', flex: 1 }}>{opt}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <textarea
+                                        placeholder="Type your answer here..."
+                                        value={answers[questions[currentStep]?.id] || ''}
+                                        onChange={(e) => handleAnswerChange(questions[currentStep].id, e.target.value)}
+                                        disabled={(timeLeft === 0 && timeMode === 'question') || isSubmitting}
+                                        style={{
+                                            width: '100%', padding: '1.25rem', borderRadius: 'var(--radius-md)',
+                                            border: '2px solid var(--border)', fontSize: '1rem', outline: 'none',
+                                            fontFamily: 'inherit', resize: 'vertical', minHeight: '150px',
+                                            background: timeLeft === 0 && timeMode === 'question' ? 'var(--bg-app)' : 'transparent',
+                                            transition: 'border-color var(--transition-fast)',
+                                            opacity: timeLeft === 0 && timeMode === 'question' ? 0.6 : 1
+                                        }}
+                                        onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                        onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                    />
+                                    {timeLeft === 0 && timeMode === 'question' && (
+                                        <div style={{ color: 'var(--error)', fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <Clock size={16} /> Time expired for this question.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
                             <button
                                 disabled={currentStep === 0 || isTransitioning || isSubmitting}
                                 onClick={() => handleStepChange(currentStep - 1)}
@@ -782,17 +881,107 @@ const ExamInterface = () => {
                             >
                                 Previous
                             </button>
-                            <button
-                                disabled={isTransitioning || isSubmitting}
-                                onClick={() => {
-                                    if (currentStep < questions.length - 1) handleStepChange(currentStep + 1);
-                                    else handleSubmit();
-                                }}
-                                style={{ padding: '0.75rem 2rem', background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: (isTransitioning || isSubmitting) ? 'default' : 'pointer', boxShadow: 'var(--shadow-sm)' }}
-                            >
-                                {isSubmitting ? 'Processing...' : (currentStep === questions.length - 1 ? 'Finish' : 'Next Question')}
-                            </button>
+                            {currentStep === questions.length - 1 ? (
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting}
+                                    style={{
+                                        padding: '0.75rem 2rem', background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)'
+                                    }}
+                                >
+                                    Finish Exam
+                                </button>
+                            ) : (
+                                <button
+                                    disabled={isTransitioning || isSubmitting}
+                                    onClick={() => handleStepChange(currentStep + 1)}
+                                    style={{ padding: '0.75rem 2rem', background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: (isTransitioning || isSubmitting) ? 'default' : 'pointer', boxShadow: 'var(--shadow-sm)' }}
+                                >
+                                    Next Question
+                                </button>
+                            )}
                         </div>
+                    </div>
+
+                    {/* Right Sidebar: Timer & Actions */}
+                    <div style={{ width: '300px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        
+                        {/* Timer Card */}
+                        <div style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1.5rem' }}>
+                                Time Remaining
+                            </div>
+
+                            <div style={{ position: 'relative', width: '180px', height: '180px' }}>
+                                <svg width="180" height="180" viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)' }}>
+                                    {/* Track */}
+                                    <circle
+                                        cx="90" cy="90" r="80"
+                                        fill="none"
+                                        stroke="var(--bg-app)"
+                                        strokeWidth="12"
+                                    />
+                                    {/* Progress */}
+                                    <circle
+                                        cx="90" cy="90" r="80"
+                                        fill="none"
+                                        stroke={timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)'}
+                                        strokeWidth="12"
+                                        strokeLinecap="round"
+                                        strokeDasharray={2 * Math.PI * 80}
+                                        strokeDashoffset={(2 * Math.PI * 80) * (1 - (timeLeft / baseDuration))}
+                                        style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s ease' }}
+                                    />
+                                </svg>
+                                
+                                <div style={{
+                                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '2rem', fontWeight: 800,
+                                    color: timeLeft < baseDuration * 0.2 ? 'var(--error)' : 'var(--text-primary)',
+                                    fontFamily: 'monospace',
+                                    transition: 'color 0.3s ease'
+                                }}>
+                                    {formatTime(timeLeft)}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Submit Action Card */}
+                        <div style={{ background: 'var(--bg-surface)', padding: '1.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)' }}>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={isSubmitting}
+                                style={{
+                                    width: '100%',
+                                    padding: '1rem',
+                                    background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)',
+                                    color: 'white',
+                                    fontSize: '1.125rem',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontWeight: 700,
+                                    border: 'none',
+                                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                                    boxShadow: 'var(--shadow-md)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 size={20} className="animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : 'Finish Exam'}
+                            </button>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', textAlign: 'center', marginTop: '1rem' }}>
+                                Ensure all questions are answered before submitting.
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             )}

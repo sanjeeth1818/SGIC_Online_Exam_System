@@ -10,6 +10,7 @@ import QuestionBank from './pages/admin/QuestionBank';
 import CreateTest from './pages/admin/CreateTest';
 import Results from './pages/admin/Results';
 import Settings from './pages/admin/Settings';
+import GradingConfig from './pages/admin/GradingConfig';
 import Login from './pages/admin/Login';
 import Students from './pages/admin/Students';
 
@@ -45,6 +46,7 @@ function App() {
             <Route path="create-test" element={<CreateTest />} />
             <Route path="results" element={<Results />} />
             <Route path="students" element={<Students />} />
+            <Route path="grading" element={<GradingConfig />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>

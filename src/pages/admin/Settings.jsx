@@ -720,7 +720,7 @@ const Settings = () => {
                         </div>
                     )}
                 </div>
-            </div >
+            </div>
 
             {/* Password Verification Modal */}
             {showVerifyModal && (
@@ -806,8 +806,9 @@ const Settings = () => {
                     to { transform: translateY(0); opacity: 1; }
                 }
             `}</style>
-        </div >
+        </div>
     );
 };
 
 export default Settings;
+

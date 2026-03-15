@@ -95,3 +95,5 @@ Use the following credentials to log in to the Admin Panel for the first time:
 > Always ensure the backend is running before performing any actions in the frontend to avoid connection errors!
 
 Happy Coding! ✨
+
+pjetmvokyvplxbxh

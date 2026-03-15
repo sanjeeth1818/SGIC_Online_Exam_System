@@ -6,7 +6,9 @@ const StudentLayout = () => {
     const location = useLocation();
     // Strictly hide the header profile on the root code entry page
     const isLoginPage = location.pathname === '/';
-    const [studentName, setStudentName] = useState(sessionStorage.getItem('studentName') || 'Guest');
+    
+    // Lazy initialize from sessionStorage to ensure the latest value is grabbed on mount
+    const [studentName, setStudentName] = useState(() => sessionStorage.getItem('studentName') || 'Guest');
 
     useEffect(() => {
         const handleNameUpdate = () => {

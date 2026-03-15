@@ -23,7 +23,7 @@ public class TestSchedulerService {
      * Automatically update test statuses based on batch dates.
      * Runs every hour to catch transitions.
      */
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(cron = "* * * * * *")
     public void updateExamStatuses() {
         System.out.println("Running automated exam status update scheduler...");
         List<Test> tests = testRepository.findAll();

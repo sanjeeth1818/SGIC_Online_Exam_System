@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FolderTree, FileQuestion, FilePlus, ClipboardList, Settings, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, FolderTree, FileQuestion, FilePlus, ClipboardList, Settings, LogOut, Users, LayoutGrid } from 'lucide-react';
 
 const AdminLayout = () => {
     const location = useLocation();
@@ -27,6 +27,7 @@ const AdminLayout = () => {
         { name: 'Students', path: '/admin/students', icon: <Users size={20} /> },
         { name: 'Question Bank', path: '/admin/questions', icon: <FileQuestion size={20} /> },
         { name: 'Categories', path: '/admin/categories', icon: <FolderTree size={20} /> },
+        { name: 'Grading Scale', path: '/admin/grading', icon: <LayoutGrid size={20} /> },
         { name: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
     ];
 

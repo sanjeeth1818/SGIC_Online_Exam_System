@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Award, Clock, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 
@@ -9,9 +9,41 @@ const StudentResult = () => {
     const breakdown = data.breakdown || [];
     const studentName = submission.studentName || 'Student';
 
+    const [gradingScales, setGradingScales] = useState([]);
+
+    useEffect(() => {
+        const fetchGradingScales = async () => {
+            try {
+                const res = await fetch('/api/settings/grading');
+                if (res.ok) {
+                    const scales = await res.json();
+                    setGradingScales(scales.sort((a, b) => b.minScore - a.minScore));
+                }
+            } catch (err) {
+                console.error("Failed to fetch grading scales", err);
+            }
+        };
+        fetchGradingScales();
+    }, []);
+
     const scorePercent = submission.totalQuestions > 0
         ? Math.round((submission.score / submission.totalQuestions) * 100)
         : 0;
+
+    const getGradeInfo = (percent) => {
+        if (!gradingScales || gradingScales.length === 0) {
+            // Fallback to legacy hardcoded grading if no scales are configured
+            if (percent >= 75) return { label: 'A', color: '#16a34a' };
+            if (percent >= 60) return { label: 'B', color: '#2563eb' };
+            if (percent >= 45) return { label: 'C', color: '#d97706' };
+            return { label: 'S', color: '#dc2626' };
+        }
+
+        const match = gradingScales.find(s => percent >= s.minScore);
+        return match ? { label: match.gradeLabel, color: match.colorHex } : { label: 'N/A', color: 'var(--text-tertiary)' };
+    };
+
+    const activeGrade = getGradeInfo(scorePercent);
 
     const showAnswers = data.showAnswers !== undefined ? data.showAnswers : true;
 
@@ -44,8 +76,8 @@ const StudentResult = () => {
 
                 <div style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', textAlign: 'center' }}>
                     <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Performance</div>
-                    <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--primary)', lineHeight: 1 }}>
-                        {scorePercent >= 75 ? 'A' : scorePercent >= 60 ? 'B' : scorePercent >= 45 ? 'C' : 'S'}
+                    <div style={{ fontSize: '3rem', fontWeight: 800, color: activeGrade.color, lineHeight: 1 }}>
+                        {activeGrade.label}
                     </div>
                     <div style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem', marginTop: '0.5rem' }}>Based on your score</div>
                 </div>

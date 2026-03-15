@@ -31,7 +31,7 @@ public class ExamExpiryScheduler {
      * If a code is still ACTIVE but the expiryDate (exam date) has passed,
      * it marks the code as EXPIRED and the student as ABSENT.
      */
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(cron = "* * * * * *")
     public void checkExpiredCodes() {
         System.out.println("Running Exam Expiry Check...");
         List<StudentExamCode> activeCodes = studentExamCodeRepository.findAll();

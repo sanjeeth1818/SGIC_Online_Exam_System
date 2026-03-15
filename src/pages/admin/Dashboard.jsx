@@ -609,7 +609,7 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
                             const isPast = !!pastEntry;
                             const isUpcoming = !!upcomingEntry;
                             const dayExams = isPast ? pastEntry.exams : isUpcoming ? upcomingEntry.exams : [];
-                            const isHighlighted = (isPast || isUpcoming) && !isToday;
+                            const isHighlighted = (isPast || isUpcoming);
 
                             let bg = 'transparent', color = 'var(--text-primary)', fontWeight = 500;
                             if (isToday) { bg = 'var(--primary)'; color = 'white'; fontWeight = 800; }
@@ -619,11 +619,12 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
                             return (
                                 <div key={i} style={{ position: 'relative' }}>
                                     <div style={{
-                                        height: `${CELL_SIZE}px`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        height: `${CELL_SIZE}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                         borderRadius: '10px', fontSize: '0.8rem', fontWeight,
                                         color: day ? color : 'transparent', background: day ? bg : 'transparent',
                                         cursor: day ? 'pointer' : 'default', transition: 'all 0.15s', userSelect: 'none',
-                                        boxShadow: isToday ? '0 4px 10px rgba(99,102,241,0.3)' : 'none'
+                                        boxShadow: isToday ? '0 4px 10px rgba(99,102,241,0.3)' : 'none',
+                                        position: 'relative'
                                     }}
                                         onMouseEnter={e => {
                                             if (day && !isToday) { e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; }
@@ -639,7 +640,15 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
                                                 if (tip) tip.style.display = 'none';
                                             }
                                         }}
-                                    >{day}</div>
+                                    >
+                                        <span>{day}</span>
+                                        {isToday && isHighlighted && (
+                                            <div style={{
+                                                width: '4px', height: '4px', borderRadius: '50%',
+                                                background: 'white', marginTop: '2px', position: 'absolute', bottom: '4px'
+                                            }} />
+                                        )}
+                                    </div>
 
                                     {/* Exam Tooltip */}
                                     {isHighlighted && dayExams.length > 0 && (
@@ -661,10 +670,10 @@ const MiniCalendar = ({ activeMonth, setActiveMonth, calendarData }) => {
                                         }}>
                                             <div style={{
                                                 fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase',
-                                                letterSpacing: '0.05em', color: isPast ? 'var(--error)' : 'var(--success)',
+                                                letterSpacing: '0.05em', color: isToday ? 'var(--primary)' : isPast ? 'var(--error)' : 'var(--success)',
                                                 marginBottom: '0.4rem'
                                             }}>
-                                                {isPast ? '📋 Past Exams' : '🗓️ Upcoming Exams'}
+                                                {isToday ? '🎯 Today\'s Exams' : isPast ? '📋 Past Exams' : '🗓️ Upcoming Exams'}
                                             </div>
                                             {dayExams.map((name, idx) => (
                                                 <div key={idx} style={{
