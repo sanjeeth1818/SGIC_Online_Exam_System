@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class SubmissionServiceImpl implements SubmissionService {
@@ -103,6 +102,9 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         // 5. Status Updates & Notifications
         if (Boolean.TRUE.equals(request.getIsFinal())) {
+            codeEntry.setStatus("USED");
+            studentExamCodeRepository.save(codeEntry);
+            
             updateStudentStatus(codeEntry, test);
             handleNotifications(codeEntry, test, savedSubmission, breakdown);
             checkAutoExpiration(test);
@@ -176,23 +178,13 @@ public class SubmissionServiceImpl implements SubmissionService {
     }
 
     private void checkAutoExpiration(Test test) {
-        Set<Long> assignedIds = new HashSet<>();
-        if (test.getStudentGroups() != null) {
-            for (TestStudentGroup group : test.getStudentGroups()) {
-                if (group.getStudents() != null) {
-                    for (Student s : group.getStudents())
-                        assignedIds.add(s.getId());
-                }
+        List<StudentExamCode> codes = studentExamCodeRepository.findByTestId(test.getId());
+        if (!codes.isEmpty()) {
+            boolean allFinished = codes.stream().allMatch(c -> "USED".equalsIgnoreCase(c.getStatus()));
+            if (allFinished) {
+                test.setStatus("Expired");
+                testRepository.save(test);
             }
-        }
-
-        Set<Long> submittedIds = submissionRepository.findByTestId(test.getId()).stream()
-                .map(Submission::getStudentId).filter(Objects::nonNull).collect(Collectors.toSet());
-
-        long pending = assignedIds.stream().filter(id -> !submittedIds.contains(id)).count();
-        if (pending == 0 && !assignedIds.isEmpty()) {
-            test.setStatus("Expired");
-            testRepository.save(test);
         }
     }
 }

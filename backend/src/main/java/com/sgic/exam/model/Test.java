@@ -35,17 +35,17 @@ public class Test {
     private Boolean showResult;
     private Boolean showAnswers;
 
-    private String status; // Published, Expired, Draft
+    private String status; // Published, Expired, Pending
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "test_id")
     private List<TestCategoryConfig> categoryConfigs = new java.util.ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "test_id")
     private List<TestStudentGroup> studentGroups = new java.util.ArrayList<>();
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "test_manual_questions", joinColumns = @JoinColumn(name = "test_id"), inverseJoinColumns = @JoinColumn(name = "question_id"))
     private List<Question> manualQuestions = new java.util.ArrayList<>();
 

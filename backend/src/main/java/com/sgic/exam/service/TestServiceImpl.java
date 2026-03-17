@@ -32,6 +32,7 @@ public class TestServiceImpl implements TestService {
     private EmailService emailService;
 
     @Override
+    @Transactional(readOnly = true)
     public List<TestResponse> getAllTests() {
         List<Test> tests = testRepository.findAllByIsDeletedFalseOrIsDeletedIsNull();
         return tests.stream()
@@ -40,6 +41,7 @@ public class TestServiceImpl implements TestService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public TestResponse getTestById(Long id) {
         Test test = testRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Test not found with id: " + id));
@@ -137,7 +139,7 @@ public class TestServiceImpl implements TestService {
         }
 
         test.setIsDeleted(true);
-        test.setStatus("Draft");
+        test.setStatus("Pending");
         testRepository.save(test);
     }
 
@@ -178,7 +180,7 @@ public class TestServiceImpl implements TestService {
                         map.put("studentName", student.getName());
                         map.put("studentEmail", student.getEmail());
                         map.put("examCode", code != null ? code.getExamCode() : "N/A");
-                        map.put("status", code != null ? code.getStatus() : "PENDING");
+                        map.put("status", code != null ? code.getStatus() : "Pending");
                         map.put("examDate", group.getExamDate());
                         map.put("additionalTime", String.valueOf(
                                 code != null && code.getAdditionalTime() != null ? code.getAdditionalTime() : 0));
@@ -469,6 +471,17 @@ public class TestServiceImpl implements TestService {
     }
 
     private String calculateStatusForTest(Test test) {
+        // Early Exit: If all assigned students have finished or passed, it's Expired
+        if (test.getId() != null) {
+            List<StudentExamCode> codes = studentExamCodeRepository.findByTestId(test.getId());
+            if (!codes.isEmpty()) {
+                boolean allFinished = codes.stream().allMatch(c -> "USED".equalsIgnoreCase(c.getStatus()));
+                if (allFinished) {
+                    return "Expired";
+                }
+            }
+        }
+
         LocalDate today = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         boolean hasTodayBatch = false;
@@ -478,8 +491,10 @@ public class TestServiceImpl implements TestService {
         if (test.getStudentGroups() != null && !test.getStudentGroups().isEmpty()) {
             for (TestStudentGroup group : test.getStudentGroups()) {
                 String examDate = group.getExamDate();
-                if (examDate == null || examDate.isEmpty() || "TBD".equalsIgnoreCase(examDate))
+                if (examDate == null || examDate.isEmpty() || "TBD".equalsIgnoreCase(examDate)) {
+                    allBatchesPast = false; // TBD is not "past"
                     continue;
+                }
                 try {
                     LocalDate batchDate = LocalDate.parse(examDate, formatter);
                     if (batchDate.equals(today)) {
@@ -490,6 +505,7 @@ public class TestServiceImpl implements TestService {
                         allBatchesPast = false;
                     }
                 } catch (Exception ignored) {
+                    allBatchesPast = false;
                 }
             }
             if (hasTodayBatch)
@@ -497,9 +513,9 @@ public class TestServiceImpl implements TestService {
             if (allBatchesPast)
                 return "Expired";
             if (hasFutureBatch)
-                return "Draft";
+                return "Pending";
         }
-        return "Draft";
+        return "Pending";
     }
 
     private int calculateUniqueStudentCount(Test test) {

@@ -10,6 +10,20 @@ const formatTime = (seconds) => {
     return `${h > 0 ? h + ':' : ''}${m < 10 && h > 0 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
+const scrollToQuestion = (index) => {
+    const element = document.getElementById(`question-card-${index}`);
+    if (element) {
+        const headerOffset = 130;
+        const elementPosition = element.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+        window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth"
+        });
+    }
+};
+
 const ExamInterface = () => {
     const navigate = useNavigate();
 
@@ -602,389 +616,344 @@ const ExamInterface = () => {
 
     return (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease' }}>
+            <div style={{ maxWidth: '100%', padding: '0 3rem', margin: '0 auto', width: '100%', display: 'flex', gap: '2rem', paddingBottom: '3rem', alignItems: 'flex-start' }}>
 
-            {/* Background Mask */}
-            {mode === 'scroll' && (
+                {/* Left Sidebar: Progress & Navigation (Sticky) */}
                 <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '220px',
-                    background: 'var(--bg-app)',
-                    zIndex: 30
-                }}></div>
-            )}
-
-            {/* Fixed Progress Bar */}
-            {mode === 'scroll' && (
-                <div style={{
-                    position: 'fixed',
-                    top: '110px',
-                    left: '2rem',
-                    right: '2rem',
-                    zIndex: 40,
+                    width: '300px',
+                    flexShrink: 0,
+                    position: 'sticky',
+                    top: '130px',
                     background: 'var(--bg-surface)',
                     padding: '1.5rem',
                     borderRadius: 'var(--radius-xl)',
                     boxShadow: 'var(--shadow-md)',
                     border: '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    maxWidth: 'calc(100vw - 4rem)'
+                    maxHeight: 'calc(100vh - 160px)',
+                    overflowY: 'auto'
                 }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 500 }}>
-                            <span>Progress: {answeredCount} / {questions.length} Answered</span>
-                            <span>{Math.round(progressPercent)}%</span>
+                    <div style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>
+                            Progress
                         </div>
-                        <div style={{ height: '8px', background: 'var(--bg-app)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {answeredCount} <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, fontSize: '1rem' }}>of {questions.length} answered</span>
+                        </div>
+                        <div style={{ height: '6px', background: 'var(--bg-app)', borderRadius: '3px', marginTop: '1rem', overflow: 'hidden' }}>
                             <div style={{ height: '100%', background: 'var(--success)', width: `${progressPercent}%`, transition: 'width 0.3s ease' }}></div>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginLeft: '3rem' }}>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            background: timeLeft < baseDuration * 0.2 ? 'var(--error-bg)' : timeLeft < baseDuration * 0.5 ? 'rgba(245, 158, 11, 0.1)' : 'var(--success-bg)',
-                            color: timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)',
-                            padding: '0.75rem 1.25rem',
-                            borderRadius: 'var(--radius-md)',
-                            fontWeight: 700,
-                            fontSize: '1.25rem',
-                            transition: 'all 0.3s ease',
-                            border: `1px solid ${timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)'}`
-                        }}>
-                            <Clock size={22} className={timeLeft < 10 ? 'animate-pulse' : ''} />
-                            <span style={{ fontFamily: 'monospace' }}>{formatTime(timeLeft)}</span>
-                        </div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>
+                        Questions
+                    </div>
 
-                        <button
-                            onClick={handleSubmit}
-                            disabled={isSubmitting}
-                            style={{
-                                padding: '0.75rem 2rem',
-                                background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)',
-                                color: 'white',
-                                borderRadius: 'var(--radius-md)',
-                                fontWeight: 600,
-                                border: 'none',
-                                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                                boxShadow: 'var(--shadow-sm)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem'
-                            }}
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 size={18} className="animate-spin" />
-                                    Submitting...
-                                </>
-                            ) : 'Submit Test'}
-                        </button>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+                        {questions.map((q, idx) => {
+                            const isCurrent = mode === 'step' ? currentStep === idx : false;
+                            const isAnswered = answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== '';
+
+                            return (
+                                <button
+                                    key={q.id}
+                                    onClick={() => {
+                                        if (mode === 'scroll') {
+                                            scrollToQuestion(idx);
+                                        } else {
+                                            handleStepChange(idx);
+                                        }
+                                    }}
+                                    style={{
+                                        aspectRatio: '1',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontWeight: 600,
+                                        fontSize: '0.875rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        background: isCurrent ? 'var(--primary)' : isAnswered ? 'var(--success-bg)' : 'transparent',
+                                        color: isCurrent ? 'white' : isAnswered ? 'var(--success)' : 'var(--text-secondary)',
+                                        border: `1px solid ${isCurrent ? 'var(--primary)' : isAnswered ? 'var(--success)' : 'var(--border)'}`,
+                                        boxShadow: isCurrent ? 'var(--shadow-sm)' : 'none'
+                                    }}
+                                    title={isAnswered ? `Question ${idx + 1} (Answered)` : `Question ${idx + 1}`}
+                                >
+                                    {idx + 1}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
-            )}
 
-            <div style={{ height: mode === 'scroll' ? '130px' : '20px' }}></div>
+                {/* Main Content Area */}
+                <div style={{ flex: 1, maxWidth: '1000px', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {mode === 'scroll' ? (
+                        // Scroll Mode: All questions in a list
+                        questions.map((q, index) => (
+                            <div
+                                key={q.id}
+                                id={`question-card-${index}`}
+                                style={{
+                                    background: 'var(--bg-surface)',
+                                    padding: '2.5rem',
+                                    borderRadius: 'var(--radius-xl)',
+                                    boxShadow: 'var(--shadow-md)',
+                                    border: '1px solid var(--border)',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                }}
+                            >
+                                <div style={{ display: 'flex', gap: '1.5rem' }}>
+                                    <div style={{ width: '40px', height: '40px', minWidth: '40px', borderRadius: '50%', background: 'var(--bg-app)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                        {index + 1}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 500, lineHeight: 1.6, marginBottom: '1.5rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+                                            {q.text}
+                                        </h3>
 
-            {mode === 'scroll' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                    {questions.map((q, index) => (
-                        <div key={q.id} style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border)' }}>
-                            <div style={{ display: 'flex', gap: '1.5rem' }}>
-                                <div style={{ width: '40px', height: '40px', minWidth: '40px', borderRadius: '50%', background: 'var(--bg-app)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                    {index + 1}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <h3 style={{ fontSize: '1.125rem', fontWeight: 500, lineHeight: 1.6, marginBottom: '1.5rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-                                        {q.text}
-                                    </h3>
-
-                                    {q.type === 'mcq' ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                            {q.options.map((opt, i) => (
-                                                <label key={i} style={{
-                                                    display: 'flex', alignItems: 'center', gap: '1rem',
-                                                    padding: '1rem', borderRadius: 'var(--radius-md)',
-                                                    border: `1px solid ${answers[q.id] === opt ? 'var(--primary)' : 'var(--border)'}`,
-                                                    background: answers[q.id] === opt ? 'var(--primary-light)' : 'transparent',
-                                                    cursor: 'pointer', transition: 'all var(--transition-fast)'
+                                        {q.type === 'mcq' ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                {q.options.map((opt, i) => (
+                                                    <label key={i} style={{
+                                                        display: 'flex', alignItems: 'center', gap: '1rem',
+                                                        padding: '1rem', borderRadius: 'var(--radius-md)',
+                                                        border: `2px solid ${answers[q.id] === opt ? 'var(--primary)' : 'var(--border)'}`,
+                                                        background: answers[q.id] === opt ? 'var(--primary-light)' : 'transparent',
+                                                        cursor: 'pointer', transition: 'all var(--transition-fast)'
+                                                    }}
+                                                        onMouseEnter={e => { if (answers[q.id] !== opt) e.currentTarget.style.background = 'var(--bg-surface-hover)' }}
+                                                        onMouseLeave={e => { if (answers[q.id] !== opt) e.currentTarget.style.background = 'transparent' }}
+                                                    >
+                                                        <input
+                                                            type="radio"
+                                                            name={`q-${q.id}`}
+                                                            checked={answers[q.id] === opt}
+                                                            onChange={() => handleAnswerChange(q.id, opt)}
+                                                            style={{ width: '22px', height: '22px', accentColor: 'var(--primary)', flexShrink: 0 }}
+                                                        />
+                                                        <span style={{ fontSize: '1.0625rem', flex: 1 }}>{opt}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <textarea
+                                                placeholder="Type your answer here..."
+                                                rows="5"
+                                                value={answers[q.id] || ''}
+                                                onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                                                style={{
+                                                    width: '100%', padding: '1.25rem', borderRadius: 'var(--radius-md)',
+                                                    border: '2px solid var(--border)', fontSize: '1rem', outline: 'none',
+                                                    fontFamily: 'inherit', resize: 'vertical',
+                                                    transition: 'border-color var(--transition-fast)'
                                                 }}
-                                                    onMouseEnter={e => { if (answers[q.id] !== opt) e.currentTarget.style.background = 'var(--bg-surface-hover)' }}
-                                                    onMouseLeave={e => { if (answers[q.id] !== opt) e.currentTarget.style.background = 'transparent' }}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name={`q-${q.id}`}
-                                                        value={opt}
-                                                        checked={answers[q.id] === opt}
-                                                        onChange={() => handleAnswerChange(q.id, opt)}
-                                                        style={{ width: '20px', height: '20px', accentColor: 'var(--primary)' }}
-                                                    />
-                                                    <span style={{ fontSize: '1rem' }}>{opt}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    ) : (
+                                                onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                                onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        // Step Mode: Current question only
+                        <div style={{
+                            background: 'var(--bg-surface)',
+                            padding: '2.5rem',
+                            borderRadius: 'var(--radius-xl)',
+                            boxShadow: 'var(--shadow-md)',
+                            border: '1px solid var(--border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            minHeight: '400px'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Question {currentStep + 1} of {questions.length}
+                                </div>
+                            </div>
+
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 500, lineHeight: 1.6, marginBottom: '2rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+                                {questions[currentStep]?.text}
+                            </h3>
+
+                            <div style={{ marginBottom: '2.5rem', flex: 1 }}>
+                                {questions[currentStep]?.type === 'mcq' ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: timeLeft === 0 && timeMode === 'question' ? 0.6 : 1, pointerEvents: (timeLeft === 0 && timeMode === 'question') || isSubmitting ? 'none' : 'auto' }}>
+                                        {questions[currentStep].options.map((opt, i) => (
+                                            <label key={i} style={{
+                                                display: 'flex', alignItems: 'center', gap: '1rem',
+                                                padding: '1rem', borderRadius: 'var(--radius-md)',
+                                                border: `2px solid ${answers[questions[currentStep].id] === opt ? 'var(--primary)' : 'var(--border)'}`,
+                                                background: answers[questions[currentStep].id] === opt ? 'var(--primary-light)' : 'transparent',
+                                                cursor: 'pointer', transition: 'all var(--transition-fast)'
+                                            }}
+                                                onMouseEnter={e => { if (answers[questions[currentStep].id] !== opt) e.currentTarget.style.background = 'var(--bg-surface-hover)' }}
+                                                onMouseLeave={e => { if (answers[questions[currentStep].id] !== opt) e.currentTarget.style.background = 'transparent' }}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name={`q-${questions[currentStep].id}`}
+                                                    checked={answers[questions[currentStep].id] === opt}
+                                                    onChange={() => handleAnswerChange(questions[currentStep].id, opt)}
+                                                    style={{ width: '22px', height: '22px', accentColor: 'var(--primary)', flexShrink: 0 }}
+                                                    disabled={(timeLeft === 0 && timeMode === 'question') || isSubmitting}
+                                                />
+                                                <span style={{ fontSize: '1.0625rem', flex: 1 }}>{opt}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                         <textarea
-                                            rows="5"
                                             placeholder="Type your answer here..."
-                                            value={answers[q.id] || ''}
-                                            onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                                            value={answers[questions[currentStep]?.id] || ''}
+                                            onChange={(e) => handleAnswerChange(questions[currentStep].id, e.target.value)}
+                                            disabled={(timeLeft === 0 && timeMode === 'question') || isSubmitting}
                                             style={{
-                                                width: '100%', padding: '1rem', borderRadius: 'var(--radius-md)',
-                                                border: '1px solid var(--border)', fontSize: '1rem', outline: 'none',
-                                                fontFamily: 'inherit', resize: 'vertical',
-                                                transition: 'border-color var(--transition-fast)'
+                                                width: '100%', padding: '1.25rem', borderRadius: 'var(--radius-md)',
+                                                border: '2px solid var(--border)', fontSize: '1rem', outline: 'none',
+                                                fontFamily: 'inherit', resize: 'vertical', minHeight: '150px',
+                                                background: timeLeft === 0 && timeMode === 'question' ? 'var(--bg-app)' : 'transparent',
+                                                transition: 'border-color var(--transition-fast)',
+                                                opacity: timeLeft === 0 && timeMode === 'question' ? 0.6 : 1
                                             }}
                                             onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                             onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                         />
-                                    )}
-                                </div>
+                                        {timeLeft === 0 && timeMode === 'question' && (
+                                            <div style={{ color: 'var(--error)', fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <Clock size={16} /> Time expired for this question.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div style={{ maxWidth: '100%', padding: '0 3rem', margin: '0 auto', width: '100%', display: 'flex', gap: '2rem', paddingBottom: '3rem', alignItems: 'flex-start' }}>
-                    
-                    {/* Left Sidebar: Progress & Navigation */}
-                    <div style={{ width: '300px', flexShrink: 0, background: 'var(--bg-surface)', padding: '1.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)' }}>
-                        <div style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border)' }}>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>
-                                Progress
-                            </div>
-                            <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                {answeredCount} <span style={{ color: 'var(--text-tertiary)', fontWeight: 500, fontSize: '1rem' }}>of {questions.length} answered</span>
-                            </div>
-                            <div style={{ height: '6px', background: 'var(--bg-app)', borderRadius: '3px', marginTop: '1rem', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', background: 'var(--success)', width: `${progressPercent}%`, transition: 'width 0.3s ease' }}></div>
-                            </div>
-                        </div>
 
-                        <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>
-                            Questions
-                        </div>
-                        
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
-                            {questions.map((q, idx) => {
-                                const isCurrent = currentStep === idx;
-                                // Check if answer exists and is not an empty string or null
-                                const isAnswered = answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== '';
-
-                                return (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
+                                <button
+                                    disabled={currentStep === 0 || isTransitioning || isSubmitting}
+                                    onClick={() => handleStepChange(currentStep - 1)}
+                                    style={{ padding: '0.75rem 2rem', background: 'transparent', color: (currentStep === 0 || isTransitioning || isSubmitting) ? 'var(--text-tertiary)' : 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: (currentStep === 0 || isTransitioning || isSubmitting) ? 'default' : 'pointer' }}
+                                >
+                                    Previous
+                                </button>
+                                {currentStep === questions.length - 1 ? (
                                     <button
-                                        key={q.id}
-                                        onClick={() => handleStepChange(idx)}
+                                        onClick={handleSubmit}
+                                        disabled={isSubmitting}
                                         style={{
-                                            aspectRatio: '1',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontWeight: 600,
-                                            fontSize: '0.875rem',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            // Dynamic Styling based on state
-                                            background: isCurrent ? 'var(--primary)' : isAnswered ? 'var(--success-bg)' : 'transparent',
-                                            color: isCurrent ? 'white' : isAnswered ? 'var(--success)' : 'var(--text-secondary)',
-                                            border: `1px solid ${isCurrent ? 'var(--primary)' : isAnswered ? 'var(--success)' : 'var(--border)'}`,
-                                            boxShadow: isCurrent ? 'var(--shadow-sm)' : 'none'
+                                            padding: '0.75rem 2rem', background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)'
                                         }}
-                                        title={isAnswered ? `Question ${idx + 1} (Answered)` : `Question ${idx + 1}`}
                                     >
-                                        {idx + 1}
+                                        Finish Exam
                                     </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Main Question Interface */}
-                    <div style={{ flex: 1, maxWidth: '1000px', margin: '0 auto', background: 'var(--bg-surface)', padding: '2.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                Question {currentStep + 1} of {questions.length}
+                                ) : (
+                                    <button
+                                        disabled={isTransitioning || isSubmitting}
+                                        onClick={() => handleStepChange(currentStep + 1)}
+                                        style={{ padding: '0.75rem 2rem', background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: (isTransitioning || isSubmitting) ? 'default' : 'pointer', boxShadow: 'var(--shadow-sm)' }}
+                                    >
+                                        Next Question
+                                    </button>
+                                )}
                             </div>
                         </div>
-
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 500, lineHeight: 1.6, marginBottom: '2rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-                            {questions[currentStep]?.text}
-                        </h3>
-
-                        <div style={{ marginBottom: '2.5rem' }}>
-                            {questions[currentStep]?.type === 'mcq' ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: timeLeft === 0 && timeMode === 'question' ? 0.6 : 1, pointerEvents: (timeLeft === 0 && timeMode === 'question') || isSubmitting ? 'none' : 'auto' }}>
-                                    {questions[currentStep].options.map((opt, i) => (
-                                        <label key={i} style={{
-                                            display: 'flex', alignItems: 'center', gap: '1rem',
-                                            padding: '1rem', borderRadius: 'var(--radius-md)',
-                                            border: `2px solid ${answers[questions[currentStep].id] === opt ? 'var(--primary)' : 'var(--border)'}`,
-                                            background: answers[questions[currentStep].id] === opt ? 'var(--primary-light)' : 'transparent',
-                                            cursor: 'pointer', transition: 'all var(--transition-fast)'
-                                        }}
-                                            onMouseEnter={e => { if (answers[questions[currentStep].id] !== opt) e.currentTarget.style.background = 'var(--bg-surface-hover)' }}
-                                            onMouseLeave={e => { if (answers[questions[currentStep].id] !== opt) e.currentTarget.style.background = 'transparent' }}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name={`q-${questions[currentStep].id}`}
-                                                checked={answers[questions[currentStep].id] === opt}
-                                                onChange={() => handleAnswerChange(questions[currentStep].id, opt)}
-                                                style={{ width: '22px', height: '22px', accentColor: 'var(--primary)', flexShrink: 0 }}
-                                                disabled={(timeLeft === 0 && timeMode === 'question') || isSubmitting}
-                                            />
-                                            <span style={{ fontSize: '1.0625rem', flex: 1 }}>{opt}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <textarea
-                                        placeholder="Type your answer here..."
-                                        value={answers[questions[currentStep]?.id] || ''}
-                                        onChange={(e) => handleAnswerChange(questions[currentStep].id, e.target.value)}
-                                        disabled={(timeLeft === 0 && timeMode === 'question') || isSubmitting}
-                                        style={{
-                                            width: '100%', padding: '1.25rem', borderRadius: 'var(--radius-md)',
-                                            border: '2px solid var(--border)', fontSize: '1rem', outline: 'none',
-                                            fontFamily: 'inherit', resize: 'vertical', minHeight: '150px',
-                                            background: timeLeft === 0 && timeMode === 'question' ? 'var(--bg-app)' : 'transparent',
-                                            transition: 'border-color var(--transition-fast)',
-                                            opacity: timeLeft === 0 && timeMode === 'question' ? 0.6 : 1
-                                        }}
-                                        onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
-                                        onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                                    />
-                                    {timeLeft === 0 && timeMode === 'question' && (
-                                        <div style={{ color: 'var(--error)', fontSize: '0.875rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <Clock size={16} /> Time expired for this question.
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
-                            <button
-                                disabled={currentStep === 0 || isTransitioning || isSubmitting}
-                                onClick={() => handleStepChange(currentStep - 1)}
-                                style={{ padding: '0.75rem 2rem', background: 'transparent', color: (currentStep === 0 || isTransitioning || isSubmitting) ? 'var(--text-tertiary)' : 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: (currentStep === 0 || isTransitioning || isSubmitting) ? 'default' : 'pointer' }}
-                            >
-                                Previous
-                            </button>
-                            {currentStep === questions.length - 1 ? (
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    style={{
-                                        padding: '0.75rem 2rem', background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: 'var(--shadow-sm)'
-                                    }}
-                                >
-                                    Finish Exam
-                                </button>
-                            ) : (
-                                <button
-                                    disabled={isTransitioning || isSubmitting}
-                                    onClick={() => handleStepChange(currentStep + 1)}
-                                    style={{ padding: '0.75rem 2rem', background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: (isTransitioning || isSubmitting) ? 'default' : 'pointer', boxShadow: 'var(--shadow-sm)' }}
-                                >
-                                    Next Question
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Right Sidebar: Timer & Actions */}
-                    <div style={{ width: '300px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        
-                        {/* Timer Card */}
-                        <div style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1.5rem' }}>
-                                Time Remaining
-                            </div>
-
-                            <div style={{ position: 'relative', width: '180px', height: '180px' }}>
-                                <svg width="180" height="180" viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)' }}>
-                                    {/* Track */}
-                                    <circle
-                                        cx="90" cy="90" r="80"
-                                        fill="none"
-                                        stroke="var(--bg-app)"
-                                        strokeWidth="12"
-                                    />
-                                    {/* Progress */}
-                                    <circle
-                                        cx="90" cy="90" r="80"
-                                        fill="none"
-                                        stroke={timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)'}
-                                        strokeWidth="12"
-                                        strokeLinecap="round"
-                                        strokeDasharray={2 * Math.PI * 80}
-                                        strokeDashoffset={(2 * Math.PI * 80) * (1 - (timeLeft / baseDuration))}
-                                        style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s ease' }}
-                                    />
-                                </svg>
-                                
-                                <div style={{
-                                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '2rem', fontWeight: 800,
-                                    color: timeLeft < baseDuration * 0.2 ? 'var(--error)' : 'var(--text-primary)',
-                                    fontFamily: 'monospace',
-                                    transition: 'color 0.3s ease'
-                                }}>
-                                    {formatTime(timeLeft)}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Submit Action Card */}
-                        <div style={{ background: 'var(--bg-surface)', padding: '1.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)' }}>
-                            <button
-                                onClick={handleSubmit}
-                                disabled={isSubmitting}
-                                style={{
-                                    width: '100%',
-                                    padding: '1rem',
-                                    background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)',
-                                    color: 'white',
-                                    fontSize: '1.125rem',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontWeight: 700,
-                                    border: 'none',
-                                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                                    boxShadow: 'var(--shadow-md)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '0.5rem',
-                                    transition: 'all 0.2s ease'
-                                }}
-                            >
-                                {isSubmitting ? (
-                                    <>
-                                        <Loader2 size={20} className="animate-spin" />
-                                        Processing...
-                                    </>
-                                ) : 'Finish Exam'}
-                            </button>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', textAlign: 'center', marginTop: '1rem' }}>
-                                Ensure all questions are answered before submitting.
-                            </div>
-                        </div>
-
-                    </div>
+                    )}
                 </div>
-            )}
+
+                {/* Right Sidebar: Timer & Actions (Sticky) */}
+                <div style={{
+                    width: '300px',
+                    flexShrink: 0,
+                    position: 'sticky',
+                    top: '130px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1.5rem'
+                }}>
+
+                    {/* Timer Card */}
+                    <div style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1.5rem' }}>
+                            Time Remaining
+                        </div>
+
+                        <div style={{ position: 'relative', width: '180px', height: '180px' }}>
+                            <svg width="180" height="180" viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)' }}>
+                                {/* Track */}
+                                <circle
+                                    cx="90" cy="90" r="80"
+                                    fill="none"
+                                    stroke="var(--bg-app)"
+                                    strokeWidth="12"
+                                />
+                                {/* Progress */}
+                                <circle
+                                    cx="90" cy="90" r="80"
+                                    fill="none"
+                                    stroke={timeLeft < baseDuration * 0.2 ? 'var(--error)' : timeLeft < baseDuration * 0.5 ? 'var(--warning)' : 'var(--success)'}
+                                    strokeWidth="12"
+                                    strokeLinecap="round"
+                                    strokeDasharray={2 * Math.PI * 80}
+                                    strokeDashoffset={(2 * Math.PI * 80) * (1 - (timeLeft / baseDuration))}
+                                    style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s ease' }}
+                                />
+                            </svg>
+
+                            <div style={{
+                                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '2rem', fontWeight: 800,
+                                color: timeLeft < baseDuration * 0.2 ? 'var(--error)' : 'var(--text-primary)',
+                                fontFamily: 'monospace',
+                                transition: 'color 0.3s ease'
+                            }}>
+                                {formatTime(timeLeft)}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Submit Action Card */}
+                    <div style={{ background: 'var(--bg-surface)', padding: '1.5rem', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border)' }}>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            style={{
+                                width: '100%',
+                                padding: '1rem',
+                                background: isSubmitting ? 'var(--text-tertiary)' : 'var(--primary)',
+                                color: 'white',
+                                fontSize: '1.125rem',
+                                borderRadius: 'var(--radius-md)',
+                                fontWeight: 700,
+                                border: 'none',
+                                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                                boxShadow: 'var(--shadow-md)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 size={20} className="animate-spin" />
+                                    Processing...
+                                </>
+                            ) : 'Finish Exam'}
+                        </button>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)', textAlign: 'center', marginTop: '1rem' }}>
+                            Ensure all questions are answered before submitting.
+                        </div>
+                    </div>
+
+                </div>
+            </div>
 
             {/* Confirmation Modal */}
             {showConfirmModal && (

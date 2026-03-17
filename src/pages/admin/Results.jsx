@@ -1144,7 +1144,7 @@ const Results = () => {
                                                     padding: '3px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800,
                                                     background: c.status === 'STARTED' ? 'rgba(245,158,11,0.1)' : c.status === 'EXPIRED' ? 'rgba(239,68,68,0.1)' : 'rgba(99,102,241,0.1)',
                                                     color: c.status === 'STARTED' ? '#f59e0b' : c.status === 'EXPIRED' ? 'var(--error)' : 'var(--primary)'
-                                                }}>{c.status || 'PENDING'}</span>
+                                                }}>{c.status || 'Pending'}</span>
                                             </td>
                                         </tr>
                                     ))}

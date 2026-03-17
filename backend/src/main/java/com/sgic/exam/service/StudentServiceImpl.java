@@ -24,7 +24,7 @@ public class StudentServiceImpl implements StudentService {
     @Override
     @Transactional
     public StudentResponse addStudent(StudentRequest request) {
-        if (studentRepository.existsByNic(request.getNic())) {
+        if (studentRepository.existsByNicAndIsDeletedFalse(request.getNic())) {
             throw new RuntimeException("NIC already exists in the system");
         }
 
@@ -56,7 +56,7 @@ public class StudentServiceImpl implements StudentService {
     @Override
     @Transactional
     public StudentResponse updateStudent(Long id, StudentRequest request) {
-        if (studentRepository.existsByNicAndIdNot(request.getNic(), id)) {
+        if (studentRepository.existsByNicAndIdNotAndIsDeletedFalse(request.getNic(), id)) {
             throw new RuntimeException("NIC already exists for another student");
         }
 

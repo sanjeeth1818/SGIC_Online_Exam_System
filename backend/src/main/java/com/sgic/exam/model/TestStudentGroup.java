@@ -21,7 +21,7 @@ public class TestStudentGroup {
 
     private String examDate;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "test_student_group_students", joinColumns = @JoinColumn(name = "group_id"), inverseJoinColumns = @JoinColumn(name = "student_id"))
     private List<Student> students;
 }

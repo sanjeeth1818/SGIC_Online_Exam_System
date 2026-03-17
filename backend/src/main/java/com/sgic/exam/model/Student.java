@@ -42,7 +42,7 @@ public class Student {
 
     private LocalDate registeredDate;
 
-    private String status = "Pending Exam";
+    private String status = "Pending To Exam";
 
     private String statusComment;
 

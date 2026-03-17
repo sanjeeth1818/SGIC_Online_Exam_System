@@ -27,10 +27,25 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             fixStudentExamCodeTable(conn);
             fixSubmissionTable(conn);
             fixQuestionsTable(conn);
+            fixTestsTable(conn);
         } catch (Exception e) {
             System.err.println("Warning: DatabaseMigrationRunner encountered an error: " + e.getMessage());
             // Non-critical — don't block startup
         }
+    }
+
+    private void fixTestsTable(Connection conn) throws Exception {
+        DatabaseMetaData meta = conn.getMetaData();
+        ResultSet columns = meta.getColumns(null, null, "tests", "is_deleted");
+
+        if (!columns.next()) {
+            System.out.println("Migration: Adding 'is_deleted' column to 'tests' table...");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE tests ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE");
+                System.out.println("Migration: 'is_deleted' column added successfully.");
+            }
+        }
+        columns.close();
     }
 
     /**

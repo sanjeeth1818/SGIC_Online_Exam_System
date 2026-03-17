@@ -65,7 +65,7 @@ public class TestSchedulerService {
                 } else if (allBatchesPast) {
                     targetStatus = "Expired";
                 } else if (hasFutureBatch) {
-                    targetStatus = "Draft";
+                    targetStatus = "Pending";
                 }
 
                 if (!targetStatus.equalsIgnoreCase(currentStatus)) {

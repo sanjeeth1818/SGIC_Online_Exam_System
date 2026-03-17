@@ -24,7 +24,7 @@ const Students = () => {
         nic: '',
         email: '',
         registeredDate: new Date().toISOString().split('T')[0],
-        status: 'Pending Exam',
+        status: 'Pending To Exam',
         statusComment: '',
         examName: '',
         examDate: '',
@@ -84,7 +84,7 @@ const Students = () => {
     const stats = useMemo(() => {
         return {
             total: students.length,
-            pending: students.filter(s => s.status === 'Pending Exam').length,
+            Pending: students.filter(s => s.status === 'Pending To Exam').length,
             completed: students.filter(s => s.status === 'Took Exam').length,
             rescheduled: students.filter(s => s.status === 'Rescheduled').length,
             critical: students.filter(s => s.status === 'Blacklisted' || s.status === 'Absent').length
@@ -99,12 +99,12 @@ const Students = () => {
         // Synthesize initial registration status if it's not already in the history
         const hasInitialStatus = historyLines.some(line =>
             line.toLowerCase().includes('initial registration') ||
-            line.toLowerCase().includes('pending exam')
+            line.toLowerCase().includes('Pending To Exam')
         );
 
         if (!hasInitialStatus && historyData.registeredDate) {
             // Append to the end as the starting point (assuming latest-first order)
-            historyLines.push(`[${historyData.registeredDate} 08:30:00] Initial Registration - Status set to Pending Exam`);
+            historyLines.push(`[${historyData.registeredDate} 08:30:00] Initial Registration - Status set to Pending To Exam`);
         }
 
         const handleOverlayClick = (e) => {
@@ -340,7 +340,7 @@ const Students = () => {
             nic: '',
             email: '',
             registeredDate: new Date().toISOString().split('T')[0],
-            status: 'Pending Exam',
+            status: 'Pending To Exam',
             statusComment: '',
             examName: '',
             examDate: '',
@@ -348,7 +348,7 @@ const Students = () => {
             rescheduledExamName: '',
             rescheduledExamDate: '',
             rescheduledExamTime: '',
-            statusHistory: `[${new Date().toLocaleString()}] Initial Registration - Status set to Pending Exam`
+            statusHistory: `[${new Date().toLocaleString()}] Initial Registration - Status set to Pending To Exam`
         });
         setMessage({ text: '', type: '' });
         setIsModalOpen(true);
@@ -363,7 +363,7 @@ const Students = () => {
             nic: student.nic || '',
             email: student.email || '',
             registeredDate: student.registeredDate || new Date().toISOString().split('T')[0],
-            status: student.status || 'Pending Exam',
+            status: student.status || 'Pending To Exam',
             statusComment: student.statusComment || '',
             examName: student.examName || '',
             examDate: student.examDate || '',
@@ -381,7 +381,7 @@ const Students = () => {
         setStatusData({
             id: student.id,
             name: student.name,
-            status: student.status || 'Pending Exam',
+            status: student.status || 'Pending To Exam',
             statusComment: student.statusComment || '',
             examName: student.examName || '',
             examDate: student.examDate || '',
@@ -529,16 +529,16 @@ const Students = () => {
 
     const getStatusBadge = (status) => {
         const styles = {
-            'Pending Exam': { bg: 'var(--primary-light)', color: 'var(--primary)', icon: <Clock3 size={12} />, label: 'PENDING' },
-            'Allocated': { bg: 'rgba(139, 92, 246, 0.1)', color: '#7c3aed', icon: <Calendar size={12} />, label: 'ALLOCATED' },
-            'Took Exam': { bg: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', icon: <CheckCircle size={12} />, label: 'COMPLETED' },
-            'Absent': { bg: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', icon: <UserX size={12} />, label: 'ABSENT' },
-            'Rescheduled': { bg: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', icon: <RefreshCw size={12} />, label: 'RESCHEDULED' },
-            'Blacklisted': { bg: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', icon: <AlertCircle size={12} />, label: 'RESTRICTED' },
-            'Have to Reschedule': { bg: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', icon: <Clock size={12} />, label: 'TO RESCHEDULE' }
+            'Pending To Exam': { bg: 'var(--primary-light)', color: 'var(--primary)', icon: <Clock3 size={12} />, label: 'Pending' },
+            'Allocated': { bg: 'rgba(139, 92, 246, 0.1)', color: '#7c3aed', icon: <Calendar size={12} />, label: 'Allocated' },
+            'Took Exam': { bg: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', icon: <CheckCircle size={12} />, label: 'Completed' },
+            'Absent': { bg: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', icon: <UserX size={12} />, label: 'Absent' },
+            'Rescheduled': { bg: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', icon: <RefreshCw size={12} />, label: 'Rescheduled' },
+            'Blacklisted': { bg: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', icon: <AlertCircle size={12} />, label: 'Blacklisted' },
+            'Have to Reschedule': { bg: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', icon: <Clock size={12} />, label: 'Have to Reschedule' }
         };
 
-        const current = styles[status] || styles['Pending Exam'];
+        const current = styles[status] || styles['Pending To Exam'];
 
         return (
             <div style={{
@@ -699,13 +699,13 @@ const Students = () => {
                                     }}
                                 >
                                     <option value="All">All Statuses</option>
-                                    <option value="Pending Exam">Pending</option>
+                                    <option value="Pending To Exam">Pending</option>
                                     <option value="Allocated">Allocated</option>
                                     <option value="Took Exam">Completed</option>
                                     <option value="Rescheduled">Rescheduled</option>
                                     <option value="Absent">Absent</option>
-                                    <option value="Blacklisted">Restricted</option>
-                                    <option value="Have to Reschedule">To Reschedule</option>
+                                    <option value="Blacklisted">Blacklisted</option>
+                                    <option value="Have to Reschedule">Have to Reschedule</option>
                                 </select>
                             </div>
                         </div>
@@ -842,13 +842,13 @@ const Students = () => {
                                                 onChange={handleStatusInputChange}
                                                 style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-app)', outline: 'none', fontWeight: 600, fontSize: '0.9375rem' }}
                                             >
-                                                <option value="Pending Exam">PENDING EXAM</option>
-                                                <option value="Allocated">ALLOCATED</option>
-                                                <option value="Took Exam">TOOK EXAM</option>
-                                                <option value="Absent">ABSENT</option>
-                                                <option value="Rescheduled">RESCHEDULED</option>
-                                                <option value="Blacklisted">BLACKLISTED</option>
-                                                <option value="Have to Reschedule">HAVE TO RESCHEDULE</option>
+                                                <option value="Pending To Exam">Pending To Exam</option>
+                                                <option value="Allocated">Allocated</option>
+                                                <option value="Took Exam">Completed</option>
+                                                <option value="Absent">Absent</option>
+                                                <option value="Rescheduled">Rescheduled</option>
+                                                <option value="Blacklisted">Blacklisted</option>
+                                                <option value="Have to Reschedule">Have to Reschedule</option>
                                             </select>
                                         </div>
 
@@ -1009,13 +1009,13 @@ const Students = () => {
                                                     onChange={handleInputChange}
                                                     style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-app)', outline: 'none', fontWeight: 600, fontSize: '0.9375rem' }}
                                                 >
-                                                    <option value="Pending Exam">PENDING EXAM</option>
-                                                    <option value="Allocated">ALLOCATED</option>
-                                                    <option value="Took Exam">TOOK EXAM</option>
-                                                    <option value="Absent">ABSENT</option>
-                                                    <option value="Rescheduled">RESCHEDULED</option>
-                                                    <option value="Blacklisted">BLACKLISTED</option>
-                                                    <option value="Have to Reschedule">HAVE TO RESCHEDULE</option>
+                                                    <option value="Pending To Exam">Pending To Exam</option>
+                                                    <option value="Allocated">Allocated</option>
+                                                    <option value="Took Exam">Completed</option>
+                                                    <option value="Absent">Absent</option>
+                                                    <option value="Rescheduled">Rescheduled</option>
+                                                    <option value="Blacklisted">Blacklisted</option>
+                                                    <option value="Have to Reschedule">Have to Reschedule</option>
                                                 </select>
                                             </div>
                                         )}

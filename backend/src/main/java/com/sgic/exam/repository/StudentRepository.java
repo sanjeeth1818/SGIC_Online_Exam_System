@@ -10,9 +10,9 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     boolean existsByMobileNumber(String mobileNumber);
 
-    boolean existsByNicAndIdNot(String nic, Long id);
-
-    boolean existsByMobileNumberAndIdNot(String mobileNumber, Long id);
+    boolean existsByNicAndIsDeletedFalse(String nic);
+    
+    boolean existsByNicAndIdNotAndIsDeletedFalse(String nic, Long id);
 
     java.util.List<Student> findAllByIsDeletedFalse();
 }

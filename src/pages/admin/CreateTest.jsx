@@ -185,7 +185,7 @@ const CreateTest = () => {
             if (res.ok) {
                 const data = await res.json();
                 const filtered = data.filter(s =>
-                    (s.status || '').toUpperCase() === 'PENDING EXAM' ||
+                    (s.status || '').toUpperCase() === 'Pending To Exam' ||
                     (s.status || '').toUpperCase() === 'HAVE TO RESCHEDULE'
                 );
                 setAvailableStudents(filtered);
@@ -481,7 +481,7 @@ const CreateTest = () => {
             examMode: testData.examMode,
             showResult: testData.showResult,
             showAnswers: testData.showAnswers,
-            status: testData.activateImmediately ? 'Published' : 'Draft',
+            status: testData.activateImmediately ? 'Published' : 'Pending',
             selectionMode: testData.selectionMode,
             activateImmediately: testData.activateImmediately,
             totalQuestions: testData.selectionMode === 'random' ? totalSelectedQuestions : selectedQuestionIds.length,
@@ -942,7 +942,27 @@ const CreateTest = () => {
                                                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>NIC: {student.nic} | Mobile: {student.mobileNumber}</div>
                                                                     </td>
                                                                     <td style={{ padding: '0.75rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
-                                                                        <div style={{ display: 'inline-flex', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 800, background: student.status === 'HAVE TO RESCHEDULE' ? 'var(--error-light)' : 'var(--primary-light)', color: student.status === 'HAVE TO RESCHEDULE' ? 'var(--error)' : 'var(--primary)' }}>{student.status?.toUpperCase()}</div>
+                                                                        {(() => {
+                                                                            const statusLabels = {
+                                                                                'Pending To Exam': 'Pending',
+                                                                                'Took Exam': 'Completed',
+                                                                                'Blacklisted': 'Blacklisted'
+                                                                            };
+                                                                            const displayLabel = statusLabels[student.status] || student.status;
+                                                                            return (
+                                                                                <div style={{
+                                                                                    display: 'inline-flex',
+                                                                                    padding: '0.2rem 0.5rem',
+                                                                                    borderRadius: '6px',
+                                                                                    fontSize: '0.65rem',
+                                                                                    fontWeight: 800,
+                                                                                    background: student.status === 'HAVE TO RESCHEDULE' ? 'var(--error-light)' : 'var(--primary-light)',
+                                                                                    color: student.status === 'HAVE TO RESCHEDULE' ? 'var(--error)' : 'var(--primary)'
+                                                                                }}>
+                                                                                    {displayLabel === 'Have to Reschedule' ? 'Have to Reschedule' : displayLabel?.toUpperCase()}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </td>
                                                                 </tr>
                                                             ))}
@@ -1173,7 +1193,15 @@ const CreateTest = () => {
                                     const newErrors = {};
 
                                     if (step === 1) {
-                                        if (!testData.name.trim()) newErrors.name = 'Test Name is required.';
+                                        if (!testData.name.trim()) {
+                                            newErrors.name = 'Test Name is required.';
+                                        } else {
+                                            const isDuplicate = pastTests.some(t => t.name.trim().toLowerCase() === testData.name.trim().toLowerCase());
+                                            if (isDuplicate) {
+                                                newErrors.name = 'An examination with this name already exists. Please use a unique name.';
+                                            }
+                                        }
+
                                         if (!testData.description.trim()) newErrors.description = 'Description is required.';
 
                                         if (Object.keys(newErrors).length > 0) {
@@ -1249,7 +1277,7 @@ const CreateTest = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', background: 'var(--bg-surface)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                                {['All', 'Published', 'Draft', 'Expired'].map(status => (
+                                {['All', 'Published', 'Pending', 'Expired'].map(status => (
                                     <button
                                         key={status}
                                         onClick={() => setFilterStatus(status)}
@@ -1267,7 +1295,7 @@ const CreateTest = () => {
                                         onMouseEnter={e => { if (filterStatus !== status) e.currentTarget.style.borderColor = 'var(--border)' }}
                                         onMouseLeave={e => { if (filterStatus !== status) e.currentTarget.style.borderColor = 'transparent' }}
                                     >
-                                        {status}
+                                        {status === 'Pending' ? 'Pending' : status}
                                     </button>
                                 ))}
                             </div>
@@ -1347,12 +1375,11 @@ const CreateTest = () => {
                                                     background: t.status === 'Published' ? 'rgba(34, 197, 94, 0.1)' : t.status === 'Expired' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(107, 114, 128,0.1)',
                                                     color: t.status === 'Published' ? 'var(--success)' : t.status === 'Expired' ? 'var(--error)' : 'var(--text-tertiary)'
                                                 }}>
-                                                    {t.status}
+                                                    {t.status === 'Pending' ? 'Pending' : t.status}
                                                 </div>
                                                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-tertiary)' }}>ID: {t.id}</div>
                                             </div>
                                             <h4 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: '0.25rem' }}>{t.name}</h4>
-
                                         </div>
                                     </div>
 
@@ -1395,7 +1422,7 @@ const CreateTest = () => {
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '0.375rem' }}>
-                                            {t.status === 'Draft' && (
+                                            {t.status === 'Pending' && (
                                                 <button
                                                     onClick={() => handleStatusChange(t.id, 'Published')}
                                                     title="Publish Test"
@@ -1702,28 +1729,73 @@ const CreateTest = () => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                     <Calendar size={16} color="var(--primary)" />
-                                                    <input
-                                                        type="date"
-                                                        value={group.examDate}
-                                                        min={new Date().toISOString().split('T')[0]}
-                                                        onChange={e => {
-                                                            const newGroups = [...editModalData.studentGroups];
-                                                            newGroups[gIdx].examDate = e.target.value;
-                                                            setEditModalData({ ...editModalData, studentGroups: newGroups });
-                                                        }}
-                                                        style={{ border: 'none', outline: 'none', background: 'transparent', fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}
-                                                    />
+                                                    {(() => {
+                                                        const today = new Date();
+                                                        today.setHours(0, 0, 0, 0);
+                                                        const examDate = new Date(group.examDate);
+                                                        examDate.setHours(0, 0, 0, 0);
+
+                                                        const isDateLocked = group.examDate && examDate <= today;
+                                                        const hasStudentStarted = group.students?.some(s => {
+                                                            const codeEntry = studentCodes.find(c => c.studentId === s.id);
+                                                            return codeEntry && (codeEntry.status === 'STARTED' || codeEntry.status === 'USED');
+                                                        });
+
+                                                        const isEditLocked = isDateLocked || hasStudentStarted;
+                                                        const lockReason = isDateLocked
+                                                            ? "Cannot change date: Batch is scheduled for today or in the past"
+                                                            : "Cannot change date: Students have already started or taken the exam";
+
+                                                        return (
+                                                            <input
+                                                                type="date"
+                                                                value={group.examDate}
+                                                                min={new Date().toISOString().split('T')[0]}
+                                                                readOnly={isEditLocked}
+                                                                title={isEditLocked ? lockReason : ""}
+                                                                onChange={e => {
+                                                                    if (isEditLocked) return;
+                                                                    const newGroups = [...editModalData.studentGroups];
+                                                                    newGroups[gIdx].examDate = e.target.value;
+                                                                    setEditModalData({ ...editModalData, studentGroups: newGroups });
+                                                                }}
+                                                                style={{
+                                                                    border: 'none',
+                                                                    outline: 'none',
+                                                                    background: 'transparent',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '0.875rem',
+                                                                    color: isEditLocked ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                                                    cursor: isEditLocked ? 'not-allowed' : 'text'
+                                                                }}
+                                                            />
+                                                        );
+                                                    })()}
                                                 </div>
 
                                                 {/* Calculate if the batch is locked safely before rendering the button */}
                                                 {(() => {
-                                                    const isBatchLocked = group.students?.some(s => {
+                                                    const today = new Date();
+                                                    today.setHours(0, 0, 0, 0);
+                                                    const examDate = new Date(group.examDate);
+                                                    examDate.setHours(0, 0, 0, 0);
+
+                                                    const isDateLocked = group.examDate && examDate <= today;
+                                                    const hasStudentStarted = group.students?.some(s => {
                                                         const codeEntry = studentCodes.find(c => c.studentId === s.id);
                                                         return codeEntry && (codeEntry.status === 'STARTED' || codeEntry.status === 'USED');
                                                     });
 
-                                                    return isBatchLocked ? (
-                                                        <div title="Cannot delete batch: One or more students have already started the exam" style={{ cursor: 'not-allowed', opacity: 0.5, display: 'flex', alignItems: 'center' }}>
+                                                    const isBatchLocked = isDateLocked || hasStudentStarted;
+                                                    const isOnlyBatch = (editModalData.studentGroups || []).length <= 1;
+
+                                                    let lockReason = "";
+                                                    if (isOnlyBatch) lockReason = "Cannot delete the only batch of an examination";
+                                                    else if (isDateLocked) lockReason = "Cannot delete batch: Date is today or in the past";
+                                                    else if (hasStudentStarted) lockReason = "Cannot delete batch: One or more students have already started or taken the exam";
+
+                                                    return (isBatchLocked || isOnlyBatch) ? (
+                                                        <div title={lockReason} style={{ cursor: 'not-allowed', opacity: 0.5, display: 'flex', alignItems: 'center' }}>
                                                             <Trash2 size={16} color="var(--border)" />
                                                         </div>
                                                     ) : (
@@ -1746,8 +1818,19 @@ const CreateTest = () => {
 
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                                                 {group.students?.map((s, sIdx) => {
+                                                    const today = new Date();
+                                                    today.setHours(0, 0, 0, 0);
+                                                    const examDate = new Date(group.examDate);
+                                                    examDate.setHours(0, 0, 0, 0);
+                                                    const isDateLocked = group.examDate && examDate <= today;
+
                                                     const codeEntry = studentCodes.find(c => c.studentId === s.id);
-                                                    const isLocked = codeEntry && (codeEntry.status === 'STARTED' || codeEntry.status === 'USED');
+                                                    const hasStarted = codeEntry && (codeEntry.status === 'STARTED' || codeEntry.status === 'USED');
+                                                    const isLocked = hasStarted || isDateLocked;
+                                                    const lockReason = hasStarted
+                                                        ? "Cannot remove: Exam session in progress or completed"
+                                                        : "Cannot remove: Batch date is today or in the past";
+
                                                     return (
                                                         <div key={s.id} style={{
                                                             display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.6rem',
@@ -1764,7 +1847,7 @@ const CreateTest = () => {
                                                                     setEditModalData({ ...editModalData, studentGroups: newGroups });
                                                                 }} />
                                                             ) : (
-                                                                <div title="Cannot remove: Exam session in progress or completed" style={{ cursor: 'not-allowed', display: 'flex', alignItems: 'center' }}>
+                                                                <div title={lockReason} style={{ cursor: 'not-allowed', display: 'flex', alignItems: 'center' }}>
                                                                     <XCircle size={14} color="var(--border)" />
                                                                 </div>
                                                             )}
@@ -1773,29 +1856,52 @@ const CreateTest = () => {
                                                 })}
                                             </div>
 
-                                            <select
-                                                onChange={e => {
-                                                    const studentId = parseInt(e.target.value);
-                                                    if (!studentId) return;
-                                                    const student = availableStudents.find(s => s.id === studentId);
-                                                    if (student) {
-                                                        const newGroups = [...editModalData.studentGroups];
-                                                        if (!newGroups[gIdx].students.some(s => s.id === studentId)) {
-                                                            newGroups[gIdx].students = [...newGroups[gIdx].students, student];
-                                                            setEditModalData({ ...editModalData, studentGroups: newGroups });
-                                                        }
-                                                    }
-                                                    e.target.value = '';
-                                                }}
-                                                style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '0.8125rem', background: 'var(--bg-app)' }}
-                                            >
-                                                <option value="">+ Add Student to this batch...</option>
-                                                {availableStudents
-                                                    .filter(s => !group.students.some(gs => gs.id === s.id))
-                                                    .map(s => (
-                                                        <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
-                                                    ))}
-                                            </select>
+                                            {(() => {
+                                                const today = new Date();
+                                                today.setHours(0, 0, 0, 0);
+                                                const examDate = new Date(group.examDate);
+                                                examDate.setHours(0, 0, 0, 0);
+                                                const isPastDate = group.examDate && examDate < today;
+
+                                                return (
+                                                    <select
+                                                        disabled={isPastDate}
+                                                        title={isPastDate ? "Cannot add students to a past batch" : ""}
+                                                        onChange={e => {
+                                                            if (isPastDate) return;
+                                                            const studentId = parseInt(e.target.value);
+                                                            if (!studentId) return;
+                                                            const student = availableStudents.find(s => s.id === studentId);
+                                                            if (student) {
+                                                                const newGroups = [...editModalData.studentGroups];
+                                                                if (!newGroups[gIdx].students.some(s => s.id === studentId)) {
+                                                                    newGroups[gIdx].students = [...newGroups[gIdx].students, student];
+                                                                    setEditModalData({ ...editModalData, studentGroups: newGroups });
+                                                                }
+                                                            }
+                                                            e.target.value = '';
+                                                        }}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '0.5rem',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid var(--border)',
+                                                            outline: 'none',
+                                                            fontSize: '0.8125rem',
+                                                            background: isPastDate ? 'var(--bg-surface)' : 'var(--bg-app)',
+                                                            cursor: isPastDate ? 'not-allowed' : 'pointer',
+                                                            opacity: isPastDate ? 0.7 : 1
+                                                        }}
+                                                    >
+                                                        <option value="">{isPastDate ? 'Cannot add students to past batch' : '+ Add Student to this batch...'}</option>
+                                                        {!isPastDate && availableStudents
+                                                            .filter(s => !group.students.some(gs => gs.id === s.id))
+                                                            .map(s => (
+                                                                <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
+                                                            ))}
+                                                    </select>
+                                                );
+                                            })()}
                                         </div>
                                     ))}
                                 </div>
@@ -1935,9 +2041,9 @@ const CreateTest = () => {
                             <div style={{ background: 'var(--bg-app)', borderRadius: '20px', padding: '1.25rem 1.75rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>Status</div>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    {['Published', 'Draft', 'Expired'].map(s => (
+                                    {['Published', 'Pending', 'Expired'].map(s => (
                                         <button key={s} onClick={() => setEditModalData({ ...editModalData, status: s })} style={{ padding: '0.5rem 1rem', borderRadius: '10px', border: `2px solid ${editModalData.status === s ? (s === 'Published' ? 'var(--success)' : s === 'Expired' ? 'var(--error)' : 'var(--border)') : 'var(--border)'}`, background: editModalData.status === s ? (s === 'Published' ? 'rgba(34,197,94,0.08)' : s === 'Expired' ? 'rgba(239,68,68,0.08)' : 'var(--bg-surface)') : 'transparent', color: editModalData.status === s ? (s === 'Published' ? 'var(--success)' : s === 'Expired' ? 'var(--error)' : 'var(--text-primary)') : 'var(--text-tertiary)', fontWeight: 700, fontSize: '0.8125rem', cursor: 'pointer', transition: 'all 0.2s' }}>
-                                            {s}
+                                            {s === 'Pending' ? 'Pending' : s}
                                         </button>
                                     ))}
                                 </div>
