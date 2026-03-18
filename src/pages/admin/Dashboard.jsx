@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Users, FileText, Database, Layers, Calendar as CalendarIcon, Activity, ChevronRight, ChevronLeft, TrendingUp, Search, ChevronDown, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Users, FileText, Database, Layers, Calendar as CalendarIcon, Activity, ChevronRight, ChevronLeft, TrendingUp, Search, ChevronDown, X, Download, Loader } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 // --- Premium UI Components ---
 
@@ -332,8 +334,34 @@ const CategoryTrendModal = ({ category, onClose }) => {
 
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
+    const contentRef = useRef(null);
 
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const handleExportPDF = async () => {
+        if (!contentRef.current) return;
+        setIsExporting(true);
+        try {
+            const canvas = await html2canvas(contentRef.current, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'px',
+                format: [canvas.width, canvas.height]
+            });
+            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+            pdf.save(`${category.label}_Mastery_Analysis.pdf`);
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     useEffect(() => {
         const fetchTrend = async () => {
@@ -370,7 +398,7 @@ const CategoryTrendModal = ({ category, onClose }) => {
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
             animation: 'fadeIn 0.3s ease'
         }} onClick={onClose}>
-            <div style={{
+            <div ref={contentRef} style={{
                 background: 'var(--bg-surface)', width: '95%', maxWidth: '1200px', // Increased maximum width
                 borderRadius: '28px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
                 border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
@@ -386,9 +414,33 @@ const CategoryTrendModal = ({ category, onClose }) => {
                             <p style={{ margin: 0, fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Historical performance tracking</p>
                         </div>
                     </div>
-                    <button onClick={onClose} style={{ background: 'var(--bg-app)', border: '1px solid var(--border)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.transform = 'scale(1.05)' }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.transform = 'none' }}>
-                        <X size={20} />
-                    </button>
+                    
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }} data-html2canvas-ignore="true">
+                        <button 
+                            onClick={handleExportPDF} 
+                            disabled={isExporting}
+                            style={{ 
+                                display: 'flex', alignItems: 'center', gap: '0.5rem', 
+                                padding: '0.6rem 1.25rem', borderRadius: '14px', 
+                                background: 'white', color: category.color, 
+                                fontWeight: 700, fontSize: '0.9rem',
+                                border: `1px solid ${category.color}40`,
+                                cursor: isExporting ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                opacity: isExporting ? 0.7 : 1
+                            }}
+                            onMouseEnter={e => !isExporting && (e.currentTarget.style.transform = 'translateY(-2px)', e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.1)')}
+                            onMouseLeave={e => !isExporting && (e.currentTarget.style.transform = 'none', e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)')}
+                        >
+                            {isExporting ? <Loader size={18} className="spinner" style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={18} />} 
+                            {isExporting ? 'Exporting...' : 'Download PDF'}
+                        </button>
+
+                        <button onClick={onClose} style={{ background: 'var(--bg-app)', border: '1px solid var(--border)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.transform = 'scale(1.05)' }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.transform = 'none' }}>
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters */}
