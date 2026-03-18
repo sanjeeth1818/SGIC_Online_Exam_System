@@ -11,6 +11,7 @@ const StudentLayout = () => {
     const [studentName, setStudentName] = useState(() => sessionStorage.getItem('studentName') || 'Guest');
 
     useEffect(() => {
+        document.title = 'SGIC Exam Portal';
         const handleNameUpdate = () => {
             setStudentName(sessionStorage.getItem('studentName') || 'Guest');
         };

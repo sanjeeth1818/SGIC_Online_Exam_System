@@ -31,6 +31,7 @@ const AdminLogin = () => {
 
     // Timer effect for Resend OTP
     React.useEffect(() => {
+        document.title = 'SGIC Exam Portal - Admin';
         let interval = null;
         if (resendTimer > 0) {
             interval = setInterval(() => {

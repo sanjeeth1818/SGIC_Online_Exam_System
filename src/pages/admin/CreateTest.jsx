@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     Search, Plus, Filter, Calendar, Clock, Copy, Edit2, Trash2, Lock,
     Play, XCircle, Eye, FileText, Check, Users, List, Settings,
-    ArrowLeft, ArrowRight, Layers, Globe, Key, FilePlus, LayoutDashboard, Hash
+    ArrowLeft, ArrowRight, Layers, Globe, Key, FilePlus, LayoutDashboard, Hash,
+    AlertCircle
 } from 'lucide-react';
 
 const CreateTest = () => {
@@ -54,6 +55,32 @@ const CreateTest = () => {
     const [notification, setNotification] = useState(null);
     const [errors, setErrors] = useState({});
 
+    // Modal Refs for click-outside-to-close functionality
+    const detailsModalRef = useRef(null);
+    const editModalRef = useRef(null);
+
+    // Click outside to close modals logic
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (showDetailsModal && detailsModalRef.current && !detailsModalRef.current.contains(event.target)) {
+                // If there's a nested modal like addTimeModal, don't close if clicking inside it
+                // and don't close if the click originated from inside the details modal but ended outside
+                setShowDetailsModal(null);
+            }
+            if (editModalData && editModalRef.current && !editModalRef.current.contains(event.target)) {
+                setEditModalData(null);
+            }
+        };
+
+        if (showDetailsModal || editModalData) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showDetailsModal, editModalData]);
+
     // Group questions by category name for manual selection
     const groupedQuestions = allQuestions.reduce((acc, q) => {
         let cat = 'Uncategorized';
@@ -78,6 +105,22 @@ const CreateTest = () => {
             setSelectedQuestionIds(newSelection);
             if (errors.questions) setErrors({ ...errors, questions: '' });
         }
+    };
+
+    const formatDurationDetailed = (value, unit) => {
+        let seconds = unit === 'sec' ? value : value * 60;
+        if (!seconds || seconds <= 0) return '0 min';
+        
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        
+        let parts = [];
+        if (h > 0) parts.push(`${h}h`);
+        if (m > 0) parts.push(`${m} min`);
+        if (s > 0 && h === 0) parts.push(`${s} sec`);
+        
+        return parts.join(' ') || '0 min';
     };
 
     const fetchData = async (isSilent = false) => {
@@ -131,6 +174,15 @@ const CreateTest = () => {
                 if (examDates.length === 1) displayDate = examDates[0];
                 else if (examDates.length > 1) displayDate = 'Multiple Dates';
 
+                const perQuestionSeconds = t.timeUnit === 'sec' ? t.timeValue : t.timeValue * 60;
+                const totalSeconds = t.timeMode === 'question' ? (t.totalQuestions * perQuestionSeconds) : perQuestionSeconds;
+                
+                let durationStr = formatDurationDetailed(t.timeValue, t.timeUnit);
+                if (t.timeMode === 'question') {
+                    const totalStr = formatDurationDetailed(totalSeconds, 'sec');
+                    durationStr = `Totally ${totalStr} (${t.totalQuestions} questions x ${t.timeValue}${t.timeUnit}/per question)`;
+                }
+
                 return {
                     id: (t.id || '').toString(),
                     name: t.name,
@@ -139,8 +191,7 @@ const CreateTest = () => {
                     studentGroups: groups,
                     status: t.status,
                     totalQuestions: t.totalQuestions,
-                    duration: `${t.timeValue} ${t.timeUnit}`,
-                    studentCount: t.studentCount || 0,
+                    duration: durationStr,
                     config: {
                         selectionMode: t.selectionMode,
                         manualQuestions: t.manualQuestions || [],
@@ -184,10 +235,10 @@ const CreateTest = () => {
             const res = await fetch('/api/students');
             if (res.ok) {
                 const data = await res.json();
-                const filtered = data.filter(s =>
-                    (s.status || '').toUpperCase() === 'Pending To Exam' ||
-                    (s.status || '').toUpperCase() === 'HAVE TO RESCHEDULE'
-                );
+                const filtered = data.filter(s => {
+                    const status = (s.status || '').toUpperCase();
+                    return status === 'PENDING TO EXAM' || status === 'HAVE TO RESCHEDULE';
+                });
                 setAvailableStudents(filtered);
             }
         } catch (error) {
@@ -378,7 +429,8 @@ const CreateTest = () => {
             studentGroups: t.studentGroups ? t.studentGroups.map(g => ({
                 id: g.id,
                 examDate: g.examDate,
-                students: g.students || []
+                isPersisted: true,
+                students: (g.students || []).map(s => ({ ...s, isPersisted: true }))
             })) : [],
             timeMode: t.config.timeMode || 'full',
             timeValue: t.config.timeValue || '60',
@@ -408,6 +460,17 @@ const CreateTest = () => {
         const selectedQuestionsCount = editModalData.selectionMode === 'random'
             ? editCategories.filter(c => c.selected).reduce((sum, c) => sum + c.count, 0)
             : editModalData.manualQuestionIds?.length || 0;
+
+        // Duplicate Date Check
+        const groups = editModalData.studentGroups || [];
+        for (let i = 0; i < groups.length; i++) {
+            for (let j = 0; j < i; j++) {
+                if (groups[i].examDate && groups[i].examDate === groups[j].examDate && groups[i].examDate !== '') {
+                    setNotification({ type: 'error', message: `One exam cannot have multiple batches on the same date: ${groups[i].examDate}` });
+                    return;
+                }
+            }
+        }
 
         const payload = {
             name: editModalData.name,
@@ -857,17 +920,27 @@ const CreateTest = () => {
                                                         type="date"
                                                         value={group.examDate}
                                                         min={new Date().toISOString().split('T')[0]}
-                                                        onChange={e => {
-                                                            const newGroups = [...studentGroups];
-                                                            newGroups[groupIndex].examDate = e.target.value;
-                                                            setStudentGroups(newGroups);
-                                                            if (errors[`batch_${groupIndex}_date`] || errors[`batch_${groupIndex}_general`]) {
-                                                                const newErrors = { ...errors };
-                                                                delete newErrors[`batch_${groupIndex}_date`];
-                                                                delete newErrors[`batch_${groupIndex}_general`];
-                                                                setErrors(newErrors);
-                                                            }
-                                                        }}
+                                                         onChange={e => {
+                                                             const selectedDate = e.target.value;
+                                                             const newGroups = [...studentGroups];
+                                                             newGroups[groupIndex].examDate = selectedDate;
+                                                             setStudentGroups(newGroups);
+
+                                                             const newErrors = { ...errors };
+                                                             // Re-evaluate all batches for duplicates (flag only subsequent occurrences)
+                                                             newGroups.forEach((g, idx) => {
+                                                                 const isDup = newGroups.some((otherG, otherIdx) => 
+                                                                     otherIdx < idx && otherG.examDate === g.examDate && g.examDate !== ''
+                                                                 );
+                                                                 if (isDup) {
+                                                                     newErrors[`batch_${idx}_date`] = 'This date is already assigned to another batch.';
+                                                                 } else {
+                                                                     delete newErrors[`batch_${idx}_date`];
+                                                                     delete newErrors[`batch_${idx}_general`];
+                                                                 }
+                                                             });
+                                                             setErrors(newErrors);
+                                                         }}
                                                         style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '12px', border: `2px solid ${errors[`batch_${groupIndex}_date`] ? 'var(--error)' : 'var(--border)'}`, outline: 'none', fontSize: '0.94rem', fontWeight: 600 }}
                                                     />
                                                 </div>
@@ -943,23 +1016,23 @@ const CreateTest = () => {
                                                                     </td>
                                                                     <td style={{ padding: '0.75rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
                                                                         {(() => {
-                                                                            const statusLabels = {
-                                                                                'Pending To Exam': 'Pending',
-                                                                                'Took Exam': 'Completed',
-                                                                                'Blacklisted': 'Blacklisted'
+                                                                            const styles = {
+                                                                                'Pending To Exam': { bg: 'var(--primary-light)', color: 'var(--primary)', label: 'Pending' },
+                                                                                'Have to Reschedule': { bg: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', label: 'Have to Reschedule' }
                                                                             };
-                                                                            const displayLabel = statusLabels[student.status] || student.status;
+                                                                            const current = styles[student.status] || { bg: 'var(--bg-app)', color: 'var(--text-tertiary)', label: student.status };
                                                                             return (
                                                                                 <div style={{
                                                                                     display: 'inline-flex',
-                                                                                    padding: '0.2rem 0.5rem',
-                                                                                    borderRadius: '6px',
-                                                                                    fontSize: '0.65rem',
+                                                                                    padding: '0.25rem 0.6rem',
+                                                                                    borderRadius: '8px',
+                                                                                    fontSize: '0.675rem',
                                                                                     fontWeight: 800,
-                                                                                    background: student.status === 'HAVE TO RESCHEDULE' ? 'var(--error-light)' : 'var(--primary-light)',
-                                                                                    color: student.status === 'HAVE TO RESCHEDULE' ? 'var(--error)' : 'var(--primary)'
+                                                                                    background: current.bg,
+                                                                                    color: current.color,
+                                                                                    letterSpacing: '0.02em'
                                                                                 }}>
-                                                                                    {displayLabel === 'Have to Reschedule' ? 'Have to Reschedule' : displayLabel?.toUpperCase()}
+                                                                                    {current.label}
                                                                                 </div>
                                                                             );
                                                                         })()}
@@ -1075,6 +1148,26 @@ const CreateTest = () => {
                                                         />
                                                         Per Question
                                                     </label>
+                                                </div>
+
+                                                {/* Duration Preview */}
+                                                <div style={{ padding: '1rem', background: 'var(--bg-surface)', borderRadius: '16px', border: '1px dashed var(--primary-border)' }}>
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>Duration Preview</div>
+                                                    <div style={{ fontSize: '0.94rem', fontWeight: 800, color: 'var(--primary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                                        {(() => {
+                                                            const val = parseInt(testData.timeValue) || 0;
+                                                            const unit = testData.timeUnit;
+                                                            const questions = testData.selectionMode === 'manual' ? selectedQuestionIds.length : totalSelectedQuestions;
+
+                                                            if (testData.timeMode === 'question') {
+                                                                const totalSecs = val * questions * (unit === 'hours' ? 3600 : (unit === 'secs' ? 1 : 60));
+                                                                return `Totally ${formatDurationDetailed(totalSecs)} (${questions} Qs x ${val}${unit}/each)`;
+                                                            } else {
+                                                                const totalSecs = val * (unit === 'hours' ? 3600 : (unit === 'secs' ? 1 : 60));
+                                                                return formatDurationDetailed(totalSecs);
+                                                            }
+                                                        })()}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1223,19 +1316,25 @@ const CreateTest = () => {
                                     } else if (step === 3) {
                                         let hasValidBatch = false;
 
-                                        studentGroups.forEach((group, idx) => {
-                                            if (!group.examDate && group.studentIds.length === 0) {
-                                                newErrors[`batch_${idx}_general`] = 'Please assign an exam date and select students for this batch.';
-                                            } else if (!group.examDate) {
-                                                newErrors[`batch_${idx}_date`] = 'Exam date is required.';
-                                            } else if (group.studentIds.length === 0) {
-                                                newErrors[`batch_${idx}_students`] = 'Please assign at least one student.';
-                                            }
+                                         studentGroups.forEach((group, idx) => {
+                                             if (!group.examDate && group.studentIds.length === 0) {
+                                                 newErrors[`batch_${idx}_general`] = 'Please assign an exam date and select students for this batch.';
+                                             } else if (!group.examDate) {
+                                                 newErrors[`batch_${idx}_date`] = 'Exam date is required.';
+                                             } else if (group.studentIds.length === 0) {
+                                                 newErrors[`batch_${idx}_students`] = 'Please assign at least one student.';
+                                             }
 
-                                            if (group.examDate && group.studentIds.length > 0) {
-                                                hasValidBatch = true;
-                                            }
-                                        });
+                                             // Check for duplicate dates
+                                             const isDuplicate = studentGroups.some((g, gIdx) => gIdx !== idx && g.examDate === group.examDate && group.examDate !== '');
+                                             if (isDuplicate) {
+                                                 newErrors[`batch_${idx}_date`] = 'This date is already assigned to another batch.';
+                                             }
+
+                                             if (group.examDate && group.studentIds.length > 0 && !isDuplicate) {
+                                                 hasValidBatch = true;
+                                             }
+                                         });
 
                                         if (!hasValidBatch) {
                                             setErrors(newErrors);
@@ -1272,23 +1371,24 @@ const CreateTest = () => {
                     </div>
                 </div>
             ) : (
-                <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {/* Filters and Search Bar */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', background: 'var(--bg-surface)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ background: 'var(--bg-surface)', padding: '1.25rem 1.5rem', borderRadius: '24px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem' }}>
+                            {/* Status Filter Row */}
+                            <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                 {['All', 'Published', 'Pending', 'Expired'].map(status => (
                                     <button
                                         key={status}
                                         onClick={() => setFilterStatus(status)}
                                         style={{
-                                            padding: '0.625rem 1.25rem',
+                                            padding: '0.5rem 1.125rem',
                                             borderRadius: '12px',
                                             border: `2px solid ${filterStatus === status ? 'var(--primary)' : 'transparent'}`,
                                             background: filterStatus === status ? 'var(--primary-light)' : 'var(--bg-app)',
                                             color: filterStatus === status ? 'var(--primary)' : 'var(--text-secondary)',
                                             fontWeight: 700,
-                                            fontSize: '0.875rem',
+                                            fontSize: '0.8125rem',
                                             cursor: 'pointer',
                                             transition: 'all 0.2s',
                                         }}
@@ -1299,8 +1399,20 @@ const CreateTest = () => {
                                     </button>
                                 ))}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-app)', padding: '0.375rem', borderRadius: '14px', border: '1px solid var(--border)' }}>
+
+                            {/* Sorting and Search Row */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                                {/* Sorting Group */}
+                                <div style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '0.25rem', 
+                                    background: 'var(--bg-app)', 
+                                    padding: '0.25rem', 
+                                    borderRadius: '14px', 
+                                    border: '1px solid var(--border)',
+                                    height: '44px' 
+                                }}>
                                     {['date', 'name', 'questions'].map(sort => (
                                         <button
                                             key={sort}
@@ -1313,13 +1425,14 @@ const CreateTest = () => {
                                                 }
                                             }}
                                             style={{
-                                                padding: '0.5rem 0.875rem',
+                                                padding: '0 0.875rem',
+                                                height: '100%',
                                                 borderRadius: '10px',
                                                 border: 'none',
                                                 background: sortBy === sort ? 'var(--bg-surface)' : 'transparent',
                                                 color: sortBy === sort ? 'var(--primary)' : 'var(--text-tertiary)',
                                                 fontWeight: 800,
-                                                fontSize: '0.8125rem',
+                                                fontSize: '0.75rem',
                                                 textTransform: 'capitalize',
                                                 cursor: 'pointer',
                                                 display: 'flex',
@@ -1333,14 +1446,27 @@ const CreateTest = () => {
                                         </button>
                                     ))}
                                 </div>
-                                <div style={{ position: 'relative', width: '280px' }}>
+
+                                {/* Search Bar */}
+                                <div style={{ position: 'relative', width: '300px' }}>
                                     <Search size={18} color="var(--text-tertiary)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
                                     <input
                                         type="text"
                                         placeholder="Search by name or code..."
                                         value={manageSearchTerm}
                                         onChange={e => setManageSearchTerm(e.target.value)}
-                                        style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '14px', border: '2px solid var(--border)', background: 'var(--bg-app)', outline: 'none', fontSize: '0.875rem', fontWeight: 600, transition: 'all 0.2s' }}
+                                        style={{ 
+                                            width: '100%', 
+                                            height: '44px',
+                                            padding: '0 1rem 0 2.75rem', 
+                                            borderRadius: '14px', 
+                                            border: '2px solid var(--border)', 
+                                            background: 'var(--bg-app)', 
+                                            outline: 'none', 
+                                            fontSize: '0.875rem', 
+                                            fontWeight: 600, 
+                                            transition: 'all 0.2s' 
+                                        }}
                                         onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                                         onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
                                     />
@@ -1398,11 +1524,11 @@ const CreateTest = () => {
                                                 <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>{t.totalQuestions} Items</div>
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', gridColumn: t.duration.includes('Totally') ? '1 / -1' : 'auto' }}>
                                             <Clock size={16} color="var(--primary)" />
                                             <div>
                                                 <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Duration</div>
-                                                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>{t.duration}</div>
+                                                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{t.duration}</div>
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1424,7 +1550,7 @@ const CreateTest = () => {
                                         <div style={{ display: 'flex', gap: '0.375rem' }}>
                                             {t.status === 'Pending' && (
                                                 <button
-                                                    onClick={() => handleStatusChange(t.id, 'Published')}
+                                                    onClick={(e) => { e.stopPropagation(); handleStatusChange(t.id, 'Published'); }}
                                                     title="Publish Test"
                                                     style={{ width: '36px', height: '36px', borderRadius: '10px', border: 'none', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
                                                     onMouseEnter={e => { e.currentTarget.style.background = 'var(--success)'; e.currentTarget.style.color = 'white'; }}
@@ -1435,7 +1561,7 @@ const CreateTest = () => {
                                             )}
                                             {t.status === 'Published' && (
                                                 <button
-                                                    onClick={() => handleStatusChange(t.id, 'Expired')}
+                                                    onClick={(e) => { e.stopPropagation(); handleStatusChange(t.id, 'Expired'); }}
                                                     title="Expire Test"
                                                     style={{ width: '36px', height: '36px', borderRadius: '10px', border: 'none', background: 'rgba(239,68,68,0.1)', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
                                                     onMouseEnter={e => { e.currentTarget.style.background = 'var(--error)'; e.currentTarget.style.color = 'white'; }}
@@ -1484,6 +1610,7 @@ const CreateTest = () => {
             {editModalData && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, animation: 'fadeIn 0.2s' }}>
                     <div
+                        ref={editModalRef}
                         className="hide-scrollbar"
                         style={{
                             background: 'var(--bg-surface)', width: '95%', maxWidth: '750px',
@@ -1525,10 +1652,25 @@ const CreateTest = () => {
                                         {editModalData.studentGroups && editModalData.studentGroups.length > 0 ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                 {editModalData.studentGroups.map((group, idx) => (
-                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '8px', border: '1px dashed var(--border)', fontSize: '0.875rem' }}>
-                                                        <span style={{ fontWeight: 600 }}>{group.examDate || 'No Date'}</span>
-                                                        <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>{(group.students?.length || group.studentIds?.length) || 0} Students</span>
-                                                    </div>
+                                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '8px', border: '1px dashed var(--border)', fontSize: '0.875rem' }}>
+                                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                             <span style={{ fontWeight: 600 }}>{group.examDate || 'No Date'}</span>
+                                                             <span style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem' }}>{(group.students?.length || group.studentIds?.length) || 0} Students</span>
+                                                         </div>
+                                                         <button
+                                                             onClick={() => {
+                                                                const newGroups = [...editModalData.studentGroups];
+                                                                newGroups.splice(idx, 1);
+                                                                setEditModalData({...editModalData, studentGroups: newGroups});
+                                                             }}
+                                                             title="Remove Batch"
+                                                             style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
+                                                             onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                         >
+                                                             <Trash2 size={16} />
+                                                         </button>
+                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
@@ -1753,19 +1895,24 @@ const CreateTest = () => {
                                                                 min={new Date().toISOString().split('T')[0]}
                                                                 readOnly={isEditLocked}
                                                                 title={isEditLocked ? lockReason : ""}
-                                                                onChange={e => {
-                                                                    if (isEditLocked) return;
-                                                                    const newGroups = [...editModalData.studentGroups];
-                                                                    newGroups[gIdx].examDate = e.target.value;
-                                                                    setEditModalData({ ...editModalData, studentGroups: newGroups });
-                                                                }}
+                                                                  onChange={e => {
+                                                                     if (isEditLocked) return;
+                                                                     const selectedDate = e.target.value;
+                                                                     const newGroups = [...editModalData.studentGroups];
+                                                                     newGroups[gIdx].examDate = selectedDate;
+                                                                     setEditModalData({ ...editModalData, studentGroups: newGroups });
+                                                                 }}
                                                                 style={{
                                                                     border: 'none',
                                                                     outline: 'none',
                                                                     background: 'transparent',
                                                                     fontWeight: 700,
                                                                     fontSize: '0.875rem',
-                                                                    color: isEditLocked ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                                                    color: isEditLocked ? 'var(--text-tertiary)' : (
+                                                                        (editModalData.studentGroups || []).some((otherG, otherIdx) =>
+                                                                            otherIdx < gIdx && otherG.examDate === group.examDate && group.examDate !== ''
+                                                                        ) ? 'var(--error)' : 'var(--text-primary)'
+                                                                    ),
                                                                     cursor: isEditLocked ? 'not-allowed' : 'text'
                                                                 }}
                                                             />
@@ -1786,12 +1933,12 @@ const CreateTest = () => {
                                                         return codeEntry && (codeEntry.status === 'STARTED' || codeEntry.status === 'USED');
                                                     });
 
-                                                    const isBatchLocked = isDateLocked || hasStudentStarted;
+                                                    const isBatchLocked = (isDateLocked && group.isPersisted) || hasStudentStarted;
                                                     const isOnlyBatch = (editModalData.studentGroups || []).length <= 1;
 
                                                     let lockReason = "";
                                                     if (isOnlyBatch) lockReason = "Cannot delete the only batch of an examination";
-                                                    else if (isDateLocked) lockReason = "Cannot delete batch: Date is today or in the past";
+                                                    else if (isDateLocked) lockReason = "Cannot delete batch: Existing batch date is today or in the past";
                                                     else if (hasStudentStarted) lockReason = "Cannot delete batch: One or more students have already started or taken the exam";
 
                                                     return (isBatchLocked || isOnlyBatch) ? (
@@ -1816,6 +1963,34 @@ const CreateTest = () => {
                                                 })()}
                                             </div>
 
+                                            {/* Duplicate Date Error Message (only for subsequent occurrences) */}
+                                            {(() => {
+                                                const isDuplicate = (editModalData.studentGroups || []).some((otherG, otherIdx) =>
+                                                    otherIdx < gIdx && otherG.examDate === group.examDate && group.examDate !== ''
+                                                );
+                                                if (isDuplicate) {
+                                                    return (
+                                                        <div style={{
+                                                            marginTop: '-0.5rem',
+                                                            marginBottom: '1rem',
+                                                            fontSize: '0.75rem',
+                                                            color: 'var(--error)',
+                                                            fontWeight: 600,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.4rem',
+                                                            background: 'rgba(239, 68, 68, 0.05)',
+                                                            padding: '0.5rem 0.75rem',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid rgba(239, 68, 68, 0.1)'
+                                                        }}>
+                                                            <AlertCircle size={14} /> This date is already assigned to another batch in this examination.
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                                                 {group.students?.map((s, sIdx) => {
                                                     const today = new Date();
@@ -1826,10 +2001,10 @@ const CreateTest = () => {
 
                                                     const codeEntry = studentCodes.find(c => c.studentId === s.id);
                                                     const hasStarted = codeEntry && (codeEntry.status === 'STARTED' || codeEntry.status === 'USED');
-                                                    const isLocked = hasStarted || isDateLocked;
+                                                    const isLocked = hasStarted || (isDateLocked && s.isPersisted);
                                                     const lockReason = hasStarted
                                                         ? "Cannot remove: Exam session in progress or completed"
-                                                        : "Cannot remove: Batch date is today or in the past";
+                                                        : "Cannot remove: Existing student in a batch scheduled for today or in the past";
 
                                                     return (
                                                         <div key={s.id} style={{
@@ -1971,6 +2146,28 @@ const CreateTest = () => {
                                                 Per Question
                                             </label>
                                         </div>
+
+                                        {/* Duration Preview */}
+                                        <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '12px', border: '1px dashed var(--primary-border)' }}>
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Duration Preview</div>
+                                            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--primary)', lineHeight: 1.4 }}>
+                                                {(() => {
+                                                    const val = parseInt(editModalData.timeValue) || 0;
+                                                    const unit = editModalData.timeUnit;
+                                                    const questions = editModalData.selectionMode === 'manual' 
+                                                        ? (editModalData.manualQuestionIds?.length || 0)
+                                                        : editCategories.filter(c => c.selected).reduce((sum, c) => sum + (c.count || 0), 0);
+
+                                                    if (editModalData.timeMode === 'question') {
+                                                        const totalSecs = val * questions * (unit === 'hours' ? 3600 : (unit === 'secs' ? 1 : 60));
+                                                        return `Totally ${formatDurationDetailed(totalSecs)} (${questions} Qs x ${val}${unit}/each)`;
+                                                    } else {
+                                                        const totalSecs = val * (unit === 'hours' ? 3600 : (unit === 'secs' ? 1 : 60));
+                                                        return formatDurationDetailed(totalSecs);
+                                                    }
+                                                })()}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Column 2: Visibility */}
@@ -2076,7 +2273,7 @@ const CreateTest = () => {
             {/* Details Modal */}
             {showDetailsModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, animation: 'fadeIn 0.2s' }}>
-                    <div style={{ background: 'var(--bg-surface)', width: '95%', maxWidth: '1100px', borderRadius: '32px', padding: '2.5rem', boxShadow: '0 25px 60px rgba(0,0,0,0.2)', border: '1px solid var(--border)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }} className="hide-scrollbar">
+                    <div ref={detailsModalRef} style={{ background: 'var(--bg-surface)', width: '95%', maxWidth: '1100px', borderRadius: '32px', padding: '2.5rem', boxShadow: '0 25px 60px rgba(0,0,0,0.2)', border: '1px solid var(--border)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }} className="hide-scrollbar">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
                             <div>
                                 <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{showDetailsModal.name}</h3>
@@ -2103,10 +2300,17 @@ const CreateTest = () => {
                                             <Clock size={14} /> Time
                                         </div>
                                         <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)' }}>
-                                            {showDetailsModal.config.timeValue} {showDetailsModal.config.timeUnit.toUpperCase()}
+                                            {showDetailsModal.config.timeMode === 'question' ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontSize: '1.1rem' }}>Totally {formatDurationDetailed(showDetailsModal.totalQuestions * (showDetailsModal.config.timeUnit === 'sec' ? showDetailsModal.config.timeValue : showDetailsModal.config.timeValue * 60), 'sec')}</span>
+                                                    <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({showDetailsModal.totalQuestions} questions x {showDetailsModal.config.timeValue} {showDetailsModal.config.timeUnit.toUpperCase()} /per question)</span>
+                                                </div>
+                                            ) : (
+                                                `${showDetailsModal.config.timeValue} ${showDetailsModal.config.timeUnit.toUpperCase()}`
+                                            )}
                                         </div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', fontWeight: 600 }}>
-                                            {showDetailsModal.config.timeMode === 'full' ? 'Total Duration' : 'Per Question'}
+                                            {showDetailsModal.config.timeMode === 'full' ? 'Total Duration' : 'Layout-Based Duration'}
                                         </div>
                                     </div>
                                     <div style={{ background: 'var(--bg-app)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--border)' }}>

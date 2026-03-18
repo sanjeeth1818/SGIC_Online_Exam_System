@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Lock, Mail, Save, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { User, Lock, Mail, Save, AlertCircle, CheckCircle } from 'lucide-react';
 
 const Settings = () => {
     const [activeTab, setActiveTab] = useState('profile');
@@ -59,7 +59,7 @@ const Settings = () => {
                         senderEmail: data.senderEmail || '',
                         senderName: data.senderName || '',
                         username: data.username || '',
-                        password: data.password ? '••••••••••••' : ''
+                        password: data.password ? '************' : ''
                     });
                 } else {
                     // If fetching fails, ensure all fields are empty strings
@@ -189,7 +189,7 @@ const Settings = () => {
 
         // Clean up password: Gmail app passwords shouldn't have spaces
         let finalEmailData = { ...emailData };
-        if (finalEmailData.password && finalEmailData.password !== '••••••••••••') {
+        if (finalEmailData.password && finalEmailData.password !== '************') {
             finalEmailData.password = finalEmailData.password.replace(/\s/g, '');
         }
 
@@ -220,7 +220,7 @@ const Settings = () => {
         showNotification('Testing connection...', 'success');
 
         let finalEmailData = { ...emailData };
-        if (finalEmailData.password && finalEmailData.password !== '••••••••••••') {
+        if (finalEmailData.password && finalEmailData.password !== '************') {
             finalEmailData.password = finalEmailData.password.replace(/\s/g, '');
         }
 
@@ -758,7 +758,7 @@ const Settings = () => {
                                     value={verificationPassword}
                                     onChange={e => setVerificationPassword(e.target.value)}
                                     style={inputStyle}
-                                    placeholder="••••••••"
+                                    placeholder="********"
                                     required
                                 />
                             </div>

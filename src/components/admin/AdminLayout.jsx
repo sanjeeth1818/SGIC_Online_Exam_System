@@ -7,6 +7,10 @@ const AdminLayout = () => {
     const navigate = useNavigate();
     const [refreshKey, setRefreshKey] = React.useState(0);
 
+    React.useEffect(() => {
+        document.title = 'SGIC Exam Portal - Admin';
+    }, []);
+
     const handleLogout = () => {
         localStorage.removeItem('adminToken');
         localStorage.removeItem('adminUser');

@@ -4,7 +4,7 @@ import { Search, Eye, Download, PieChart, TrendingUp, Clock, Calendar, CheckCirc
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const PremiumMultiSelect = ({ options, selected, onChange, placeholder, icon }) => {
+const PremiumMultiSelect = ({ options, selected, onChange, placeholder, icon, manualRange = false, minVal = '', maxVal = '', setMinVal, setMaxVal }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
 
@@ -26,6 +26,10 @@ const PremiumMultiSelect = ({ options, selected, onChange, placeholder, icon }) 
         }
     };
 
+    const hasActiveFilters = selected.length > 0 || (manualRange && (minVal !== '' || maxVal !== ''));
+    const isManualDisabled = selected.length > 0;
+    const isOptionsDisabled = (manualRange && (minVal !== '' || maxVal !== ''));
+
     return (
         <div ref={containerRef} style={{ position: 'relative', minWidth: '160px' }}>
             <div
@@ -40,45 +44,72 @@ const PremiumMultiSelect = ({ options, selected, onChange, placeholder, icon }) 
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.85rem' }}>
                     {icon}
-                    {selected.length === 0 ? placeholder : `${selected.length} Selected`}
+                    {hasActiveFilters ? (selected.length > 0 ? `${selected.length} Selected` : 'Range Set') : placeholder}
                 </div>
                 <ChevronDown size={14} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </div>
 
             {isOpen && (
                 <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, width: '220px',
+                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, width: '240px',
                     background: 'white', borderRadius: '16px', border: '1px solid var(--border)',
                     boxShadow: '0 20px 40px rgba(0,0,0,0.1)', padding: '0.5rem', zIndex: 100,
                     animation: 'fadeInUp 0.2s ease-out'
                 }}>
-                    {options.map(opt => (
-                        <div
-                            key={opt.value}
-                            onClick={() => toggleOption(opt)}
-                            style={{
-                                padding: '0.6rem 0.8rem', borderRadius: '10px', display: 'flex',
-                                alignItems: 'center', gap: '0.75rem', cursor: 'pointer',
-                                background: selected.includes(opt.value) ? 'var(--bg-app)' : 'transparent',
-                                transition: 'background 0.15s'
-                            }}
-                            onMouseEnter={e => { if (!selected.includes(opt.value)) e.currentTarget.style.background = 'var(--bg-app)'; }}
-                            onMouseLeave={e => { if (!selected.includes(opt.value)) e.currentTarget.style.background = 'transparent'; }}
-                        >
-                            <div style={{
-                                width: '18px', height: '18px', borderRadius: '6px',
-                                border: `2px solid ${selected.includes(opt.value) ? 'var(--primary)' : 'var(--border)'}`,
-                                background: selected.includes(opt.value) ? 'var(--primary)' : 'white',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                {selected.includes(opt.value) && <Check size={12} color="white" strokeWidth={3} />}
+                    {manualRange && (
+                        <div style={{ padding: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid var(--border)', opacity: isManualDisabled ? 0.5 : 1 }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Manual Range (%)</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input 
+                                    type="number" 
+                                    placeholder="From" 
+                                    value={minVal} 
+                                    onChange={e => !isManualDisabled && setMinVal(e.target.value)}
+                                    disabled={isManualDisabled}
+                                    style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.8rem', outline: 'none', cursor: isManualDisabled ? 'not-allowed' : 'text' }}
+                                />
+                                <span style={{ color: 'var(--text-tertiary)' }}>-</span>
+                                <input 
+                                    type="number" 
+                                    placeholder="To" 
+                                    value={maxVal} 
+                                    onChange={e => !isManualDisabled && setMaxVal(e.target.value)}
+                                    disabled={isManualDisabled}
+                                    style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.8rem', outline: 'none', cursor: isManualDisabled ? 'not-allowed' : 'text' }}
+                                />
                             </div>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{opt.label}</span>
                         </div>
-                    ))}
-                    {selected.length > 0 && (
+                    )}
+                    <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                        {options.map(opt => (
+                            <div
+                                key={opt.value}
+                                onClick={() => !isOptionsDisabled && toggleOption(opt)}
+                                style={{
+                                    padding: '0.6rem 0.8rem', borderRadius: '10px', display: 'flex',
+                                    alignItems: 'center', gap: '0.75rem', cursor: isOptionsDisabled ? 'not-allowed' : 'pointer',
+                                    background: selected.includes(opt.value) ? 'var(--bg-app)' : 'transparent',
+                                    transition: 'background 0.15s',
+                                    opacity: isOptionsDisabled ? 0.5 : 1
+                                }}
+                                onMouseEnter={e => { if (!selected.includes(opt.value) && !isOptionsDisabled) e.currentTarget.style.background = 'var(--bg-app)'; }}
+                                onMouseLeave={e => { if (!selected.includes(opt.value) && !isOptionsDisabled) e.currentTarget.style.background = 'transparent'; }}
+                            >
+                                <div style={{
+                                    width: '18px', height: '18px', borderRadius: '6px',
+                                    border: `2px solid ${selected.includes(opt.value) ? 'var(--primary)' : 'var(--border)'}`,
+                                    background: selected.includes(opt.value) ? 'var(--primary)' : 'white',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    {selected.includes(opt.value) && <Check size={12} strokeWidth={3} color="white" />}
+                                </div>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{opt.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                    {hasActiveFilters && (
                         <div
-                            onClick={() => onChange([])}
+                            onClick={() => { onChange([]); if (manualRange) { setMinVal(''); setMaxVal(''); } }}
                             style={{
                                 marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)',
                                 textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-tertiary)',
@@ -87,7 +118,7 @@ const PremiumMultiSelect = ({ options, selected, onChange, placeholder, icon }) 
                             onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
                             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-tertiary)'}
                         >
-                            Clear Selection
+                            Reset
                         </div>
                     )}
                 </div>
@@ -119,20 +150,12 @@ const Results = () => {
 
     // Exam-level advanced filters
     const [examSearchTerm, setExamSearchTerm] = useState('');
-    const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [selectedScores, setSelectedScores] = useState([]);
     const [selectedDates, setSelectedDates] = useState([]);
-    const [selectedTimes, setSelectedTimes] = useState([]);
+    const [gradingScales, setGradingScales] = useState([]);
+    const [manualScoreMin, setManualScoreMin] = useState('');
+    const [manualScoreMax, setManualScoreMax] = useState('');
 
-    const parseTimeStr = (str) => {
-        if (!str) return 0;
-        let total = 0;
-        const mins = str.match(/(\d+)m/);
-        const secs = str.match(/(\d+)s/);
-        if (mins) total += parseInt(mins[1]) * 60;
-        if (secs) total += parseInt(secs[1]);
-        return total;
-    };
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -227,14 +250,23 @@ const Results = () => {
     };
 
     const formatDuration = (seconds) => {
-        if (seconds < 60) return `${seconds}s`;
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}m ${secs}s`;
+        if (!seconds || seconds <= 0) return '0s';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+
+        if (h > 0) return `${h}h ${m}m ${s}s`;
+        if (m > 0) return `${m}m ${s}s`;
+        return `${s}s`;
     };
 
     React.useEffect(() => {
         fetchData();
+        // Fetch grading settings for filters
+        fetch('/api/settings/grading')
+            .then(res => res.ok ? res.json() : [])
+            .then(data => setGradingScales(data.sort((a, b) => b.minScore - a.minScore)))
+            .catch(err => console.error('Failed to fetch grading scales:', err));
     }, []);
 
     const getScoreColor = (score) => {
@@ -321,16 +353,33 @@ const Results = () => {
         fetchExamStudentCodes(examName);
     };
 
+    const handleSetManualMin = (val) => {
+        let num = val === '' ? '' : Math.min(100, Math.max(0, parseFloat(val)));
+        setManualScoreMin(num);
+        if (num !== '' && manualScoreMax !== '' && num > parseFloat(manualScoreMax)) {
+            setManualScoreMax(num);
+        }
+    };
+
+    const handleSetManualMax = (val) => {
+        let num = val === '' ? '' : Math.min(100, Math.max(0, parseFloat(val)));
+        if (num !== '' && manualScoreMin !== '' && num < parseFloat(manualScoreMin)) {
+            setManualScoreMax(manualScoreMin);
+        } else {
+            setManualScoreMax(num);
+        }
+    };
+
     const closeExam = () => {
         setSelectedExam(null);
         setExamStudentCodes([]);
         setExpandedStudentRow(null);
         setExpandedCategoryBreakdown(null);
         setExamSearchTerm('');
-        setSelectedStatuses([]);
         setSelectedScores([]);
         setSelectedDates([]);
-        setSelectedTimes([]);
+        setManualScoreMin('');
+        setManualScoreMax('');
     };
 
     const CustomCalendar = () => {
@@ -444,68 +493,129 @@ const Results = () => {
         );
     };
 
-    const handleExportCSV = () => {
+    const handleExportCSV = (customData = null, customFilename = null) => {
         const timestamp = new Date().toLocaleString();
-        const csvRows = [];
+        const dataToExport = Array.isArray(customData) ? customData : (customData != null ? [customData] : (Array.isArray(filteredResults) ? filteredResults : []));
 
-        // 1. Professional Header
-        csvRows.push(["SAMUEL GNANAM IT CENTRE - PERFORMANCE ANALYTICS REPORT"]);
-        csvRows.push([`Generated On: ${timestamp}`]);
-        csvRows.push([`Total Records Exported: ${filteredResults.length}`]);
-        csvRows.push([]); // Spacer
 
-        // 2. Student Performance Summary Section
-        csvRows.push(["STUDENT PERFORMANCE SUMMARY"]);
-        csvRows.push(["Student Name", "Examination", "Correct Answers", "Total Questions", "Accuracy (%)", "Final Score (%)", "Status", "Submission Date"]);
+        // Helper: escape a cell value for CSV
+        const esc = (val) => {
+            const s = String(val ?? '');
+            if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+                return `"${s.replace(/"/g, '""')}"`;
+            }
+            return s;
+        };
 
-        filteredResults.forEach(r => {
-            const totalQ = r.answers.length;
-            const correctQ = r.answers.filter(a => a.isCorrect).length;
-            csvRows.push([
+        const lines = [];
+
+        // ── BOM for Excel UTF-8 compatibility
+        const BOM = '\uFEFF';
+
+        // ─────────────────────────────────────────────────────────────
+        // SECTION 1 – Report Header
+        // ─────────────────────────────────────────────────────────────
+        lines.push(`SAMUEL GNANAM IT CENTRE – PERFORMANCE ANALYTICS REPORT`);
+        lines.push(`Generated On:,${esc(timestamp)}`);
+        lines.push(`Total Students Exported:,${dataToExport.length}`);
+        lines.push('');
+
+        // ─────────────────────────────────────────────────────────────
+        // SECTION 2 – Student Performance Summary
+        // ─────────────────────────────────────────────────────────────
+        lines.push('SECTION 1: STUDENT PERFORMANCE SUMMARY');
+        lines.push('─────────────────────────────────────────────────────────');
+        const summaryHeaders = ['#', 'Student Name', 'Email / ID', 'Examination', 'Correct', 'Total Q', 'Accuracy', 'Final Score', 'Status', 'Time Taken', 'Submission Date'];
+        lines.push(summaryHeaders.map(esc).join(','));
+
+        dataToExport.forEach((r, i) => {
+            const answers = r.answers || [];
+            const totalQ = answers.length;
+            const correctQ = answers.filter(a => a.isCorrect).length;
+            const accuracy = totalQ > 0 ? Math.round((correctQ / totalQ) * 100) : 0;
+            const row = [
+                i + 1,
                 r.name,
+                r.email,
                 r.testName,
                 correctQ,
                 totalQ,
-                `${Math.round((correctQ / totalQ) * 100)}%`,
+                `${accuracy}%`,
                 `${r.score}%`,
-                r.score >= 50 ? "PASSED" : "FAILED",
+                r.score >= 50 ? 'PASSED' : 'FAILED',
+                r.timeTaken || '',
                 r.participatedDate
-            ]);
+            ];
+            lines.push(row.map(esc).join(','));
         });
 
-        csvRows.push([]); // Spacer
-        csvRows.push([]); // Spacer
+        lines.push('');
+        lines.push('');
 
-        // 3. Granular Question Analytics Section
-        csvRows.push(["GRANULAR QUESTION ANALYTICS"]);
-        csvRows.push(["Student Name", "ID / Email", "Question #", "Category", "Question", "Student Answer", "Correct Answer", "Result", "Time Spent"]);
+        // ─────────────────────────────────────────────────────────────
+        // SECTION 3 – Category Proficiency Breakdown
+        // ─────────────────────────────────────────────────────────────
+        lines.push('SECTION 2: CATEGORY PROFICIENCY BREAKDOWN');
+        lines.push('─────────────────────────────────────────────────────────');
+        const catHeaders = ['Student Name', 'Category', 'Correct', 'Total', 'Accuracy'];
+        lines.push(catHeaders.map(esc).join(','));
 
-        filteredResults.forEach(r => {
-            r.answers.forEach((q, idx) => {
-                csvRows.push([
-                    r.name,
-                    `="${r.email}"`, // Excel trick to preserve leading zeros/formatting
-                    idx + 1,
-                    q.category,
-                    `"${q.question.replace(/"/g, '""')}"`,
-                    `"${(q.studentAnswer || 'Skipped').replace(/"/g, '""')}"`,
-                    `"${(q.correctAnswer || '').replace(/"/g, '""')}"`,
-                    q.isCorrect ? "CORRECT" : "INCORRECT",
-                    q.timeSpent
-                ]);
+        dataToExport.forEach(r => {
+            const catMap = {};
+            (r.answers || []).forEach(q => {
+                const cat = q.category || 'Uncategorized';
+                if (!catMap[cat]) catMap[cat] = { correct: 0, total: 0 };
+                catMap[cat].total++;
+                if (q.isCorrect) catMap[cat].correct++;
+            });
+            Object.entries(catMap).forEach(([cat, stats]) => {
+                const acc = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+                lines.push([r.name, cat, stats.correct, stats.total, `${acc}%`].map(esc).join(','));
             });
         });
 
-        // Convert to CSV string with proper escaping
-        const csvString = csvRows.map(row => row.join(",")).join("\n");
+        lines.push('');
+        lines.push('');
+
+        // ─────────────────────────────────────────────────────────────
+        // SECTION 4 – Question-by-Question Analytics
+        // ─────────────────────────────────────────────────────────────
+        lines.push('SECTION 3: QUESTION-BY-QUESTION ANALYTICS');
+        lines.push('─────────────────────────────────────────────────────────');
+        const qHeaders = ['Student Name', 'Email', 'Q#', 'Category', 'Question', 'Student Answer', 'Correct Answer', 'Result', 'Time Spent'];
+        lines.push(qHeaders.map(esc).join(','));
+
+        dataToExport.forEach(r => {
+            (r.answers || []).forEach((q, idx) => {
+                const row = [
+                    r.name,
+                    r.email,
+                    idx + 1,
+                    q.category || 'Uncategorized',
+                    q.question,
+                    q.studentAnswer || 'NO RESPONSE',
+                    q.correctAnswer || '',
+                    q.isCorrect ? 'CORRECT' : 'INCORRECT',
+                    q.timeSpent || ''
+                ];
+                lines.push(row.map(esc).join(','));
+            });
+        });
+
+        lines.push('');
+        lines.push('─── END OF REPORT ───');
+
+        const csvString = BOM + lines.join('\n');
         const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `SGIC_Professional_Data_${new Date().toISOString().split('T')[0]}.csv`);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        const filename = customFilename || `SGIC_Analytics_Report_${new Date().toISOString().split('T')[0]}.csv`;
+        link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     const drawPieChart = (correct, total) => {
@@ -544,10 +654,11 @@ const Results = () => {
         return canvas.toDataURL('image/png');
     };
 
-    const handleExportPDF = () => {
+    const handleExportPDF = (customData = null, customFilename = null) => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const timestamp = new Date().toLocaleString();
         const logoUrl = '/SGIC 2.png';
+        const dataToExport = customData || filteredResults;
 
         const addHeader = () => {
             // Minimalist Header Bar
@@ -570,42 +681,47 @@ const Results = () => {
             doc.text(`Generated: ${timestamp}`, 196, 30, { align: 'right' });
         };
 
-        const groupedByExam = filteredResults.reduce((acc, result) => {
+        const groupedByExam = dataToExport.reduce((acc, result) => {
             if (!acc[result.testName]) acc[result.testName] = [];
             acc[result.testName].push(result);
             return acc;
         }, {});
 
+        const isSingleStudent = dataToExport.length === 1;
         let isFirstPage = true;
 
         Object.keys(groupedByExam).forEach((examName) => {
-            if (!isFirstPage) doc.addPage();
-            addHeader();
-            isFirstPage = false;
-
-            doc.setTextColor(30, 41, 59);
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`Exam: ${examName}`, 14, 45);
-
             const examResults = groupedByExam[examName];
 
-            autoTable(doc, {
-                startY: 50,
-                head: [['Student', 'Score', 'Status', 'Date']],
-                body: examResults.map(r => [
-                    r.name,
-                    `${r.score}%`,
-                    { content: r.score >= 50 ? 'PASSED' : 'FAILED', styles: { textColor: r.score >= 50 ? [22, 163, 74] : [220, 38, 38], fontStyle: 'bold' } },
-                    r.participatedDate
-                ]),
-                theme: 'striped',
-                headStyles: { fillColor: [99, 102, 241], fontSize: 10 },
-                styles: { fontSize: 9 }
-            });
+            if (!isSingleStudent) {
+                if (!isFirstPage) doc.addPage();
+                addHeader();
+                isFirstPage = false;
 
-            examResults.forEach((student) => {
-                doc.addPage();
+                doc.setTextColor(30, 41, 59);
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Exam: ${examName}`, 14, 45);
+
+                autoTable(doc, {
+                    startY: 50,
+                    head: [['#', 'Student Name', 'Score', 'Status', 'Submission Date']],
+                    body: examResults.map((r, i) => [
+                        i + 1,
+                        r.name,
+                        `${r.score}%`,
+                        { content: r.score >= 50 ? 'PASSED' : 'FAILED', styles: { textColor: r.score >= 50 ? [22, 163, 74] : [220, 38, 38], fontStyle: 'bold' } },
+                        r.participatedDate
+                    ]),
+                    theme: 'striped',
+                    headStyles: { fillColor: [79, 70, 229], fontSize: 10, cellPadding: 3 },
+                    styles: { fontSize: 9, cellPadding: 3 },
+                    alternateRowStyles: { fillColor: [249, 250, 251] }
+                });
+            }
+
+            examResults.forEach((student, studentIdx) => {
+                if (!isSingleStudent || studentIdx > 0) doc.addPage();
                 addHeader();
 
                 // Student Branding Section
@@ -640,12 +756,14 @@ const Results = () => {
                 } catch (e) { }
 
                 // Score Display
-                doc.setFontSize(22);
-                doc.setTextColor(99, 102, 241);
+                doc.setFontSize(24);
+                doc.setTextColor(79, 70, 229);
                 doc.text(`${student.score}%`, 145, 65, { align: 'right' });
-                doc.setFontSize(8);
+                doc.setFontSize(9);
                 doc.setTextColor(148, 163, 184);
-                doc.text('FINAL SCORE', 145, 69, { align: 'right' });
+                doc.setFont('helvetica', 'bold');
+                doc.text('FINAL SCORE', 145, 70, { align: 'right' });
+                doc.setFont('helvetica', 'normal');
 
                 // Categories
                 const categories = student.answers.reduce((acc, q) => {
@@ -663,26 +781,44 @@ const Results = () => {
                 autoTable(doc, {
                     startY: 102,
                     head: [['Category', 'Correct', 'Total', 'Accuracy']],
-                    body: Object.keys(categories).map(cat => [
-                        cat, categories[cat].correct, categories[cat].total, `${Math.round((categories[cat].correct / categories[cat].total) * 100)}%`
-                    ]),
+                    body: Object.keys(categories).map(cat => {
+                        const score = Math.round((categories[cat].correct / categories[cat].total) * 100);
+                        return [
+                            cat, 
+                            categories[cat].correct, 
+                            categories[cat].total, 
+                            { content: `${score}%`, styles: { textColor: score >= 50 ? [22, 163, 74] : [220, 38, 38], fontStyle: 'bold' } }
+                        ];
+                    }),
                     theme: 'grid',
-                    headStyles: { fillColor: [71, 85, 105] },
-                    styles: { fontSize: 9 }
+                    headStyles: { fillColor: [71, 85, 105], fontSize: 10, cellPadding: 3 },
+                    styles: { fontSize: 9, cellPadding: 3 },
+                    columnStyles: { 0: { fontStyle: 'bold' } }
                 });
 
                 // Detail Table
                 doc.text('Question-by-Question Analytics', 14, doc.lastAutoTable.finalY + 12);
                 autoTable(doc, {
                     startY: doc.lastAutoTable.finalY + 15,
-                    head: [['#', 'Question', 'Student Answer', 'Result']],
+                    head: [['#', 'Category', 'Question', 'Student Answer', 'Result']],
                     body: student.answers.map((q, idx) => [
-                        idx + 1, { content: q.question, styles: { cellWidth: 100 } }, q.studentAnswer || 'Skipped',
-                        { content: q.isCorrect ? 'Correct' : 'Incorrect', styles: { halign: 'center', textColor: q.isCorrect ? [22, 163, 74] : [220, 38, 38] } }
+                        idx + 1,
+                        { content: q.category, styles: { fontStyle: 'bold' } },
+                        { content: q.question },
+                        q.studentAnswer || 'Skipped',
+                        { content: q.isCorrect ? 'Correct' : 'Incorrect', styles: { halign: 'center', textColor: q.isCorrect ? [22, 163, 74] : [220, 38, 38], fontStyle: 'bold' } }
                     ]),
                     theme: 'striped',
-                    headStyles: { fillColor: [99, 102, 241] },
-                    styles: { fontSize: 8 }
+                    headStyles: { fillColor: [79, 70, 229], fontSize: 9, cellPadding: 3 },
+                    styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+                    columnStyles: {
+                        0: { cellWidth: 8 },
+                        1: { cellWidth: 35 },
+                        2: { cellWidth: 85 },
+                        3: { cellWidth: 35 },
+                        4: { cellWidth: 20 }
+                    },
+                    alternateRowStyles: { fillColor: [249, 250, 251] }
                 });
             });
         });
@@ -695,7 +831,8 @@ const Results = () => {
             doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
         }
 
-        doc.save(`SGIC_Professional_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        const filename = customFilename || `SGIC_Professional_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(filename);
     };
 
     if (isLoading) {
@@ -774,34 +911,35 @@ const Results = () => {
             };
         });
 
+        const scoreOptions = gradingScales
+            .map(scale => ({
+                label: `${scale.gradeLabel} (${scale.minScore}%+)`,
+                value: scale.gradeLabel
+            }));
+
         // Apply filters
         const filteredExamResults = resultsWithBatchDate.filter(r => {
             // Search
             if (examSearchTerm && !r.name.toLowerCase().includes(examSearchTerm.toLowerCase()) && !r.email.toLowerCase().includes(examSearchTerm.toLowerCase())) {
                 return false;
             }
-            // Status
-            if (selectedStatuses.length > 0) {
-                const status = r.score >= 50 ? 'Passed' : 'Failed';
-                if (!selectedStatuses.includes(status)) return false;
-            }
             // Score
-            if (selectedScores.length > 0) {
+            if (selectedScores.length > 0 || manualScoreMin !== '' || manualScoreMax !== '') {
                 let match = false;
-                if (selectedScores.includes('90-100') && r.score >= 90) match = true;
-                if (selectedScores.includes('70-89') && r.score >= 70 && r.score < 90) match = true;
-                if (selectedScores.includes('50-69') && r.score >= 50 && r.score < 70) match = true;
-                if (selectedScores.includes('< 50') && r.score < 50) match = true;
-                if (!match) return false;
-            }
-
-            // Time
-            if (selectedTimes.length > 0) {
-                let match = false;
-                const m = r.rawTimeSeconds / 60;
-                if (selectedTimes.includes('< 10m') && m < 10) match = true;
-                if (selectedTimes.includes('10m-30m') && m >= 10 && m <= 30) match = true;
-                if (selectedTimes.includes('> 30m') && m > 30) match = true;
+                
+                // Check predefined grades
+                if (selectedScores.length > 0) {
+                    const studentGrade = gradingScales.find(s => r.score >= s.minScore)?.gradeLabel;
+                    if (selectedScores.includes(studentGrade)) match = true;
+                }
+                
+                // Check manual range
+                if (!match && (manualScoreMin !== '' || manualScoreMax !== '')) {
+                    const min = manualScoreMin === '' ? 0 : parseFloat(manualScoreMin);
+                    const max = manualScoreMax === '' ? 100 : parseFloat(manualScoreMax);
+                    if (r.score >= min && r.score <= max) match = true;
+                }
+                
                 if (!match) return false;
             }
 
@@ -847,8 +985,8 @@ const Results = () => {
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button onClick={handleExportCSV} style={{ padding: '0.875rem 1.5rem', background: 'white', border: '2px solid var(--border)', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 800, cursor: 'pointer' }}><FileSpreadsheet size={18} color="var(--success)" /> CSV</button>
-                        <button onClick={handleExportPDF} style={{ padding: '0.875rem 1.5rem', background: 'var(--primary)', border: 'none', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 800, color: 'white', cursor: 'pointer' }}><FilePdf size={18} /> PDF Report</button>
+                        <button onClick={() => handleExportCSV(filteredExamResults, `${selectedExam}_Full_Report.csv`)} style={{ padding: '0.875rem 1.5rem', background: 'white', border: '2px solid var(--border)', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--bg-app)'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'white'; }}><FileSpreadsheet size={18} color="var(--success)" /> CSV</button>
+                        <button onClick={() => handleExportPDF(filteredExamResults, `${selectedExam}_Dynamic_Report.pdf`)} style={{ padding: '0.875rem 1.5rem', background: 'var(--primary)', border: 'none', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 800, color: 'white', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.2)' }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(79, 70, 229, 0.3)'; }} onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.2)'; }}><FilePdf size={18} /> PDF Report</button>
                     </div>
                 </div>
 
@@ -874,34 +1012,22 @@ const Results = () => {
                             </div>
 
                             <PremiumMultiSelect
-                                icon={<CheckCircle2 size={14} color="var(--success)" />}
-                                placeholder="Status Filter"
-                                options={[{ label: 'Passed', value: 'Passed' }, { label: 'Failed', value: 'Failed' }]}
-                                selected={selectedStatuses} onChange={setSelectedStatuses}
-                            />
-
-                            <PremiumMultiSelect
                                 icon={<PieChart size={14} color="var(--primary)" />}
                                 placeholder="Score Filter"
-                                options={[{ label: 'High Distinction (90-100%)', value: '90-100' }, { label: 'Distinction (70-89%)', value: '70-89' }, { label: 'Pass (50-69%)', value: '50-69' }, { label: 'Fail (< 50%)', value: '< 50' }]}
+                                options={scoreOptions}
                                 selected={selectedScores} onChange={setSelectedScores}
+                                manualRange={true}
+                                minVal={manualScoreMin} setMinVal={handleSetManualMin}
+                                maxVal={manualScoreMax} setMaxVal={handleSetManualMax}
                             />
 
-
-                            <PremiumMultiSelect
-                                icon={<Clock size={14} color="#ec4899" />}
-                                placeholder="Time Taken"
-                                options={[{ label: 'Quick (< 10m)', value: '< 10m' }, { label: 'Average (10m - 30m)', value: '10m-30m' }, { label: 'Long (> 30m)', value: '> 30m' }]}
-                                selected={selectedTimes} onChange={setSelectedTimes}
-                            />
-
-                            {(examSearchTerm || selectedStatuses.length > 0 || selectedScores.length > 0 || selectedDates.length > 0 || selectedTimes.length > 0) && (
+                            {(examSearchTerm || selectedScores.length > 0 || selectedDates.length > 0 || manualScoreMin || manualScoreMax) && (
                                 <button
                                     onClick={() => {
                                         setExamSearchTerm('');
-                                        setSelectedStatuses([]);
                                         setSelectedScores([]);
-                                        setSelectedTimes([]);
+                                        setManualScoreMin('');
+                                        setManualScoreMax('');
                                     }}
                                     style={{
                                         padding: '0.6rem 1rem', background: 'rgba(239,68,68,0.1)', color: 'var(--error)', border: 'none', borderRadius: '14px',
@@ -1244,8 +1370,18 @@ const Results = () => {
                                 </div>
                             </div>
                             <div style={{ padding: '2rem 3.5rem', borderTop: '1px solid var(--border)', background: 'var(--bg-app)', display: 'flex', justifyContent: 'flex-end', gap: '1.25rem' }}>
-                                <button onClick={handleExportCSV} style={{ padding: '1rem 2rem', borderRadius: '18px', background: 'white', border: '2px solid var(--border)', fontWeight: 800, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}><FileSpreadsheet size={20} color="var(--success)" /> CSV</button>
-                                <button onClick={handleExportPDF} style={{ padding: '1rem 2rem', borderRadius: '18px', background: 'var(--primary)', border: 'none', fontWeight: 800, cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem' }}><FilePdf size={20} /> PDF Report</button>
+                                <button
+                                    onClick={() => handleExportCSV([selectedStudent], `${selectedStudent.name.replace(/\s+/g, '_')}_Report.csv`)}
+                                    style={{ padding: '1rem 2rem', borderRadius: '18px', background: 'white', border: '2px solid var(--border)', fontWeight: 800, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.75rem', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--bg-app)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'white'; }}
+                                ><FileSpreadsheet size={20} color="var(--success)" /> CSV</button>
+                                <button
+                                    onClick={() => handleExportPDF([selectedStudent], `${selectedStudent.name.replace(/\s+/g, '_')}_Report.pdf`)}
+                                    style={{ padding: '1rem 2rem', borderRadius: '18px', background: 'var(--primary)', border: 'none', fontWeight: 800, cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(79,70,229,0.25)' }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(79,70,229,0.35)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(79,70,229,0.25)'; }}
+                                ><FilePdf size={20} /> PDF Report</button>
                                 <button onClick={closeModal} style={{ padding: '1rem 3rem', borderRadius: '18px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: 800, cursor: 'pointer' }}>Exit Assessment</button>
                             </div>
                         </div>
@@ -1274,8 +1410,8 @@ const Results = () => {
 
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={handleExportCSV} style={{ padding: '1rem 2rem', background: 'white', border: '2px solid var(--border)', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, cursor: 'pointer' }}><FileSpreadsheet size={20} color="var(--success)" /> CSV</button>
-                    <button onClick={handleExportPDF} style={{ padding: '1rem 2rem', background: 'var(--primary)', border: 'none', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, color: 'white', cursor: 'pointer' }}><FilePdf size={20} /> PDF Report</button>
+                    <button onClick={() => handleExportCSV()} style={{ padding: '1rem 2rem', background: 'white', border: '2px solid var(--border)', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, cursor: 'pointer' }}><FileSpreadsheet size={20} color="var(--success)" /> CSV</button>
+                    <button onClick={() => handleExportPDF()} style={{ padding: '1rem 2rem', background: 'var(--primary)', border: 'none', borderRadius: '18px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, color: 'white', cursor: 'pointer' }}><FilePdf size={20} /> PDF Report</button>
                 </div>
             </div>
 

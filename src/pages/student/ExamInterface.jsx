@@ -43,6 +43,7 @@ const ExamInterface = () => {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [showExitModal, setShowExitModal] = useState(false);
     const [isDuplicateTab, setIsDuplicateTab] = useState(false);
+    const [isTimedOut, setIsTimedOut] = useState(false);
 
     // Multi-tab Management
     const channelRef = useRef(null);
@@ -55,10 +56,13 @@ const ExamInterface = () => {
     const [timeSpent, setTimeSpent] = useState({}); // Tracking actual seconds spent per question
 
     // Use a ref for currentStep and questions to use in timer without restarting it
-    const stateRef = useRef({ currentStep, questions, timeMode, isTransitioning, isSubmitting });
+    const [visitStartTime, setVisitStartTime] = useState(Date.now()); // For timeSpent tracking
+
+    // Use a ref for all critical state to use in event listeners and timers without closures
+    const stateRef = useRef({ currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime });
     useEffect(() => {
-        stateRef.current = { currentStep, questions, timeMode, isTransitioning, isSubmitting };
-    }, [currentStep, questions, timeMode, isTransitioning, isSubmitting]);
+        stateRef.current = { currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime };
+    }, [currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime]);
 
     // Initialize BroadcastChannel for cross-tab communication
     useEffect(() => {
@@ -179,42 +183,51 @@ const ExamInterface = () => {
                     }
                 });
 
-                // Calculate offline drain for the active question
-                let activeTimeLeft = initialTimes[activeStepIndex];
-                const activeStartedAt = sessionStorage.getItem(`examActiveQuestionStartedAt_${code}`);
+                setPerQuestionTime(initialTimes);
                 
+                // STABLE ANCHOR: Restore the exact moment the active question started
+                const activeStartedAt = sessionStorage.getItem(`examActiveQuestionStartedAt_${code}`);
+                let anchorTime = Date.now();
+
                 if (activeStartedAt) {
-                    const elapsedSinceActiveStarted = Math.floor((Date.now() - parseInt(activeStartedAt)) / 1000);
-                    // Deduct the time spent while offline/refreshing
-                    activeTimeLeft = Math.max(0, activeTimeLeft - elapsedSinceActiveStarted);
-                    initialTimes[activeStepIndex] = activeTimeLeft; // Update dictionary
+                    anchorTime = parseInt(activeStartedAt);
+                } else {
+                    sessionStorage.setItem(`examActiveQuestionStartedAt_${code}`, anchorTime.toString());
                 }
 
-                setPerQuestionTime(initialTimes);
-                sessionStorage.setItem(`examPerQuestionTime_${code}`, JSON.stringify(initialTimes));
+                setStartTime(anchorTime);
+                setVisitStartTime(Date.now()); // Tracking starts NOW
+                setInitialTimeForStep(initialTimes[activeStepIndex]);
                 
-                // Reset local anchor to NOW
-                setInitialTimeForStep(activeTimeLeft);
-                setTimeLeft(activeTimeLeft);
-                setStartTime(Date.now());
-                sessionStorage.setItem(`examActiveQuestionStartedAt_${code}`, Date.now().toString());
+                // Calculate current timeLeft for immediate UI update
+                const elapsedSinceAnchor = Math.floor((Date.now() - anchorTime) / 1000);
+                setTimeLeft(Math.max(0, initialTimes[activeStepIndex] - elapsedSinceAnchor));
 
                 setMode('step'); // Force step mode
             } else {
                 // Global Mode Timer Logic
-                const serverStartedAt = testData.startedAt || sessionStorage.getItem('examStartedAt');
-                if (serverStartedAt) {
-                    const startTimeMs = new Date(serverStartedAt).getTime();
-                    const nowMs = Date.now();
-                    const elapsedSeconds = Math.floor((nowMs - startTimeMs) / 1000);
+                const serverStartedAt = sessionStorage.getItem('examStartedAt') || testData.startedAt;
+                let anchorTime = Date.now();
 
-                    initialTimeLeft = Math.max(0, durationSeconds - elapsedSeconds);
-                    effectiveStartTime = nowMs; // Timer continues from NOW
+                if (serverStartedAt) {
+                    anchorTime = new Date(serverStartedAt).getTime();
+                    // Ensure session storage matches
+                    if (!sessionStorage.getItem('examStartedAt')) {
+                        sessionStorage.setItem('examStartedAt', new Date(anchorTime).toISOString());
+                    }
+                } else {
+                    const now = new Date().toISOString();
+                    sessionStorage.setItem('examStartedAt', now);
+                    anchorTime = new Date(now).getTime();
                 }
 
-                setInitialTimeForStep(initialTimeLeft);
-                setTimeLeft(initialTimeLeft);
-                setStartTime(effectiveStartTime);
+                setStartTime(anchorTime);
+                setVisitStartTime(Date.now()); // Tracking starts NOW
+                setInitialTimeForStep(durationSeconds);
+                
+                const elapsedSinceAnchor = Math.floor((Date.now() - anchorTime) / 1000);
+                setTimeLeft(Math.max(0, durationSeconds - elapsedSinceAnchor));
+                
                 setMode(testData.examMode || 'scroll');
             }
 
@@ -364,6 +377,13 @@ const ExamInterface = () => {
         }
     }, [isLoading, isSubmitting, startTime, questions, currentStep, timeSpent, answers, navigate]);
 
+    const handleTimeout = useCallback(() => {
+        if (isTimedOut || isSubmitting) return;
+        setIsTimedOut(true);
+        // We trigger the final submission immediately
+        processFinalSubmission();
+    }, [isTimedOut, isSubmitting, processFinalSubmission]);
+
     const handleSubmit = useCallback(() => {
         if (isLoading || isSubmitting) return;
         setShowConfirmModal(true);
@@ -371,13 +391,21 @@ const ExamInterface = () => {
 
     const handleStepChange = useCallback((newStep) => {
         if (isTransitioning) return;
+        
+        // Block navigation to timed-out questions in per-question mode
+        if (timeMode === 'question' && perQuestionTime[newStep] === 0) {
+            console.log(`Navigation blocked: Question ${newStep + 1} has already timed out.`);
+            return;
+        }
 
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const now = Date.now();
+        const elapsedSinceVisit = Math.floor((now - visitStartTime) / 1000);
         const currentQId = questions[currentStep]?.id;
 
         // 1. Calculate and save remaining time for current step
         if (timeMode === 'question') {
-            const currentRemaining = Math.max(0, initialTimeForStep - elapsed);
+            const elapsedSinceAnchor = Math.floor((now - startTime) / 1000);
+            const currentRemaining = Math.max(0, initialTimeForStep - elapsedSinceAnchor);
             
             // Atomically update perQuestionTime immediately in session storage
             const updatedTimes = { ...perQuestionTime, [currentStep]: currentRemaining };
@@ -386,30 +414,25 @@ const ExamInterface = () => {
 
             // 2. Prepare for next step
             setInitialTimeForStep(updatedTimes[newStep] ?? baseDuration);
-
-        } else {
-            // Whole Test Mode: We MUST carry over the remaining time to the next question
-            setInitialTimeForStep(prev => Math.max(0, prev - elapsed));
+            
+            // Update anchor for NEXT question
+            setStartTime(now);
+            sessionStorage.setItem(`examActiveQuestionStartedAt_${sessionStorage.getItem('currentExamCode')}`, now.toString());
         }
 
-        // 3. Accumulate time spent
+        // 3. Accumulate time spent (using visit anchor for precision)
         const updatedSpent = {
             ...timeSpent,
-            [currentQId]: (timeSpent[currentQId] || 0) + elapsed
+            [currentQId]: (timeSpent[currentQId] || 0) + elapsedSinceVisit
         };
         setTimeSpent(updatedSpent);
 
-        // 4. Persistence & Auto-save
+        // 4. Persistence & Reset
         sessionStorage.setItem('examCurrentStep', newStep.toString());
         saveProgress(updatedSpent);
-
-        // 5. Reset anchors strictly inside navigation boundary
-        setStartTime(Date.now());
+        setVisitStartTime(now);
         setCurrentStep(newStep);
-        if (timeMode === 'question') {
-            sessionStorage.setItem(`examActiveQuestionStartedAt_${sessionStorage.getItem('currentExamCode')}`, Date.now().toString());
-        }
-    }, [isTransitioning, startTime, questions, currentStep, timeMode, initialTimeForStep, perQuestionTime, baseDuration, timeSpent, saveProgress]);
+    }, [isTransitioning, timeMode, perQuestionTime, currentStep, questions, visitStartTime, startTime, initialTimeForStep, baseDuration, timeSpent, saveProgress]);
 
     useEffect(() => {
         fetchQuestions();
@@ -420,6 +443,44 @@ const ExamInterface = () => {
         const handleExitRequest = () => setShowExitModal(true);
         window.addEventListener('requestExamExit', handleExitRequest);
         return () => window.removeEventListener('requestExamExit', handleExitRequest);
+    }, []);
+
+    // AUTO-SUBMIT ON BROWSER CLOSE/TAB CLOSE
+    useEffect(() => {
+        const handlePageHide = () => {
+            const { isSubmitting, isTransitioning, questions, currentStep, answers, timeSpent, startTime, perQuestionTime } = stateRef.current;
+            
+            // If already submitting or if we haven't loaded questions yet, don't do anything
+            if (isSubmitting || questions.length === 0) return;
+
+            const code = sessionStorage.getItem('currentExamCode');
+            if (!code) return;
+
+            // Final time spent calculation for the current question
+            const now = Date.now();
+            const elapsed = Math.floor((now - startTime) / 1000);
+            const currentQId = questions[currentStep]?.id;
+            const finalTimeSpent = { ...timeSpent };
+            if (currentQId) {
+                finalTimeSpent[currentQId] = (timeSpent[currentQId] || 0) + elapsed;
+            }
+
+            const payload = {
+                studentName: sessionStorage.getItem('studentName') || 'Guest',
+                examCode: code,
+                testId: sessionStorage.getItem('testId'),
+                answers: answers,
+                timeSpent: finalTimeSpent,
+                isFinal: true
+            };
+
+            // Use navigator.sendBeacon for reliable background submission
+            const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+            navigator.sendBeacon('/api/submissions', blob);
+        };
+
+        window.addEventListener('pagehide', handlePageHide);
+        return () => window.removeEventListener('pagehide', handlePageHide);
     }, []);
 
     // Unified Timer Effect (Updates UI and Checks for Timeout)
@@ -436,20 +497,38 @@ const ExamInterface = () => {
 
             setTimeLeft(remaining);
 
-            // AUTO-ADVANCE LOGIC
+            // AUTO-ADVANCE / KICK-BACK LOGIC
             if (remaining === 0) {
                 if (timeMode === 'question') {
-                    if (currentStep < questions.length - 1) {
+                    // Update perQuestionTime for current step to 0 immediately
+                    const currentCode = sessionStorage.getItem('currentExamCode');
+                    const currentTimesMap = stateRef.current.perQuestionTime;
+                    const updatedTimes = { ...currentTimesMap, [currentStep]: 0 };
+                    
+                    // We need to find if ANY OTHER question has time remaining
+                    let nextAvailableIdx = -1;
+                    // First check from current + 1 onwards
+                    for (let i = 1; i < questions.length; i++) {
+                        const checkIdx = (currentStep + i) % questions.length;
+                        if (updatedTimes[checkIdx] > 0) {
+                            nextAvailableIdx = checkIdx;
+                            break;
+                        }
+                    }
+
+                    if (nextAvailableIdx !== -1) {
+                        // Kick back to the next available question
                         setIsTransitioning(true);
-                        handleStepChange(currentStep + 1);
+                        handleStepChange(nextAvailableIdx);
                         setTimeout(() => setIsTransitioning(false), 300);
                     } else {
+                        // All questions are finished!
                         clearInterval(interval);
-                        handleSubmit();
+                        handleTimeout();
                     }
                 } else {
                     clearInterval(interval);
-                    handleSubmit();
+                    handleTimeout();
                 }
             }
         }, 100);
@@ -573,6 +652,70 @@ const ExamInterface = () => {
         );
     }
 
+    // 1.5. TIME OUT OVERLAY (Prevents any further interaction)
+    if (isTimedOut) {
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(15, 23, 42, 0.98)',
+                backdropFilter: 'blur(20px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 10001,
+                animation: 'fadeIn 0.5s ease'
+            }}>
+                <div style={{
+                    background: 'var(--bg-surface)',
+                    padding: '3.5rem',
+                    borderRadius: '32px',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                    border: '2px solid var(--primary)',
+                    width: '100%',
+                    maxWidth: '540px',
+                    textAlign: 'center',
+                    animation: 'modalSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    <div style={{
+                        width: '96px', height: '96px',
+                        background: 'rgba(var(--primary-rgb), 0.1)',
+                        color: 'var(--primary)',
+                        borderRadius: '28px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 2.5rem auto',
+                        boxShadow: '0 10px 20px rgba(var(--primary-rgb), 0.15)',
+                        animation: 'palse 2s infinite'
+                    }}>
+                        <Clock size={48} />
+                    </div>
+
+                    <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '1.25rem', color: 'var(--text-primary)', letterSpacing: '-0.025em' }}>
+                        Time Expired!
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '3rem', lineHeight: 1.7, fontSize: '1.25rem' }}>
+                        Your examination time has concluded. Your answers are being submitted automatically. Please wait...
+                    </p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                        <Loader2 size={40} className="animate-spin" style={{ color: 'var(--primary)' }} />
+                        <span style={{ fontWeight: 600, color: 'var(--text-tertiary)' }}>Finalizing Submission</span>
+                    </div>
+                </div>
+                <style>{`
+                    @keyframes palse {
+                        0% { transform: scale(1); opacity: 1; }
+                        50% { transform: scale(1.05); opacity: 0.8; }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes modalSlideUp { 
+                        from { opacity: 0; transform: translateY(40px) scale(0.95); } 
+                        to { opacity: 1; transform: translateY(0) scale(1); } 
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
     // 2. ERROR STATE
     if (error) {
         return (
@@ -651,16 +794,18 @@ const ExamInterface = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
                         {questions.map((q, idx) => {
                             const isCurrent = mode === 'step' ? currentStep === idx : false;
+                            const isTimedOut = timeMode === 'question' && perQuestionTime[idx] === 0;
                             const isAnswered = answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== '';
 
                             return (
                                 <button
                                     key={q.id}
+                                    disabled={isTimedOut && !isCurrent}
                                     onClick={() => {
                                         if (mode === 'scroll') {
                                             scrollToQuestion(idx);
                                         } else {
-                                            handleStepChange(idx);
+                                            if (!isTimedOut) handleStepChange(idx);
                                         }
                                     }}
                                     style={{
@@ -671,16 +816,17 @@ const ExamInterface = () => {
                                         borderRadius: 'var(--radius-sm)',
                                         fontWeight: 600,
                                         fontSize: '0.875rem',
-                                        cursor: 'pointer',
+                                        cursor: isTimedOut ? 'not-allowed' : 'pointer',
                                         transition: 'all 0.2s ease',
-                                        background: isCurrent ? 'var(--primary)' : isAnswered ? 'var(--success-bg)' : 'transparent',
-                                        color: isCurrent ? 'white' : isAnswered ? 'var(--success)' : 'var(--text-secondary)',
-                                        border: `1px solid ${isCurrent ? 'var(--primary)' : isAnswered ? 'var(--success)' : 'var(--border)'}`,
-                                        boxShadow: isCurrent ? 'var(--shadow-sm)' : 'none'
+                                        background: isCurrent ? 'var(--primary)' : isTimedOut ? 'var(--bg-app)' : isAnswered ? 'var(--success-bg)' : 'transparent',
+                                        color: isCurrent ? 'white' : isTimedOut ? 'var(--text-tertiary)' : isAnswered ? 'var(--success)' : 'var(--text-secondary)',
+                                        border: `1px solid ${isCurrent ? 'var(--primary)' : isTimedOut ? 'var(--border)' : isAnswered ? 'var(--success)' : 'var(--border)'}`,
+                                        boxShadow: isCurrent ? 'var(--shadow-sm)' : 'none',
+                                        opacity: isTimedOut ? 0.6 : 1
                                     }}
-                                    title={isAnswered ? `Question ${idx + 1} (Answered)` : `Question ${idx + 1}`}
+                                    title={isTimedOut ? `Question ${idx + 1} (Timed Out)` : isAnswered ? `Question ${idx + 1} (Answered)` : `Question ${idx + 1}`}
                                 >
-                                    {idx + 1}
+                                    {isTimedOut ? <Clock size={12} /> : idx + 1}
                                 </button>
                             );
                         })}

@@ -1,5 +1,6 @@
 package com.sgic.exam.service;
 
+import com.sgic.exam.dto.StudentGroupRequest;
 import com.sgic.exam.dto.TestRequest;
 import com.sgic.exam.dto.TestResponse;
 import com.sgic.exam.model.*;
@@ -55,6 +56,8 @@ public class TestServiceImpl implements TestService {
             throw new RuntimeException("An examination with this name already exists. Please use a unique title.");
         }
 
+        validateUniqueBatchDates(request.getStudentGroups());
+
         Test test = new Test();
         mapRequestToTest(request, test);
         test.setStatus(calculateStatusForTest(test));
@@ -80,6 +83,8 @@ public class TestServiceImpl implements TestService {
 
         String previousStatus = test.getStatus();
         Set<Long> oldStudentIds = getAssignedStudentIds(test);
+
+        validateUniqueBatchDates(request.getStudentGroups());
 
         mapRequestToTest(request, test);
         Set<Long> newStudentIds = getAssignedStudentIds(test);
@@ -471,14 +476,14 @@ public class TestServiceImpl implements TestService {
     }
 
     private String calculateStatusForTest(Test test) {
-        // Early Exit: If all assigned students have finished or passed, it's Expired
-        if (test.getId() != null) {
-            List<StudentExamCode> codes = studentExamCodeRepository.findByTestId(test.getId());
-            if (!codes.isEmpty()) {
-                boolean allFinished = codes.stream().allMatch(c -> "USED".equalsIgnoreCase(c.getStatus()));
-                if (allFinished) {
-                    return "Expired";
-                }
+        // Completion Safeguard: If all assigned students have finished, it's Expired
+        int assignedCount = getAssignedStudentIds(test).size();
+        if (test.getId() != null && assignedCount > 0) {
+            long finishedCount = studentExamCodeRepository.findByTestId(test.getId()).stream()
+                    .filter(c -> "USED".equalsIgnoreCase(c.getStatus()) || "EXPIRED".equalsIgnoreCase(c.getStatus()))
+                    .count();
+            if (finishedCount >= assignedCount) {
+                return "Expired";
             }
         }
 
@@ -614,5 +619,19 @@ public class TestServiceImpl implements TestService {
                 examName, comment != null ? comment : "No comment");
         student.setStatusHistory(
                 student.getStatusHistory() == null ? logEntry : logEntry + "\n" + student.getStatusHistory());
+    }
+
+    private void validateUniqueBatchDates(List<StudentGroupRequest> groups) {
+        if (groups == null || groups.isEmpty()) return;
+        
+        Set<String> dates = new HashSet<>();
+        for (StudentGroupRequest group : groups) {
+            String date = group.getExamDate();
+            if (date != null && !date.isEmpty()) {
+                if (!dates.add(date)) {
+                    throw new RuntimeException("One exam cannot have multiple batches on the same date: " + date);
+                }
+            }
+        }
     }
 }

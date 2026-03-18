@@ -180,7 +180,7 @@ public class SubmissionServiceImpl implements SubmissionService {
     private void checkAutoExpiration(Test test) {
         List<StudentExamCode> codes = studentExamCodeRepository.findByTestId(test.getId());
         if (!codes.isEmpty()) {
-            boolean allFinished = codes.stream().allMatch(c -> "USED".equalsIgnoreCase(c.getStatus()));
+            boolean allFinished = codes.stream().allMatch(c -> "USED".equalsIgnoreCase(c.getStatus()) || "EXPIRED".equalsIgnoreCase(c.getStatus()));
             if (allFinished) {
                 test.setStatus("Expired");
                 testRepository.save(test);

@@ -31,7 +31,7 @@ public class ExamExpiryScheduler {
      * If a code is still ACTIVE but the expiryDate (exam date) has passed,
      * it marks the code as EXPIRED and the student as ABSENT.
      */
-    @Scheduled(cron = "* * * * * *")
+    @Scheduled(cron = "0 * * * * *")
     public void checkExpiredCodes() {
         System.out.println("Running Exam Expiry Check...");
         List<StudentExamCode> activeCodes = studentExamCodeRepository.findAll();
@@ -61,15 +61,15 @@ public class ExamExpiryScheduler {
 
                             String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
                                     .format(new java.util.Date());
-                            String logEntry = String.format("[%s] Status: ABSENT (Missed Exam: %s on %s)",
+                            String logEntry = String.format("[%s] Status: Absent (Missed Exam: %s on %s)",
                                     timestamp, testName, code.getExpiryDate());
 
                             String history = student.getStatusHistory();
                             student.setStatusHistory(history == null ? logEntry : logEntry + "\n" + history);
 
-                            student.setStatus("ABSENT");
+                            student.setStatus("Absent");
                             studentRepository.save(student);
-                            System.out.println("Marked student " + student.getName() + " as ABSENT for " + testName);
+                            System.out.println("Marked student " + student.getName() + " as Absent for " + testName);
                         });
                     }
                 } catch (Exception e) {
