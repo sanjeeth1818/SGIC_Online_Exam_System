@@ -58,11 +58,16 @@ const ExamInterface = () => {
     // Use a ref for currentStep and questions to use in timer without restarting it
     const [visitStartTime, setVisitStartTime] = useState(Date.now()); // For timeSpent tracking
 
+    // Proctoring State
+    const MAX_WARNINGS = 3;
+    const [warnings, setWarnings] = useState(() => parseInt(sessionStorage.getItem('examWarnings') || '0', 10));
+    const [showWarningModal, setShowWarningModal] = useState(false);
+
     // Use a ref for all critical state to use in event listeners and timers without closures
-    const stateRef = useRef({ currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime });
+    const stateRef = useRef({ currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime, warnings });
     useEffect(() => {
-        stateRef.current = { currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime };
-    }, [currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime]);
+        stateRef.current = { currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime, warnings };
+    }, [currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime, warnings]);
 
     // Initialize BroadcastChannel for cross-tab communication
     useEffect(() => {
@@ -483,6 +488,61 @@ const ExamInterface = () => {
         return () => window.removeEventListener('pagehide', handlePageHide);
     }, []);
 
+    // ACTIVE PROCTORING (Anti-Cheat: Tab Switching)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            const { isSubmitting, questions, timeSpent, startTime, currentStep, answers, warnings } = stateRef.current;
+            
+            // If already submitting or haven't loaded questions, do nothing
+            if (isSubmitting || questions.length === 0) return;
+
+            if (document.hidden) {
+                const newWarnings = warnings + 1;
+                sessionStorage.setItem('examWarnings', newWarnings.toString());
+                setWarnings(newWarnings);
+
+                if (newWarnings >= MAX_WARNINGS) {
+                    // Auto-submit on max warnings
+                    const code = sessionStorage.getItem('currentExamCode');
+                    if (!code) return;
+
+                    const now = Date.now();
+                    const elapsed = Math.floor((now - startTime) / 1000);
+                    const currentQId = questions[currentStep]?.id;
+                    const finalTimeSpent = { ...timeSpent };
+                    if (currentQId) {
+                        finalTimeSpent[currentQId] = (timeSpent[currentQId] || 0) + elapsed;
+                    }
+
+                    const payload = {
+                        studentName: sessionStorage.getItem('studentName') || 'Guest',
+                        examCode: code,
+                        testId: sessionStorage.getItem('testId'),
+                        answers: answers,
+                        timeSpent: finalTimeSpent,
+                        isFinal: true
+                    };
+
+                    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                    navigator.sendBeacon('/api/submissions', blob);
+                    
+                    const markUsedBlob = new Blob([JSON.stringify({ code: code })], { type: 'application/json' });
+                    navigator.sendBeacon('/api/exam-entry/complete', markUsedBlob);
+                    
+                    sessionStorage.removeItem('examCurrentStep');
+                    sessionStorage.removeItem('examStartedAt');
+                    sessionStorage.removeItem('examSessionToken');
+                    window.location.href = '/complete'; // Force redirect
+                } else {
+                    setShowWarningModal(true);
+                }
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    }, []);
+
     // Unified Timer Effect (Updates UI and Checks for Timeout)
     useEffect(() => {
         if (isLoading) return;
@@ -712,6 +772,65 @@ const ExamInterface = () => {
                         to { opacity: 1; transform: translateY(0) scale(1); } 
                     }
                 `}</style>
+            </div>
+        );
+    }
+
+    // 1.75. WARNING MODAL (Proctoring)
+    if (showWarningModal) {
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(15, 23, 42, 0.95)',
+                backdropFilter: 'blur(16px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 10002,
+                animation: 'fadeIn 0.3s ease'
+            }}>
+                <div style={{
+                    background: 'var(--bg-surface)',
+                    padding: '3rem',
+                    borderRadius: '24px',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                    border: '1px solid var(--error)',
+                    width: '100%',
+                    maxWidth: '500px',
+                    textAlign: 'center',
+                    animation: 'modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    <div style={{
+                        width: '80px', height: '80px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        color: 'var(--error)',
+                        borderRadius: '20px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 2rem auto'
+                    }}>
+                        <AlertCircle size={40} />
+                    </div>
+                    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--text-primary)' }}>
+                        Security Warning
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6, fontSize: '1.1rem' }}>
+                        You navigated away from the examination tab. This is a violation of examination rules.
+                    </p>
+                    <div style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px dashed var(--error)' }}>
+                        <div style={{ fontWeight: 800, color: 'var(--error)', fontSize: '1.5rem', marginBottom: '0.25rem' }}>Warning {warnings} of {MAX_WARNINGS}</div>
+                        <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Your examination will be automatically submitted if you reach {MAX_WARNINGS} warnings.</div>
+                    </div>
+                    <button
+                        onClick={() => setShowWarningModal(false)}
+                        style={{
+                            width: '100%', padding: '1rem', borderRadius: '14px', border: 'none',
+                            background: 'var(--primary)', color: 'white', fontWeight: 700, fontSize: '1.1rem',
+                            cursor: 'pointer', transition: 'all 0.2s',
+                            boxShadow: '0 4px 15px rgba(var(--primary-rgb), 0.3)'
+                        }}
+                    >
+                        I Understand, Return to Exam
+                    </button>
+                </div>
             </div>
         );
     }

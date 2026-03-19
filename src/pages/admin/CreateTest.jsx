@@ -108,7 +108,7 @@ const CreateTest = () => {
     };
 
     const formatDurationDetailed = (value, unit) => {
-        let seconds = unit === 'sec' ? value : value * 60;
+        let seconds = String(unit).startsWith('sec') ? value : value * 60;
         if (!seconds || seconds <= 0) return '0 min';
         
         const h = Math.floor(seconds / 3600);
@@ -174,7 +174,7 @@ const CreateTest = () => {
                 if (examDates.length === 1) displayDate = examDates[0];
                 else if (examDates.length > 1) displayDate = 'Multiple Dates';
 
-                const perQuestionSeconds = t.timeUnit === 'sec' ? t.timeValue : t.timeValue * 60;
+                const perQuestionSeconds = String(t.timeUnit).startsWith('sec') ? t.timeValue : t.timeValue * 60;
                 const totalSeconds = t.timeMode === 'question' ? (t.totalQuestions * perQuestionSeconds) : perQuestionSeconds;
                 
                 let durationStr = formatDurationDetailed(t.timeValue, t.timeUnit);

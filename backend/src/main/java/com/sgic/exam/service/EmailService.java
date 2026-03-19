@@ -92,100 +92,113 @@ public class EmailService {
             String htmlContent = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
                     "<style>" +
                     "  @media screen and (max-width: 600px) {" +
-                    "    .container { width: 100% !important; border-radius: 0 !important; }" +
-                    "    .content { padding: 40px 25px !important; }" +
-                    "    .header { padding: 50px 20px !important; }" +
+                    "    .container { width: 100% !important; border-radius: 0 !important; border-top: none !important; margin: 0 !important; }" +
+                    "    .content { padding: 30px 20px !important; }" +
+                    "    .header { padding: 40px 20px 20px 20px !important; }" +
                     "  }" +
                     "</style></head>" +
-                    "<body style='font-family: \"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0;'>"
+                    "<body style='font-family: \"Inter\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; background-color: #fafafa; margin: 0; padding: 0;'>"
                     +
                     "  <center>" +
-                    "    <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px; background-color: #ffffff; margin: 30px auto; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);' class='container'>"
+                    "    <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px; background-color: #ffffff; margin: 40px auto; border-radius: 16px; overflow: hidden; border: 1px solid #eaeaea; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);' class='container'>"
                     +
                     "      <tr>" +
-                    "        <td align='center' bgcolor='#4f46e5' style='background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); padding: 60px 40px;' class='header'>"
+                    "        <td align='left' style='padding: 50px 50px 30px 50px; border-top: 6px solid #000000;' class='header'>"
                     +
-                    "          <img src='https://www.samuelgnanam.com/wp-content/uploads/2021/08/SGIC-Logo-White.png' alt='SGIC Logo' style='height: 45px; margin-bottom: 25px;'>"
+                    "          <h1 style='margin: 0; color: #111827; font-size: 28px; font-weight: 800; letter-spacing: -0.03em;'>Aptitude Examination</h1>"
                     +
-                    "          <h1 style='margin: 0; color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; text-transform: none;'>Examination Invitation</h1>"
-                    +
-                    "          <p style='margin: 10px 0 0; color: #c7d2fe; font-size: 16px; font-weight: 500;'>SGIC Aptitude Assessment Session</p>"
+                    "          <p style='margin: 8px 0 0; color: #6b7280; font-size: 15px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;'>Samuel Gnanam IT Centre</p>"
                     +
                     "        </td>" +
                     "      </tr>" +
                     "      <tr>" +
-                    "        <td style='padding: 55px 50px;' class='content'>" +
-                    "          <p style='font-size: 17px; color: #1e293b; margin-bottom: 28px;'>Dear <strong>"
+                    "        <td style='padding: 10px 50px 50px 50px;' class='content'>" +
+                    "          <p style='font-size: 16px; color: #111827; margin-bottom: 24px;'>Dear <strong>"
                     + student.getName() + "</strong>,</p>" +
-                    "          <p style='font-size: 16px; color: #475569; line-height: 1.8; margin-bottom: 40px;'>We are pleased to inform you that you have been <strong>shortlisted</strong> for our Aptitude Examination. Please review your session details below.</p>"
+                    "          <p style='font-size: 15px; color: #4b5563; line-height: 1.7; margin-bottom: 35px;'>We are pleased to inform you that you have been shortlisted to attend the Aptitude Examination as part of our selection process.</p>"
                     +
                     "          " +
-                    "          <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin: 0 0 15px 0; font-weight: 800;'>Session Information</h3>"
+                    "          <h3 style='font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin: 0 0 15px 0; font-weight: 700; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px;'>Examination Details</h3>"
                     +
-                    "          <div style='background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 30px; margin-bottom: 40px;'>"
+                    "          <div style='background: #fafafa; border: 1px solid #f4f4f5; border-radius: 12px; padding: 25px; margin-bottom: 35px;'>"
                     +
                     "            <table width='100%' cellpadding='0' cellspacing='0'>" +
-                    "              <tr><td style='padding: 10px 0; color: #64748b; font-size: 14px;'>Assessment</td><td style='padding: 10px 0; color: #0f172a; font-weight: 700; font-size: 16px; text-align: right;'>Aptitude Test</td></tr>"
+                    "              <tr><td style='padding: 8px 0; color: #6b7280; font-size: 14px;'>Examination</td><td style='padding: 8px 0; color: #111827; font-weight: 600; font-size: 15px; text-align: right;'>"
+                    + test.getName() + "</td></tr>"
                     +
-                    "              <tr><td style='padding: 10px 0; color: #64748b; font-size: 14px;'>Date</td><td style='padding: 10px 0; color: #0f172a; font-weight: 700; font-size: 16px; text-align: right;'>"
+                    "              <tr><td style='padding: 8px 0; color: #6b7280; font-size: 14px;'>Scheduled Date</td><td style='padding: 8px 0; color: #111827; font-weight: 600; font-size: 15px; text-align: right;'>"
                     + examDate + "</td></tr>" +
-                    "              <tr><td style='padding: 20px 0 0 0; color: #64748b; font-size: 14px;'>Access Code</td><td style='padding: 20px 0 0 0; text-align: right;'><span style='background: #1e293b; color: #ffffff; padding: 10px 20px; border-radius: 12px; font-weight: 900; font-size: 24px; letter-spacing: 4px;'>"
+                    "              <tr><td style='padding: 24px 0 0 0; color: #6b7280; font-size: 14px;'>Individual Exam Code</td><td style='padding: 24px 0 0 0; text-align: right;'><span style='display: inline-block; background: #000000; color: #ffffff; padding: 8px 20px; border-radius: 8px; font-weight: 800; font-size: 20px; letter-spacing: 3px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);'>"
                     + examCode + "</span></td></tr>" +
                     "            </table>" +
                     "          </div>" +
                     "          " +
-                    "          <table width='100%' cellpadding='0' cellspacing='0'>" +
+                    "          <p style='font-size: 15px; color: #4b5563; line-height: 1.7; margin-bottom: 35px;'>Please ensure that you are available on the scheduled date and use your individual exam code to access the test.</p>"
+                    +
+                    "          " +
+                    "          <table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom: 35px;'>" +
                     "            <tr>" +
-                    "              <td style='padding-right: 20px; vertical-align: top;'>" +
-                    "                <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin: 0 0 12px 0; font-weight: 800;'>Location</h3>"
+                    "              <td style='padding-right: 20px; vertical-align: top; width: 50%;'>" +
+                    "                <h3 style='font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin: 0 0 12px 0; font-weight: 700;'>Location</h3>"
                     +
-                    "                <p style='font-size: 15px; color: #475569; line-height: 1.6; margin: 0 0 35px 0;'>"
+                    "                <p style='font-size: 14px; color: #111827; line-height: 1.6; margin: 0; font-weight: 500;'>"
                     +
-                    "                  Ground Floor, Samuel Gnanam IT Centre<br/>" +
-                    "                  Thirunelveli, Jaffna" +
+                    "                  Samuel Gnanam IT Centre<br/><span style='color: #6b7280; font-weight: 400;'>Ground Floor<br/>" +
+                    "                  No. 72, Palaly Road,<br/>" +
+                    "                  Thirunelveli, Jaffna</span>" +
                     "                </p>" +
                     "              </td>" +
-                    "              <td style='vertical-align: top;'>" +
-                    "                <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin: 0 0 12px 0; font-weight: 800;'>Dress Code</h3>"
+                    "              <td style='vertical-align: top; width: 50%;'>" +
+                    "                <h3 style='font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin: 0 0 12px 0; font-weight: 700;'>Dress Code</h3>"
                     +
-                    "                <p style='font-size: 15px; color: #475569; margin: 0;'>Smart Casual</p>" +
+                    "                <p style='font-size: 14px; color: #111827; margin: 0; font-weight: 500;'>Smart Casual</p>" +
                     "              </td>" +
                     "            </tr>" +
                     "          </table>" +
                     "          " +
-                    "          <h3 style='font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; margin: 5px 0 20px 0; font-weight: 800;'>Required Documents</h3>"
+                    "          <h3 style='font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin: 0 0 15px 0; font-weight: 700; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px;'>Documents to Bring</h3>"
                     +
-                    "          <div style='background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 10px 25px; margin-bottom: 45px;'>"
+                    "          <p style='font-size: 14px; color: #6b7280; margin-bottom: 12px; font-style: italic;'>Please submit at reporting time:</p>" +
+                    "          <div style='background: #ffffff; border: 1px solid #f4f4f5; border-radius: 12px; padding: 15px 25px; margin-bottom: 30px;'>"
                     +
-                    "            <ul style='font-size: 15px; color: #475569; line-height: 2.2; padding-left: 0; list-style: none; margin: 0;'>"
+                    "            <ul style='font-size: 14px; color: #111827; line-height: 2.2; padding-left: 0; list-style: none; margin: 0; font-weight: 500;'>"
                     +
-                    "              <li style='border-bottom: 1px solid #f1f5f9; padding: 5px 0;'>&bull; Updated CV (Hard Copy)</li>"
+                    "              <li style='border-bottom: 1px solid #f4f4f5; padding: 4px 0;'><span style='color: #9ca3af; margin-right: 8px;'>&bull;</span>Updated CV</li>"
                     +
-                    "              <li style='border-bottom: 1px solid #f1f5f9; padding: 5px 0;'>&bull; NIC - Original and Copy</li>"
+                    "              <li style='border-bottom: 1px solid #f4f4f5; padding: 4px 0;'><span style='color: #9ca3af; margin-right: 8px;'>&bull;</span>National Identity Card (NIC) &ndash; Copy</li>"
                     +
-                    "              <li style='border-bottom: 1px solid #f1f5f9; padding: 5px 0;'>&bull; Birth Certificate Copy</li>"
+                    "              <li style='border-bottom: 1px solid #f4f4f5; padding: 4px 0;'><span style='color: #9ca3af; margin-right: 8px;'>&bull;</span>Birth Certificate &ndash; Copy</li>"
                     +
-                    "              <li style='border-bottom: 1px solid #f1f5f9; padding: 5px 0;'>&bull; Educational Certificates</li>"
+                    "              <li style='border-bottom: 1px solid #f4f4f5; padding: 4px 0;'><span style='color: #9ca3af; margin-right: 8px;'>&bull;</span>G.C.E. Ordinary Level Certificate &ndash; Original &amp; Copy</li>"
                     +
-                    "              <li style='padding: 5px 0;'>&bull; Work Experience Letters</li>" +
+                    "              <li style='border-bottom: 1px solid #f4f4f5; padding: 4px 0;'><span style='color: #9ca3af; margin-right: 8px;'>&bull;</span>G.C.E. Advanced Level Certificate &ndash; Original &amp; Copy</li>"
+                    +
+                    "              <li style='border-bottom: 1px solid #f4f4f5; padding: 4px 0;'><span style='color: #9ca3af; margin-right: 8px;'>&bull;</span>Higher Educational Certificates / University ID &ndash; Original &amp; Copy</li>"
+                    +
+                    "              <li style='padding: 4px 0;'><span style='color: #9ca3af; margin-right: 8px;'>&bull;</span>Work Experience Letters (if any)</li>" +
                     "            </ul>" +
                     "          </div>" +
                     "          " +
-                    "          <div style='text-align: center; border-top: 1px solid #f1f5f9; padding-top: 40px;'>" +
-                    "            <p style='margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;'>SGIC HR Team</p>"
+                    "          <div style='background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 6px; padding: 16px 20px; margin-bottom: 25px;'>" +
+                    "            <p style='font-size: 15px; color: #b91c1c; margin: 0; font-weight: 600;'>Please ensure that you arrive on time for the examination.</p>" +
+                    "          </div>"
                     +
-                    "            <p style='margin: 6px 0 0; font-size: 14px; color: #64748b;'>" +
+                    "          <p style='font-size: 15px; color: #4b5563; line-height: 1.7; margin-bottom: 20px;'>If you have any questions or require further information, feel free to contact us.</p>"
+                    +
+                    "          <p style='font-size: 15px; color: #4b5563; line-height: 1.7; margin-bottom: 40px;'>We wish you all the best.</p>"
+                    +
+                    "          " +
+                    "          <div style='border-top: 1px solid #f3f4f6; padding-top: 30px;'>" +
+                    "            <p style='margin: 0 0 5px 0; font-size: 14px; color: #6b7280;'>Best regards,</p>" +
+                    "            <p style='margin: 0; font-size: 16px; font-weight: 700; color: #111827;'>SGIC HR Team</p>"
+                    +
+                    "            <p style='margin: 6px 0 0; font-size: 13px; color: #9ca3af; line-height: 1.6;'>" +
                     "              Samuel Gnanam IT Centre<br/>" +
-                    "              Tel: (+94) 21 221 4209 | <a href='https://www.samuelgnanam.com' style='color: #4f46e5; text-decoration: none; font-weight: 600;'>samuelgnanam.com</a>"
+                    "              Tel: <span style='color: #4b5563;'>(+94) 21 221 4209</span><br/>" +
+                    "              Web: <a href='https://www.samuelgnanam.com' style='color: #000000; text-decoration: underline; font-weight: 500;'>www.samuelgnanam.com</a>"
                     +
                     "            </p>" +
                     "          </div>" +
-                    "        </td>" +
-                    "      </tr>" +
-                    "      <tr>" +
-                    "        <td align='center' bgcolor='#f8fafc' style='padding: 30px; color: #94a3b8; font-size: 12px; border-top: 1px solid #f1f5f9;'>"
-                    +
-                    "          &copy; 2026 Samuel Gnanam IT Centre. All Rights Reserved." +
                     "        </td>" +
                     "      </tr>" +
                     "    </table>" +
