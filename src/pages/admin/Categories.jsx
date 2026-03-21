@@ -48,7 +48,10 @@ const Categories = () => {
     };
 
     const handleSave = async () => {
-        if (!categoryForm.name) return;
+        if (!categoryForm.name.trim()) {
+            setNotification({ type: 'error', message: 'Category name is required.' });
+            return;
+        }
 
         try {
             if (editingCategory) {
@@ -62,8 +65,15 @@ const Categories = () => {
                     })
                 });
                 if (!res.ok) {
-                    const errMsg = await res.text();
-                    throw new Error(errMsg || 'Failed to update');
+                    let errMsg = 'Failed to update category.';
+                    try {
+                        const errData = await res.json();
+                        errMsg = errData.message || errMsg;
+                    } catch (e) {
+                        const text = await res.text();
+                        errMsg = text || errMsg;
+                    }
+                    throw new Error(errMsg);
                 }
                 setNotification({ type: 'success', message: 'Category updated successfully!' });
             } else {
@@ -73,8 +83,15 @@ const Categories = () => {
                     body: JSON.stringify({ ...categoryForm, status: 'Active', questionCount: 0 })
                 });
                 if (!res.ok) {
-                    const errMsg = await res.text();
-                    throw new Error(errMsg || 'Failed to create');
+                    let errMsg = 'Failed to create category.';
+                    try {
+                        const errData = await res.json();
+                        errMsg = errData.message || errMsg;
+                    } catch (e) {
+                        const text = await res.text();
+                        errMsg = text || errMsg;
+                    }
+                    throw new Error(errMsg);
                 }
                 setNotification({ type: 'success', message: 'Category created successfully!' });
             }
@@ -97,8 +114,15 @@ const Categories = () => {
                 method: 'DELETE'
             });
             if (!res.ok) {
-                const errorMessage = await res.text();
-                throw new Error(errorMessage || 'Failed to delete');
+                let errMsg = 'Failed to delete category.';
+                try {
+                    const errData = await res.json();
+                    errMsg = errData.message || errMsg;
+                } catch (e) {
+                    const text = await res.text();
+                    errMsg = text || errMsg;
+                }
+                throw new Error(errMsg);
             }
             setNotification({ type: 'success', message: 'Category deleted successfully!' });
             fetchCategories();
@@ -263,7 +287,9 @@ const Categories = () => {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>Category Name</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
+                                    Category Name <span style={{ color: 'var(--error)' }}>*</span>
+                                </label>
                                 <input
                                     type="text"
                                     value={categoryForm.name}

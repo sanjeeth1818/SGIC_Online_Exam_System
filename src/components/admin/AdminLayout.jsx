@@ -63,7 +63,7 @@ const AdminLayout = () => {
                     </div>
                 </div>
 
-                <nav style={{ padding: '1.5rem 1rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', overflow: 'hidden' }}>
+                                <nav style={{ padding: '1.5rem 1rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', overflowY: 'auto' }}>
                     {navItems.map((item) => {
                         const isActive = location.pathname.startsWith(item.path);
                         return (

@@ -81,6 +81,13 @@ public class TestServiceImpl implements TestService {
         Test test = testRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Test not found"));
 
+        // Safety Lockdown: ONLY block if students are currently testing (STARTED)
+        boolean hasActive = studentExamCodeRepository.findByTestId(id).stream()
+                .anyMatch(c -> "STARTED".equalsIgnoreCase(c.getStatus()));
+        if (hasActive) {
+            throw new RuntimeException("This examination cannot be edited because one or more students have currently started their sessions.");
+        }
+
         String previousStatus = test.getStatus();
         Set<Long> oldStudentIds = getAssignedStudentIds(test);
 
@@ -115,6 +122,13 @@ public class TestServiceImpl implements TestService {
     public void deleteTest(Long id) {
         Test test = testRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Test not found"));
+
+        // Safeguard: Don't allow deletion if students have started
+        boolean hasActiveStudents = studentExamCodeRepository.findByTestId(test.getId()).stream()
+                .anyMatch(c -> "STARTED".equalsIgnoreCase(c.getStatus()));
+        if (hasActiveStudents) {
+            throw new RuntimeException("This examination cannot be deleted because one or more students have currently started their sessions.");
+        }
 
         if (test.getStudentGroups() != null) {
             List<Student> affectedStudents = new ArrayList<>();
@@ -327,9 +341,14 @@ public class TestServiceImpl implements TestService {
         resp.setExamMode(test.getExamMode());
         resp.setShowResult(test.getShowResult());
         resp.setShowAnswers(test.getShowAnswers());
-        resp.setStatus(test.getStatus());
         resp.setTotalQuestions(test.getTotalQuestions());
         resp.setStudentCount(test.getStudentCount());
+        resp.setStatus(calculateStatusForTest(test));
+
+        // Check ONLY for active students (STARTED status)
+        boolean hasActive = studentExamCodeRepository.findByTestId(test.getId()).stream()
+                .anyMatch(c -> "STARTED".equalsIgnoreCase(c.getStatus()));
+        resp.setHasActiveStudents(hasActive);
 
         if (test.getCategoryConfigs() != null) {
             resp.setCategoryConfigs(test.getCategoryConfigs().stream().map(c -> {

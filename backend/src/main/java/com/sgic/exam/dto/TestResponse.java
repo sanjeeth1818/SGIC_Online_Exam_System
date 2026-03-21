@@ -19,6 +19,7 @@ public class TestResponse {
     private String status;
     private Integer totalQuestions;
     private Integer studentCount;
+    private Boolean hasActiveStudents;
     private List<CategoryConfigDTO> categoryConfigs;
     private List<StudentGroupDTO> studentGroups;
     private List<QuestionDTO> manualQuestions;

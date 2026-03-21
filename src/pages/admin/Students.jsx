@@ -54,6 +54,11 @@ const Students = () => {
             errors.push("Invalid email format");
         }
 
+        const today = new Date().toISOString().split('T')[0];
+        if (formData.registeredDate > today) {
+            errors.push("Registered date cannot be in the future");
+        }
+
         // Local uniqueness check (NIC only)
         const duplicateNic = students.find(s => s.nic === formData.nic && s.id !== editingId);
         if (duplicateNic) errors.push("NIC already registered for " + duplicateNic.name);
@@ -980,6 +985,7 @@ const Students = () => {
                                                     value={formData.registeredDate}
                                                     onChange={handleInputChange}
                                                     required
+                                                    max={new Date().toISOString().split('T')[0]}
                                                     style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 2.75rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-app)', outline: 'none', fontSize: '0.9375rem' }}
                                                 />
                                             </div>

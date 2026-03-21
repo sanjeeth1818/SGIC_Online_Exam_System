@@ -30,7 +30,7 @@ public class CategoryServiceImpl implements CategoryService {
         if (categoryRepository.findByNameIgnoreCase(request.getName().trim()).isPresent()) {
             throw new RuntimeException("Category with name '" + request.getName() + "' already exists.");
         }
-        if (categoryRepository.findByColor(request.getColor()).isPresent()) {
+        if (!categoryRepository.findByColor(request.getColor()).isEmpty()) {
             throw new RuntimeException("Category with this color already exists.");
         }
 
@@ -60,11 +60,12 @@ public class CategoryServiceImpl implements CategoryService {
         }
         
         if (request.getColor() != null) {
-            categoryRepository.findByColor(request.getColor()).ifPresent(existing -> {
-                if (!existing.getId().equals(id)) {
-                    throw new RuntimeException("Category with this color already exists.");
-                }
-            });
+            categoryRepository.findByColor(request.getColor()).stream()
+                    .filter(existing -> !existing.getId().equals(id))
+                    .findFirst()
+                    .ifPresent(existing -> {
+                        throw new RuntimeException("Category with this color already exists.");
+                    });
             category.setColor(request.getColor());
         }
 

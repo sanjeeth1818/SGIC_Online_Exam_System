@@ -24,6 +24,19 @@ public class QuestionServiceImpl implements QuestionService {
     @Autowired
     private CategoryRepository categoryRepository;
 
+    private static final List<String> PROFESSIONAL_COLORS = Arrays.asList(
+            "#3b82f6", // Blue
+            "#6366f1", // Indigo
+            "#a855f7", // Purple
+            "#ec4899", // Pink
+            "#f43f5e", // Rose
+            "#f97316", // Orange
+            "#f59e0b", // Amber
+            "#10b981", // Emerald
+            "#14b8a6", // Teal
+            "#06b6d4"  // Cyan
+    );
+
     @Override
     public List<Question> getAllQuestions() {
         return questionRepository.findAll();
@@ -128,6 +141,10 @@ public class QuestionServiceImpl implements QuestionService {
         Map<String, Category> categoryMap = categoryRepository.findAll().stream()
                 .collect(Collectors.toMap(c -> c.getName().toLowerCase().trim(), c -> c, (a, b) -> a));
 
+        Set<String> usedColors = categoryMap.values().stream()
+                .map(c -> c.getColor() != null ? c.getColor().toLowerCase() : "")
+                .collect(Collectors.toSet());
+
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
             String line;
             boolean isHeader = true;
@@ -194,10 +211,25 @@ public class QuestionServiceImpl implements QuestionService {
                         newCategory.setName(categoryName);
                         newCategory.setQuestionCount(0);
                         newCategory.setStatus("Active");
-                        newCategory.setColor("#1e40af");
+
+                        // Assign a dynamic color
+                        String color = PROFESSIONAL_COLORS.get(0); // fallback
+                        for (String pc : PROFESSIONAL_COLORS) {
+                            if (!usedColors.contains(pc.toLowerCase())) {
+                                color = pc;
+                                break;
+                            }
+                        }
+                        // If all pool colors are used, pick a random one or use a variation
+                        if (usedColors.contains(color.toLowerCase())) {
+                            color = PROFESSIONAL_COLORS.get(new Random().nextInt(PROFESSIONAL_COLORS.size()));
+                        }
+
+                        newCategory.setColor(color);
                         category = categoryRepository.save(newCategory);
-                        // Cache it so later rows in same upload reuse this new category
+                        // Cache it and the color
                         categoryMap.put(categoryName.toLowerCase().trim(), category);
+                        usedColors.add(color.toLowerCase());
                     }
 
                     List<String> options = new ArrayList<>();

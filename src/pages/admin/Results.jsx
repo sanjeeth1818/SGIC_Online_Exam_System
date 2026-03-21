@@ -156,6 +156,13 @@ const Results = () => {
     const [manualScoreMin, setManualScoreMin] = useState('');
     const [manualScoreMax, setManualScoreMax] = useState('');
 
+    const DEFAULT_GRADING_SCALES = [
+        { gradeLabel: 'A', minScore: 75 },
+        { gradeLabel: 'B', minScore: 60 },
+        { gradeLabel: 'C', minScore: 45 },
+        { gradeLabel: 'S', minScore: 0 }
+    ];
+
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -268,6 +275,12 @@ const Results = () => {
             .then(data => setGradingScales(data.sort((a, b) => b.minScore - a.minScore)))
             .catch(err => console.error('Failed to fetch grading scales:', err));
     }, []);
+
+    const calculateGrade = (score) => {
+        const scales = (gradingScales && gradingScales.length > 0) ? gradingScales : DEFAULT_GRADING_SCALES;
+        const scale = scales.find(s => score >= s.minScore);
+        return scale ? scale.gradeLabel : 'F';
+    };
 
     const getScoreColor = (score) => {
         if (score >= 90) return '#22c55e'; // Success
@@ -525,7 +538,7 @@ const Results = () => {
         // ─────────────────────────────────────────────────────────────
         lines.push('SECTION 1: STUDENT PERFORMANCE SUMMARY');
         lines.push('─────────────────────────────────────────────────────────');
-        const summaryHeaders = ['#', 'Student Name', 'Email / ID', 'Examination', 'Correct', 'Total Q', 'Accuracy', 'Final Score', 'Status', 'Time Taken', 'Submission Date'];
+        const summaryHeaders = ['#', 'Student Name', 'Email / ID', 'Examination', 'Correct', 'Total Q', 'Accuracy', 'Final Score', 'Grade', 'Status', 'Time Taken', 'Submission Date'];
         lines.push(summaryHeaders.map(esc).join(','));
 
         dataToExport.forEach((r, i) => {
@@ -542,6 +555,7 @@ const Results = () => {
                 totalQ,
                 `${accuracy}%`,
                 `${r.score}%`,
+                calculateGrade(r.score),
                 r.score >= 50 ? 'PASSED' : 'FAILED',
                 r.timeTaken || '',
                 r.participatedDate
@@ -705,11 +719,12 @@ const Results = () => {
 
                 autoTable(doc, {
                     startY: 50,
-                    head: [['#', 'Student Name', 'Score', 'Status', 'Submission Date']],
+                    head: [['#', 'Student Name', 'Score', 'Grade', 'Status', 'Submission Date']],
                     body: examResults.map((r, i) => [
                         i + 1,
                         r.name,
                         `${r.score}%`,
+                        calculateGrade(r.score),
                         { content: r.score >= 50 ? 'PASSED' : 'FAILED', styles: { textColor: r.score >= 50 ? [22, 163, 74] : [220, 38, 38], fontStyle: 'bold' } },
                         r.participatedDate
                     ]),
@@ -758,7 +773,7 @@ const Results = () => {
                 // Score Display
                 doc.setFontSize(24);
                 doc.setTextColor(79, 70, 229);
-                doc.text(`${student.score}%`, 145, 65, { align: 'right' });
+                doc.text(`${student.score}% (${calculateGrade(student.score)})`, 145, 65, { align: 'right' });
                 doc.setFontSize(9);
                 doc.setTextColor(148, 163, 184);
                 doc.setFont('helvetica', 'bold');
@@ -1098,8 +1113,11 @@ const Results = () => {
                                                         </div>
                                                     </div>
                                                     <div style={{ textAlign: 'center', minWidth: '80px' }}>
-                                                        <div style={{ fontSize: '1.25rem', fontWeight: 900, color: getScoreColor(r.score) }}>{r.score}%</div>
-                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Score</div>
+                                                        <div style={{ fontSize: '1.25rem', fontWeight: 900, color: getScoreColor(r.score), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                            {r.score}%
+                                                            <span style={{ fontSize: '0.85rem', background: getScoreColor(r.score), color: 'white', padding: '2px 8px', borderRadius: '6px', minWidth: '24px' }}>{calculateGrade(r.score)}</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Score & Grade</div>
                                                     </div>
                                                     <div style={{ textAlign: 'center', minWidth: '80px' }}>
                                                         <div style={{ fontWeight: 800 }}>{r.actualScore}/{r.maxScore}</div>
@@ -1300,7 +1318,13 @@ const Results = () => {
                             </div>
                             <div style={{ padding: '2.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-                                    <div style={{ background: 'white', padding: '1.25rem 1.5rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Success Rate</div><div style={{ fontSize: '2rem', fontWeight: 1000, color: getScoreColor(selectedStudent.score) }}>{selectedStudent.score}%</div></div>
+                                    <div style={{ background: 'white', padding: '1.25rem 1.5rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Success Rate</div>
+                                        <div style={{ fontSize: '2rem', fontWeight: 1000, color: getScoreColor(selectedStudent.score), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                            {selectedStudent.score}%
+                                            <span style={{ fontSize: '1.25rem', background: getScoreColor(selectedStudent.score), color: 'white', padding: '4px 12px', borderRadius: '10px' }}>{calculateGrade(selectedStudent.score)}</span>
+                                        </div>
+                                    </div>
                                     <div style={{ background: 'white', padding: '1.25rem 1.5rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Raw Score</div><div style={{ fontSize: '2rem', fontWeight: 1000, color: 'var(--text-primary)' }}>{selectedStudent.actualScore}/{selectedStudent.maxScore}</div></div>
                                     <div style={{ background: 'white', padding: '1.25rem 1.5rem', borderRadius: '24px', border: '1.5px solid var(--border)', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Total Duration</div><div style={{ fontSize: '2rem', fontWeight: 1000, color: '#f59e0b' }}>{selectedStudent.timeTaken}</div></div>
                                 </div>

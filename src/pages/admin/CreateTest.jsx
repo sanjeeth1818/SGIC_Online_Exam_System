@@ -191,7 +191,9 @@ const CreateTest = () => {
                     studentGroups: groups,
                     status: t.status,
                     totalQuestions: t.totalQuestions,
+                    studentCount: t.studentCount || 0,
                     duration: durationStr,
+                    hasActiveStudents: t.hasActiveStudents,
                     config: {
                         selectionMode: t.selectionMode,
                         manualQuestions: t.manualQuestions || [],
@@ -201,7 +203,7 @@ const CreateTest = () => {
                         examMode: t.examMode,
                         showResult: t.showResult,
                         showAnswers: t.showAnswers,
-                        categories: t.categoryConfigs.map(cc => ({
+                        categories: (t.categoryConfigs || []).map(cc => ({
                             name: cc.categoryName,
                             count: cc.questionCount
                         }))
@@ -408,13 +410,16 @@ const CreateTest = () => {
             const res = await fetch(`/api/tests/${id}`, {
                 method: 'DELETE'
             });
-            if (!res.ok) throw new Error('Failed to delete');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to delete');
+            }
             setNotification({ type: 'success', message: 'Examination deleted successfully!' });
             setDeleteConfirm(null);
             fetchData();
         } catch (error) {
             console.error(error);
-            setNotification({ type: 'error', message: 'Failed to delete test.' });
+            setNotification({ type: 'error', message: error.message || 'Failed to delete test.' });
         }
     };
 
@@ -514,9 +519,7 @@ const CreateTest = () => {
             const errorMessage = error.message || 'Failed to update test.';
             setNotification({
                 type: 'error',
-                message: errorMessage.includes('Started or finished')
-                    ? errorMessage
-                    : 'Failed to update test.'
+                message: errorMessage
             });
         }
     };
@@ -582,7 +585,8 @@ const CreateTest = () => {
                 setSelectedQuestionIds([]);
                 setStudentGroups([{ id: Date.now(), studentIds: [], examDate: '' }]);
             } else {
-                setNotification({ type: 'error', message: 'Failed to create examination.' });
+                const errorData = await res.json().catch(() => ({}));
+                setNotification({ type: 'error', message: errorData.message || 'Failed to create examination.' });
             }
         } catch (error) {
             console.error('Error publishing test:', error);
@@ -619,13 +623,17 @@ const CreateTest = () => {
             {notification && (
                 <div style={{
                     position: 'fixed', top: '2rem', right: '2rem',
-                    background: 'var(--success)', color: 'white',
+                    background: notification.type === 'error' ? 'var(--error)' : 'var(--success)',
+                    color: 'white',
                     padding: '1rem 2rem', borderRadius: '18px',
-                    boxShadow: '0 10px 30px rgba(34, 197, 94, 0.3)', zIndex: 2000,
+                    boxShadow: notification.type === 'error' 
+                        ? '0 10px 30px rgba(239, 68, 68, 0.3)' 
+                        : '0 10px 30px rgba(34, 197, 94, 0.3)',
+                    zIndex: 5000,
                     display: 'flex', alignItems: 'center', gap: '0.75rem',
                     animation: 'slideIn 0.3s ease-out'
                 }}>
-                    <Check size={20} />
+                    {notification.type === 'error' ? <AlertCircle size={20} /> : <Check size={20} />}
                     <span style={{ fontWeight: 600 }}>{notification.message}</span>
                 </div>
             )}
@@ -1161,10 +1169,10 @@ const CreateTest = () => {
 
                                                             if (testData.timeMode === 'question') {
                                                                 const totalSecs = val * questions * (unit === 'hours' ? 3600 : (unit === 'secs' ? 1 : 60));
-                                                                return `Totally ${formatDurationDetailed(totalSecs)} (${questions} Qs x ${val}${unit}/each)`;
+                                                                return `Totally ${formatDurationDetailed(totalSecs, 'sec')} (${questions} Qs x ${val}${unit}/each)`;
                                                             } else {
                                                                 const totalSecs = val * (unit === 'hours' ? 3600 : (unit === 'secs' ? 1 : 60));
-                                                                return formatDurationDetailed(totalSecs);
+                                                                return formatDurationDetailed(totalSecs, 'sec');
                                                             }
                                                         })()}
                                                     </div>
@@ -1498,8 +1506,9 @@ const CreateTest = () => {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                                                 <div style={{
                                                     padding: '0.25rem 0.625rem', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
-                                                    background: t.status === 'Published' ? 'rgba(34, 197, 94, 0.1)' : t.status === 'Expired' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(107, 114, 128,0.1)',
-                                                    color: t.status === 'Published' ? 'var(--success)' : t.status === 'Expired' ? 'var(--error)' : 'var(--text-tertiary)'
+                                                    background: t.status === 'Published' ? 'rgba(34, 197, 94, 0.1)' : t.status === 'Expired' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(107, 114, 128,0.1)',
+                                                    color: t.status === 'Published' ? 'var(--success)' : t.status === 'Expired' ? 'var(--error)' : 'var(--text-tertiary)',
+                                                    border: t.status === 'Expired' ? '1px solid rgba(239, 68, 68, 0.2)' : 'none'
                                                 }}>
                                                     {t.status === 'Pending' ? 'Pending' : t.status}
                                                 </div>
@@ -1571,13 +1580,35 @@ const CreateTest = () => {
                                                 </button>
                                             )}
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); handleEditTest(t); }}
-                                                title="Edit Test"
-                                                style={{ width: '36px', height: '36px', borderRadius: '10px', border: 'none', background: 'var(--bg-app)', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
-                                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
-                                                onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                                                onClick={(e) => { 
+                                                    if (t.hasActiveStudents) return e.stopPropagation();
+                                                    e.stopPropagation(); 
+                                                    handleEditTest(t); 
+                                                }}
+                                                title={t.hasActiveStudents ? "Editing disabled: Students are currently taking this exam" : "Edit Test"}
+                                                style={{ 
+                                                    width: '36px', height: '36px', borderRadius: '10px', border: 'none', 
+                                                    background: t.hasActiveStudents ? 'rgba(0,0,0,0.05)' : 'var(--bg-app)', 
+                                                    color: t.hasActiveStudents ? 'var(--text-tertiary)' : 'var(--primary)', 
+                                                    cursor: t.hasActiveStudents ? 'not-allowed' : 'pointer', 
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                                    transition: 'all 0.2s',
+                                                    opacity: t.hasActiveStudents ? 0.6 : 1
+                                                }}
+                                                onMouseEnter={e => { 
+                                                    if (!t.hasActiveStudents) {
+                                                        e.currentTarget.style.background = 'var(--primary)'; 
+                                                        e.currentTarget.style.color = 'white'; 
+                                                    }
+                                                }}
+                                                onMouseLeave={e => { 
+                                                    if (!t.hasActiveStudents) {
+                                                        e.currentTarget.style.background = 'var(--bg-app)'; 
+                                                        e.currentTarget.style.color = 'var(--primary)'; 
+                                                    }
+                                                }}
                                             >
-                                                <Edit2 size={16} />
+                                                {t.hasActiveStudents ? <Lock size={16} /> : <Edit2 size={16} />}
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setShowDetailsModal(t); }}
@@ -1589,11 +1620,33 @@ const CreateTest = () => {
                                                 <Eye size={16} />
                                             </button>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(t); }}
-                                                title="Delete Test"
-                                                style={{ width: '36px', height: '36px', borderRadius: '10px', border: 'none', background: 'var(--bg-app)', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
-                                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--error)'; e.currentTarget.style.color = 'white'; }}
-                                                onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-app)'; e.currentTarget.style.color = 'var(--error)'; }}
+                                                onClick={(e) => { 
+                                                    if (t.hasActiveStudents) return e.stopPropagation();
+                                                    e.stopPropagation(); 
+                                                    setDeleteConfirm(t); 
+                                                }}
+                                                title={t.hasActiveStudents ? "Deletion disabled: Students are currently taking this exam" : "Delete Test"}
+                                                style={{ 
+                                                    width: '36px', height: '36px', borderRadius: '10px', border: 'none', 
+                                                    background: t.hasActiveStudents ? 'rgba(0,0,0,0.05)' : 'var(--bg-app)', 
+                                                    color: t.hasActiveStudents ? 'var(--text-tertiary)' : 'var(--error)', 
+                                                    cursor: t.hasActiveStudents ? 'not-allowed' : 'pointer', 
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                                    transition: 'all 0.2s',
+                                                    opacity: t.hasActiveStudents ? 0.6 : 1
+                                                }}
+                                                onMouseEnter={e => { 
+                                                    if (!t.hasActiveStudents) {
+                                                        e.currentTarget.style.background = 'var(--error)'; 
+                                                        e.currentTarget.style.color = 'white'; 
+                                                    }
+                                                }}
+                                                onMouseLeave={e => { 
+                                                    if (!t.hasActiveStudents) {
+                                                        e.currentTarget.style.background = 'var(--bg-app)'; 
+                                                        e.currentTarget.style.color = 'var(--error)'; 
+                                                    }
+                                                }}
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -2160,10 +2213,10 @@ const CreateTest = () => {
 
                                                     if (editModalData.timeMode === 'question') {
                                                         const totalSecs = val * questions * (unit === 'hours' ? 3600 : (unit === 'secs' ? 1 : 60));
-                                                        return `Totally ${formatDurationDetailed(totalSecs)} (${questions} Qs x ${val}${unit}/each)`;
+                                                        return `Totally ${formatDurationDetailed(totalSecs, 'sec')} (${questions} Qs x ${val}${unit}/each)`;
                                                     } else {
                                                         const totalSecs = val * (unit === 'hours' ? 3600 : (unit === 'secs' ? 1 : 60));
-                                                        return formatDurationDetailed(totalSecs);
+                                                        return formatDurationDetailed(totalSecs, 'sec');
                                                     }
                                                 })()}
                                             </div>
@@ -2324,16 +2377,16 @@ const CreateTest = () => {
                                             Layout Mode
                                         </div>
                                     </div>
-                                    <div style={{ background: 'var(--primary-light)', padding: '1.25rem', borderRadius: '20px', border: '1px solid var(--primary-border)', gridColumn: 'span 2' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                                            <Users size={14} /> Total Assigned Students
+                                    <div style={{ background: 'var(--primary-light)', padding: '1.5rem', borderRadius: '24px', border: '1px solid var(--primary-border)', gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', boxShadow: 'var(--shadow-sm)' }}>
+                                            <Users size={24} />
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)' }}>
-                                                {showDetailsModal.studentCount} <span style={{ fontSize: '0.875rem', fontWeight: 700, opacity: 0.8 }}>Candidates Total</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--primary)', lineHeight: 1 }}>
+                                                {showDetailsModal.studentCount}
                                             </div>
-                                            <div style={{ background: 'white', padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
-                                                Active Overview
+                                            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--primary)', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>
+                                                Candidates Total
                                             </div>
                                         </div>
                                     </div>

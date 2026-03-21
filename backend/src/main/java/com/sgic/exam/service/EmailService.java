@@ -692,6 +692,17 @@ public class EmailService {
                 groupsHtml.append("<p>No students allocated yet.</p>");
             }
 
+            String durationText = test.getTimeValue() + " " + test.getTimeUnit();
+            if ("question".equalsIgnoreCase(test.getTimeMode())) {
+                try {
+                    int tQ = (test.getTotalQuestions() != null) ? test.getTotalQuestions() : 0;
+                    int tV = Integer.parseInt(test.getTimeValue());
+                    durationText = (tQ * tV) + " " + test.getTimeUnit() + " (" + tQ + " questions x " + tV + " "
+                            + test.getTimeUnit() + "/per question)";
+                } catch (Exception e) {
+                }
+            }
+
             String htmlContent = "<html><body style='font-family: sans-serif; color: #334155; line-height: 1.6;'>" +
                     "<div style='max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;'>"
                     +
@@ -705,8 +716,8 @@ public class EmailService {
                     "    <table style='width: 100%; border-collapse: collapse;'>" +
                     "      <tr><td style='padding: 8px 0; font-weight: bold; width: 140px;'>Exam Name:</td><td>"
                     + test.getName() + "</td></tr>" +
-                    "      <tr><td style='padding: 8px 0; font-weight: bold;'>Duration:</td><td>" + test.getTimeValue()
-                    + " " + test.getTimeUnit() + "</td></tr>" +
+                    "      <tr><td style='padding: 8px 0; font-weight: bold;'>Duration:</td><td>" + durationText
+                    + "</td></tr>" +
                     "      <tr><td style='padding: 8px 0; font-weight: bold;'>Mode:</td><td>" + test.getExamMode()
                     + "</td></tr>" +
                     "      <tr><td style='padding: 8px 0; font-weight: bold;'>Description:</td><td style='font-style: italic; color: #64748b;'>"
@@ -851,6 +862,17 @@ public class EmailService {
                         "<p style='color: #94a3b8; font-style: italic;'>No students allocated to this examination yet.</p>");
             }
 
+            String durationText = test.getTimeValue() + " " + test.getTimeUnit();
+            if ("question".equalsIgnoreCase(test.getTimeMode())) {
+                try {
+                    int tQ = (test.getTotalQuestions() != null) ? test.getTotalQuestions() : 0;
+                    int tV = Integer.parseInt(test.getTimeValue());
+                    durationText = (tQ * tV) + " " + test.getTimeUnit() + " (" + tQ + " questions x " + tV + " "
+                            + test.getTimeUnit() + "/per question)";
+                } catch (Exception e) {
+                }
+            }
+
             String htmlContent = "<html><body style='font-family: \"Inter\", sans-serif; color: #334155; line-height: 1.6; background-color: #f8fafc; padding: 20px;'>"
                     +
                     "<div style='max-width: 800px; margin: 0 auto; background: white; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);'>"
@@ -867,8 +889,7 @@ public class EmailService {
                     "      <tr><td style='padding: 10px 0; font-weight: 600; width: 160px; color: #64748b;'>Exam Name:</td><td style='color: #1e293b; font-weight: 600;'>"
                     + test.getName() + "</td></tr>" +
                     "      <tr><td style='padding: 10px 0; font-weight: 600; color: #64748b;'>Duration:</td><td>"
-                    + test.getTimeValue()
-                    + " " + test.getTimeUnit() + "</td></tr>" +
+                    + durationText + "</td></tr>" +
                     "      <tr><td style='padding: 10px 0; font-weight: 600; color: #64748b;'>Current Status:</td><td><span style='padding: 4px 12px; background: #f1f5f9; border-radius: 100px; font-size: 12px; font-weight: 700; color: #475569;'>"
                     + currentStatus.toUpperCase() + "</span></td></tr>" +
                     "    </table>" +

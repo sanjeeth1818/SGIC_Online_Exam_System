@@ -60,8 +60,12 @@ const ExamInterface = () => {
 
     // Proctoring State
     const MAX_WARNINGS = 3;
-    const [warnings, setWarnings] = useState(() => parseInt(sessionStorage.getItem('examWarnings') || '0', 10));
+    const [warnings, setWarnings] = useState(() => {
+        const code = sessionStorage.getItem('currentExamCode');
+        return parseInt(sessionStorage.getItem(`examWarnings_${code}`) || '0', 10);
+    });
     const [showWarningModal, setShowWarningModal] = useState(false);
+    const lastStrikeTimeRef = useRef(0);
 
     // Use a ref for all critical state to use in event listeners and timers without closures
     const stateRef = useRef({ currentStep, questions, timeMode, isTransitioning, isSubmitting, perQuestionTime, visitStartTime, answers, timeSpent, startTime, warnings });
@@ -161,7 +165,7 @@ const ExamInterface = () => {
 
             // NAVIGATION PERSISTENCE: Restore question position FIRST (so timers map correctly)
             let activeStepIndex = 0;
-            const savedStep = sessionStorage.getItem('examCurrentStep');
+            const savedStep = sessionStorage.getItem(`examCurrentStep_${code}`);
             if (savedStep && parseInt(savedStep) < questionsList.length) {
                 activeStepIndex = parseInt(savedStep);
                 setCurrentStep(activeStepIndex);
@@ -211,18 +215,18 @@ const ExamInterface = () => {
                 setMode('step'); // Force step mode
             } else {
                 // Global Mode Timer Logic
-                const serverStartedAt = sessionStorage.getItem('examStartedAt') || testData.startedAt;
+                const serverStartedAt = sessionStorage.getItem(`examStartedAt_${code}`) || testData.startedAt;
                 let anchorTime = Date.now();
 
                 if (serverStartedAt) {
                     anchorTime = new Date(serverStartedAt).getTime();
                     // Ensure session storage matches
-                    if (!sessionStorage.getItem('examStartedAt')) {
-                        sessionStorage.setItem('examStartedAt', new Date(anchorTime).toISOString());
+                    if (!sessionStorage.getItem(`examStartedAt_${code}`)) {
+                        sessionStorage.setItem(`examStartedAt_${code}`, new Date(anchorTime).toISOString());
                     }
                 } else {
                     const now = new Date().toISOString();
-                    sessionStorage.setItem('examStartedAt', now);
+                    sessionStorage.setItem(`examStartedAt_${code}`, now);
                     anchorTime = new Date(now).getTime();
                 }
 
@@ -364,8 +368,8 @@ const ExamInterface = () => {
                 }
 
                 sessionStorage.setItem('lastSubmission', JSON.stringify(resultData));
-                sessionStorage.removeItem('examCurrentStep');
-                sessionStorage.removeItem('examStartedAt');
+                sessionStorage.removeItem(`examCurrentStep_${code}`);
+                sessionStorage.removeItem(`examStartedAt_${code}`);
                 sessionStorage.removeItem('examSessionToken');
                 navigate(redirectPath);
 
@@ -433,7 +437,7 @@ const ExamInterface = () => {
         setTimeSpent(updatedSpent);
 
         // 4. Persistence & Reset
-        sessionStorage.setItem('examCurrentStep', newStep.toString());
+        sessionStorage.setItem(`examCurrentStep_${sessionStorage.getItem('currentExamCode')}`, newStep.toString());
         saveProgress(updatedSpent);
         setVisitStartTime(now);
         setCurrentStep(newStep);
@@ -497,13 +501,22 @@ const ExamInterface = () => {
             if (isSubmitting || questions.length === 0) return;
 
             if (document.hidden) {
+                const now = Date.now();
+                // Throttle: Don't allow multiple strikes within 3 seconds 
+                // to prevent rapid-fire triggers from browser event quirks
+                if (now - lastStrikeTimeRef.current < 3000) return;
+                lastStrikeTimeRef.current = now;
+
+                const code = sessionStorage.getItem('currentExamCode');
                 const newWarnings = warnings + 1;
-                sessionStorage.setItem('examWarnings', newWarnings.toString());
+                
+                if (code) {
+                    sessionStorage.setItem(`examWarnings_${code}`, newWarnings.toString());
+                }
                 setWarnings(newWarnings);
 
                 if (newWarnings >= MAX_WARNINGS) {
                     // Auto-submit on max warnings
-                    const code = sessionStorage.getItem('currentExamCode');
                     if (!code) return;
 
                     const now = Date.now();
@@ -523,16 +536,43 @@ const ExamInterface = () => {
                         isFinal: true
                     };
 
-                    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-                    navigator.sendBeacon('/api/submissions', blob);
+                    // We need to capture the results, so we use a regular fetch instead of just sendBeacon.
+                    // If the page is being hidden, fetch might still work for the brief moment before the redirect.
+                    const autoSubmit = async () => {
+                        try {
+                            const res = await fetch('/api/submissions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+                            
+                            if (res.ok) {
+                                const resultData = await res.json();
+                                sessionStorage.setItem('lastSubmission', JSON.stringify(resultData));
+                                
+                                // Mark used
+                                await fetch('/api/exam-entry/complete', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ code: code })
+                                });
+                            }
+                        } catch (err) {
+                            console.error("Auto-submit fetch failed, falling back to beacon", err);
+                            const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                            navigator.sendBeacon('/api/submissions', blob);
+                            
+                            const markUsedBlob = new Blob([JSON.stringify({ code: code })], { type: 'application/json' });
+                            navigator.sendBeacon('/api/exam-entry/complete', markUsedBlob);
+                        } finally {
+                            sessionStorage.removeItem(`examCurrentStep_${code}`);
+                            sessionStorage.removeItem(`examStartedAt_${code}`);
+                            sessionStorage.removeItem('examSessionToken');
+                            window.location.href = '/result'; // Redirect to /result instead of /complete
+                        }
+                    };
                     
-                    const markUsedBlob = new Blob([JSON.stringify({ code: code })], { type: 'application/json' });
-                    navigator.sendBeacon('/api/exam-entry/complete', markUsedBlob);
-                    
-                    sessionStorage.removeItem('examCurrentStep');
-                    sessionStorage.removeItem('examStartedAt');
-                    sessionStorage.removeItem('examSessionToken');
-                    window.location.href = '/complete'; // Force redirect
+                    autoSubmit();
                 } else {
                     setShowWarningModal(true);
                 }

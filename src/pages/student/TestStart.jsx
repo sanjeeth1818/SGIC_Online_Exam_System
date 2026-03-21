@@ -93,7 +93,8 @@ const TestStart = () => {
     };
 
     const handleStart = async () => {
-        if (!isCodeVerified) return;
+        const code = sessionStorage.getItem('currentExamCode');
+        if (!isCodeVerified || !code) return;
 
         setError('');
         setIsStarting(true);
@@ -125,9 +126,17 @@ const TestStart = () => {
                 sessionStorage.setItem('examSessionToken', data.sessionToken);
             }
 
+            // Clear old exam state to ensure total isolation
+            const keysToClear = [
+                'examWarnings', 'examStartedAt', 'examCurrentStep', 'lastSubmission',
+                `examWarnings_${code}`, `examStartedAt_${code}`, `examCurrentStep_${code}`,
+                `examAnswers_${code}`, `examPerQuestionTime_${code}`, `examActiveQuestionStartedAt_${code}`
+            ];
+            keysToClear.forEach(key => sessionStorage.removeItem(key));
+
             // Save startedAt for timer persistence in ExamInterface
             if (data.startedAt) {
-                sessionStorage.setItem('examStartedAt', data.startedAt);
+                sessionStorage.setItem(`examStartedAt_${code}`, data.startedAt);
             }
 
             sessionStorage.setItem('studentName', studentName);
